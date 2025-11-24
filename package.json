@@ -2,6 +2,7 @@
   "name": "my-budget-app",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://thkim0515.github.io/my-budget-app",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
