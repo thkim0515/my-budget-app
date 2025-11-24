@@ -1,25 +1,32 @@
-import logo from './logo.svg';
-import './App.css';
+import { Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from 'styled-components';
+import { lightTheme, darkTheme } from './theme';
+import { useState } from 'react';
 
-function App() {
+import MainPage from './pages/MainPage';
+import DetailPage from './pages/DetailPage';
+import SettingsPage from './pages/SettingsPage';
+import StatsPage from './pages/StatsPage';
+import BottomTabBar from './components/BottomTabBar';
+import CurrencySettingsPage from './pages/CurrencySettingsPage';
+
+export default function App() {
+  const [mode, setMode] = useState("light");
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+    <ThemeProvider theme={mode === "light" ? lightTheme : darkTheme}>
+      <div style={{ background: mode === "light" ? lightTheme.bg : darkTheme.bg, minHeight: "100vh" }}>
+        <Routes>
+          <Route path="/" element={<MainPage setMode={setMode} mode={mode} />} />
+          <Route path="/detail/:chapterId" element={<DetailPage />} />
+          <Route path="/settings" element={<SettingsPage setMode={setMode} mode={mode} />} />
+          <Route path="/stats" element={<StatsPage />} />
+          <Route path="/settings/currency" element={<CurrencySettingsPage />} />
 
-export default App;
+        </Routes>
+
+        <BottomTabBar />
+      </div>
+    </ThemeProvider>
+  )
+}
