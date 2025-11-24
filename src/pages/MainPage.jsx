@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import Header from "../components/Header";
 
+import CreateChapterModal from "../components/CreateChapterModal";
+
 const PageWrap = styled.div`
   max-width: 480px;
   margin: 0 auto;
@@ -25,13 +27,12 @@ const HeaderFix = styled.div`
   z-index: 20;
 `;
 
-
 const ListWrap = styled.div`
   flex: 1;
   overflow-y: auto;
-  margin-top: 80px;         
+  margin-top: 80px;
   padding: 0 16px;
-  padding-bottom: 100px;    
+  padding-bottom: 100px;
 `;
 
 const CreateBtn = styled.button`
@@ -84,6 +85,8 @@ const EmptyMessage = styled.div`
 
 export default function MainPage() {
   const [chapters, setChapters] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -96,8 +99,7 @@ export default function MainPage() {
     setChapters(list);
   };
 
-  const createNewChapter = async () => {
-    const title = prompt("대제목을 입력하세요 (예: 1월)");
+  const createNewChapter = async (title) => {
     if (!title || !title.trim()) return;
 
     const db = await initDB();
@@ -108,6 +110,8 @@ export default function MainPage() {
 
     loadChapters();
     navigate(`/detail/${id}`);
+
+    setOpenModal(false);
   };
 
   const deleteChapter = async (chapterId) => {
@@ -130,17 +134,19 @@ export default function MainPage() {
   return (
     <PageWrap>
 
-      {/* 헤더 고정 */}
+      {/* 고정 헤더 */}
       <HeaderFix>
         <Header
           title="가계부"
           rightButton={
-            <CreateBtn onClick={createNewChapter}>새로 만들기</CreateBtn>
+            <CreateBtn onClick={() => setOpenModal(true)}>
+              새로 만들기
+            </CreateBtn>
           }
         />
       </HeaderFix>
 
-      {/* 리스트 스크롤 영역 */}
+      {/* 리스트 */}
       <ListWrap>
 
         {chapters.length === 0 && (
@@ -162,6 +168,14 @@ export default function MainPage() {
         ))}
 
       </ListWrap>
+
+      {/* 모달 */}
+      {openModal && (
+        <CreateChapterModal
+          onClose={() => setOpenModal(false)}
+          onSubmit={createNewChapter}
+        />
+      )}
 
     </PageWrap>
   );
