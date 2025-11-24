@@ -1,7 +1,8 @@
 import styled from 'styled-components';
 import { Link, useLocation } from 'react-router-dom';
-
 import { AiFillHome, AiOutlineBarChart, AiOutlineSetting } from "react-icons/ai";
+import { MdListAlt } from "react-icons/md"; // 예시 아이콘
+
 
 const Bar = styled.div`
   position: fixed;
@@ -80,11 +81,21 @@ export default function BottomTabBar() {
       </TabWrapper>
 
       <TabWrapper>
+        {path === "/source-stats" && <ActiveCircle />}
+        <Tab to="/source-stats" active={path === "/source-stats"}>
+          <MdListAlt size={26} />
+        </Tab>
+      </TabWrapper>
+
+      <TabWrapper>
         {path === "/settings" && <ActiveCircle />}
         <Tab to="/settings" active={path === "/settings"}>
           <AiOutlineSetting size={26} />
         </Tab>
       </TabWrapper>
+
+
+
     </Bar>
   );
 }

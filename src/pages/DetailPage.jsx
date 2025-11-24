@@ -31,20 +31,18 @@ const HeaderFix = styled.div`
   z-index: 20;
 `;
 
-
 const Content = styled.div`
   flex: 1;
   overflow-y: auto;
 
   padding: 16px;
-  padding-top: 96px;   /* 헤더 높이 대신 padding으로 해결 */
+  padding-top: 96px;
   padding-bottom: 100px;
 
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
 `;
-
 
 // ----------- 스타일들 -----------
 const SummaryBox = styled.div`
@@ -82,6 +80,22 @@ const Btn = styled.button`
   flex: 1;
   padding: 10px;
   background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+`;
+
+// 단위 버튼 스타일
+const UnitBtnRow = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+`;
+
+const UnitBtn = styled.button`
+  flex: 1;
+  padding: 10px;
+  background: #555;
   color: white;
   border: none;
   border-radius: 6px;
@@ -136,6 +150,26 @@ const DeleteBtn = styled.button`
   color: white;
 `;
 
+const AmountInputWrap = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const ClearBtn = styled.button`
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-75%);
+  background: transparent;
+  border: none;
+  color: ${({ theme }) => theme.text};
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+`;
+
+
 // ------------ Detail Page ------------
 export default function DetailPage() {
   const { chapterId } = useParams();
@@ -157,8 +191,24 @@ export default function DetailPage() {
   };
 
   const handleAmountChange = (e) => {
-    const raw = unformatNumber(e.target.value);
-    setAmount(formatNumber(raw));
+    const value = e.target.value;
+
+    // 숫자 + 소수점만 허용
+    const cleaned = value.replace(/[^0-9.]/g, "");
+
+    // 소수점 여러 개 입력되는 것 방지
+    const fixed = cleaned.replace(/(\..*)\./g, "$1");
+
+    setAmount(fixed);
+  };
+
+  // 단위 버튼 누르면 10만/100만 곱하기
+  const multiplyUnit = (value) => {
+    const raw = unformatNumber(amount);
+    if (!raw) return;
+
+    const multiplied = raw * value;
+    setAmount(formatNumber(multiplied));
   };
 
   const saveRecord = async (type) => {
@@ -170,6 +220,7 @@ export default function DetailPage() {
       title,
       amount: unformatNumber(amount),
       type,
+      source: title,
       createdAt: new Date()
     });
 
@@ -195,12 +246,10 @@ export default function DetailPage() {
   return (
     <PageWrap>
 
-      {/* 고정 헤더 */}
       <HeaderFix>
         <Header title="상세 보기" />
       </HeaderFix>
 
-      {/* 스크롤 콘텐츠 */}
       <Content>
 
         <SummaryBox>
@@ -228,11 +277,27 @@ export default function DetailPage() {
           onChange={e => setTitle(e.target.value)}
         />
 
-        <InputBox
-          placeholder="금액"
-          value={amount}
-          onChange={handleAmountChange}
-        />
+        <AmountInputWrap>
+          <InputBox
+            placeholder="금액"
+            value={amount}
+            onChange={handleAmountChange}
+            style={{ paddingRight: "40px" }}  // X 버튼 공간 확보
+          />
+
+          {unformatNumber(amount) > 0 && (
+            <ClearBtn onClick={() => setAmount('')}>
+              ×
+            </ClearBtn>
+          )}
+        </AmountInputWrap>
+
+
+        {/* 십만 · 백만 버튼 */}
+        <UnitBtnRow>
+          <UnitBtn onClick={() => multiplyUnit(100000)}>십만</UnitBtn>
+          <UnitBtn onClick={() => multiplyUnit(1000000)}>백만</UnitBtn>
+        </UnitBtnRow>
 
         <Row>
           <Btn onClick={() => saveRecord('income')}>수입</Btn>

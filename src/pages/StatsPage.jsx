@@ -3,6 +3,7 @@ import { initDB } from '../db/indexedDB';
 import styled from 'styled-components';
 import Header from "../components/Header";
 import { formatNumber } from '../utils/numberFormat';
+import { formatCompact } from '../utils/numberFormat';
 import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
 
 import {
@@ -190,9 +191,12 @@ export default function StatsPage() {
             {summaryList.map((s, idx) => (
               <tr key={idx}>
                 <Td>{s.title}</Td>
-                <Td>{formatNumber(s.income)} {unit}</Td>
+                <Td>{formatCompact(s.income)} {unit}</Td>
+                <Td>{formatCompact(s.expense)} {unit}</Td>
+                <Td>{formatCompact(s.balance)} {unit}</Td>
+                {/* <Td>{formatNumber(s.income)} {unit}</Td>
                 <Td>{formatNumber(s.expense)} {unit}</Td>
-                <Td>{formatNumber(s.balance)} {unit}</Td>
+                <Td>{formatNumber(s.balance)} {unit}</Td> */}
               </tr>
             ))}
           </tbody>
