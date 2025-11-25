@@ -48,6 +48,12 @@ const Btn = styled.button`
   color: white;
 `;
 
+const SectionTitle = styled.h3`
+  color: ${({ theme }) => theme.text};
+  margin-top: 20px;
+  margin-bottom: 12px;
+`;
+
 export default function SettingsPage({ setMode, mode }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -157,7 +163,8 @@ export default function SettingsPage({ setMode, mode }) {
 
         <hr style={{ margin: '20px 0', border: 0, borderTop: '1px solid #ddd' }} />
 
-        <h3>데이터 관리</h3>
+        <SectionTitle>데이터 관리</SectionTitle>
+
 
         <Btn onClick={backupData} style={{ background: "#28a745" }}>
           데이터 백업 (다운로드)

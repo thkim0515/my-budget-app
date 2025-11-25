@@ -23,11 +23,9 @@ const HeaderFix = styled.div`
   top: 0;
   left: 0;
   right: 0;
-
   margin: 0 auto;
   width: 100%;
   max-width: 480px;
-
   z-index: 20;
 `;
 
@@ -113,7 +111,6 @@ const Cell = styled.div`
   display: flex;
   align-items: center;
   border-right: 1px dashed ${({ theme }) => theme.border};
-
   &:last-child {
     border-right: none;
   }
@@ -187,6 +184,9 @@ export default function DetailPage() {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('식비');
 
+  // 날짜 상태 추가
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editType, setEditType] = useState(null);
@@ -230,6 +230,8 @@ export default function DetailPage() {
       amount: unformatNumber(amount),
       type,
       category,
+      date: date, // 날짜 저장
+      source: title,
       createdAt: new Date()
     };
 
@@ -242,9 +244,12 @@ export default function DetailPage() {
       await db.add('records', recordData);
     }
 
+    // 입력 초기화
     setTitle('');
     setAmount('');
     setCategory('식비');
+    setDate(new Date().toISOString().split("T")[0]);
+
     loadRecords();
   };
 
@@ -253,9 +258,17 @@ export default function DetailPage() {
     setTitle(record.title);
     setAmount(formatNumber(record.amount));
     setCategory(record.category || '기타');
+
+    // 날짜 불러오기
+    const existingDate =
+      record.date || new Date(record.createdAt).toISOString().split("T")[0];
+
+    setDate(existingDate);
+
     setIsEditing(true);
     setEditId(record.id);
     setEditType(record.type);
+
     window.scrollTo(0, 0);
   };
 
@@ -265,6 +278,7 @@ export default function DetailPage() {
     setTitle('');
     setAmount('');
     setCategory('식비');
+    setDate(new Date().toISOString().split("T")[0]);
   };
 
   // 삭제 확인
@@ -318,6 +332,13 @@ export default function DetailPage() {
           {isEditing ? "내역 수정" : "입력"}
         </h2>
 
+        {/* 날짜 선택 기능 추가 */}
+        <InputBox
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+
         <SelectBox 
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -350,6 +371,7 @@ export default function DetailPage() {
           <UnitBtn onClick={() => multiplyUnit(1000000)}>백만</UnitBtn>
         </UnitBtnRow>
 
+        {/* 저장/수정 버튼 */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
           {isEditing ? (
             <>

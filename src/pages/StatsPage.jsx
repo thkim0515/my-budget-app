@@ -10,17 +10,16 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  ArcElement, // Pie
+  ArcElement,
   Tooltip,
   Legend
 } from 'chart.js';
 
 import { Bar, Pie } from 'react-chartjs-2';
 
-// Chart.js 요소 등록
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
-// ───────────────── 레이아웃 스타일 ─────────────────
+// ────────────────────────────── 스타일 ──────────────────────────────
 const PageWrap = styled.div`
   max-width: 480px;
   margin: 0 auto;
@@ -36,7 +35,6 @@ const HeaderFix = styled.div`
   top: 0;
   left: 0;
   right: 0;
-
   margin: 0 auto;
   width: 100%;
   max-width: 480px;
@@ -46,11 +44,9 @@ const HeaderFix = styled.div`
 const Content = styled.div`
   flex: 1;
   overflow-y: auto;
-
   padding: 16px;
   padding-top: 96px;
   padding-bottom: 100px;
-
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
@@ -92,12 +88,34 @@ const Td = styled.td`
   }
 `;
 
-// ────────────────────────────────────────────────────
+// 월 선택 UI
+const MonthSelector = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 18px;
+  font-weight: bold;
+`;
+
+const ArrowBtn = styled.button`
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  color: ${({ theme }) => theme.text};
+  cursor: pointer;
+`;
+
+// ────────────────────────────── PAGE ──────────────────────────────
 
 export default function StatsPage() {
   const [chapters, setChapters] = useState([]);
   const [records, setRecords] = useState([]);
+
   const { unit } = useCurrencyUnit();
+
+  // 현재 기준 월 (기본값: 오늘)
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     loadData();
@@ -109,10 +127,27 @@ export default function StatsPage() {
     setRecords(await db.getAll("records"));
   };
 
+  // ───── 월 이동 함수 ─────
+  const moveMonth = (delta) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() + delta);
+    setCurrentDate(newDate);
+  };
+
+  // ───── 해당 월 데이터 필터링 ─────
+  const filteredRecords = records.filter(r => {
+    const rDate = new Date(r.date || r.createdAt);
+
+    return (
+      rDate.getFullYear() === currentDate.getFullYear() &&
+      rDate.getMonth() === currentDate.getMonth()
+    );
+  });
+
   // ───── 챕터별 집계 ─────
   const getSummaryByChapter = () => {
     return chapters.map(ch => {
-      const filtered = records.filter(r => r.chapterId === ch.chapterId);
+      const filtered = filteredRecords.filter(r => r.chapterId === ch.chapterId);
 
       const income = filtered
         .filter(r => r.type === 'income')
@@ -133,15 +168,15 @@ export default function StatsPage() {
 
   const summaryList = getSummaryByChapter();
 
-  // ───── Bar Chart 데이터 ─────
+  // ───── Bar Chart 데이터 (월별) ─────
   const barData = {
     labels: summaryList.map(s => s.title),
     datasets: [
       {
-        label: '잔액',
+        label: "잔액",
         data: summaryList.map(s => s.balance),
-        backgroundColor: 'rgba(25, 118, 210, 0.6)',
-        borderColor: 'rgba(25, 118, 210, 1)',
+        backgroundColor: "rgba(25, 118, 210, 0.6)",
+        borderColor: "rgba(25, 118, 210, 1)",
         borderWidth: 1,
       },
     ],
@@ -149,26 +184,26 @@ export default function StatsPage() {
 
   const barOptions = {
     responsive: true,
-    plugins: { legend: { labels: { color: '#aaa' } } },
+    plugins: { legend: { labels: { color: "#aaa" } } },
     scales: {
       x: {
-        ticks: { color: '#aaa' },
-        grid: { color: '#444' },
+        ticks: { color: "#aaa" },
+        grid: { color: "#444" },
       },
       y: {
-        ticks: { color: '#aaa' },
-        grid: { color: '#444' },
+        ticks: { color: "#aaa" },
+        grid: { color: "#444" },
       },
     },
   };
 
-  // ───── 카테고리별 지출 Pie Chart ─────
+  // ───── Pie Chart (월별) ─────
   const getCategoryData = () => {
-    const expenseRecords = records.filter(r => r.type === "expense");
+    const expenseList = filteredRecords.filter(r => r.type === "expense");
 
     const categorySum = {};
 
-    expenseRecords.forEach(r => {
+    expenseList.forEach(r => {
       const key = r.category || "기타";
       categorySum[key] = (categorySum[key] || 0) + r.amount;
     });
@@ -202,6 +237,17 @@ export default function StatsPage() {
       </HeaderFix>
 
       <Content>
+
+        {/* 월 선택 UI */}
+        <MonthSelector>
+          <ArrowBtn onClick={() => moveMonth(-1)}>◀</ArrowBtn>
+
+          <span>
+            {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
+          </span>
+
+          <ArrowBtn onClick={() => moveMonth(1)}>▶</ArrowBtn>
+        </MonthSelector>
 
         {/* Bar Chart */}
         <ChartBox>

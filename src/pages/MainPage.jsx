@@ -96,6 +96,10 @@ export default function MainPage() {
   const loadChapters = async () => {
     const db = await initDB();
     const list = await db.getAll('chapters');
+
+    // createdAt 기준 최신순 정렬
+    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     setChapters(list);
   };
 
