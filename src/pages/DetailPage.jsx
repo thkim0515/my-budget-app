@@ -34,17 +34,15 @@ const HeaderFix = styled.div`
 const Content = styled.div`
   flex: 1;
   overflow-y: auto;
-
   padding: 16px;
   padding-top: 96px;
   padding-bottom: 100px;
-
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
 `;
 
-// ----------- 스타일들 -----------
+// ----------- 스타일 -----------
 const SummaryBox = styled.div`
   background: ${({ theme }) => theme.card};
   border: 1px solid ${({ theme }) => theme.border};
@@ -85,7 +83,6 @@ const Btn = styled.button`
   border-radius: 6px;
 `;
 
-// 단위 버튼 스타일
 const UnitBtnRow = styled.div`
   display: flex;
   gap: 10px;
@@ -124,6 +121,7 @@ const Cell = styled.div`
 
 const ColTitle = styled(Cell)`
   flex: 3.5;
+  flex-direction: column;
 `;
 
 const ColAmount = styled(Cell)`
@@ -169,6 +167,16 @@ const ClearBtn = styled.button`
   align-items: center;
 `;
 
+// 카테고리 Select
+const SelectBox = styled.select`
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: 6px;
+  background: ${({ theme }) => theme.card};
+  color: ${({ theme }) => theme.text};
+`;
 
 // ------------ Detail Page ------------
 export default function DetailPage() {
@@ -177,8 +185,15 @@ export default function DetailPage() {
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState('식비');
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editType, setEditType] = useState(null);
 
   const { unit } = useCurrencyUnit();
+
+  const CATEGORIES = ["식비", "교통", "주거", "쇼핑", "문화", "기타"];
 
   useEffect(() => {
     loadRecords();
@@ -192,47 +207,78 @@ export default function DetailPage() {
 
   const handleAmountChange = (e) => {
     const value = e.target.value;
-
-    // 숫자 + 소수점만 허용
     const cleaned = value.replace(/[^0-9.]/g, "");
-
-    // 소수점 여러 개 입력되는 것 방지
     const fixed = cleaned.replace(/(\..*)\./g, "$1");
-
     setAmount(fixed);
   };
 
-  // 단위 버튼 누르면 10만/100만 곱하기
   const multiplyUnit = (value) => {
     const raw = unformatNumber(amount);
     if (!raw) return;
-
     const multiplied = raw * value;
     setAmount(formatNumber(multiplied));
   };
 
+  // 저장 & 수정
   const saveRecord = async (type) => {
     if (!title || !amount) return;
 
     const db = await initDB();
-    await db.add('records', {
+    const recordData = {
       chapterId: Number(chapterId),
       title,
       amount: unformatNumber(amount),
       type,
-      source: title,
+      category,
       createdAt: new Date()
-    });
+    };
+
+    if (isEditing && editId) {
+      await db.put('records', { ...recordData, id: editId });
+      alert("수정되었습니다.");
+      setIsEditing(false);
+      setEditId(null);
+    } else {
+      await db.add('records', recordData);
+    }
 
     setTitle('');
     setAmount('');
-
+    setCategory('식비');
     loadRecords();
   };
 
+  // 수정 모드 시작
+  const startEdit = (record) => {
+    setTitle(record.title);
+    setAmount(formatNumber(record.amount));
+    setCategory(record.category || '기타');
+    setIsEditing(true);
+    setEditId(record.id);
+    setEditType(record.type);
+    window.scrollTo(0, 0);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditId(null);
+    setTitle('');
+    setAmount('');
+    setCategory('식비');
+  };
+
+  // 삭제 확인
   const deleteRecord = async (id) => {
+    const ok = window.confirm("정말 삭제하시겠습니까?");
+    if (!ok) return;
+
     const db = await initDB();
     await db.delete('records', id);
+
+    if (isEditing && editId === id) {
+      cancelEdit();
+    }
+
     loadRecords();
   };
 
@@ -245,7 +291,6 @@ export default function DetailPage() {
 
   return (
     <PageWrap>
-
       <HeaderFix>
         <Header title="상세 보기" />
       </HeaderFix>
@@ -269,7 +314,18 @@ export default function DetailPage() {
           </SummaryRow>
         </SummaryBox>
 
-        <h2 style={{ margin: '20px 0' }}>입력</h2>
+        <h2 style={{ margin: '20px 0' }}>
+          {isEditing ? "내역 수정" : "입력"}
+        </h2>
+
+        <SelectBox 
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          {CATEGORIES.map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </SelectBox>
 
         <InputBox
           placeholder="항목명"
@@ -282,35 +338,64 @@ export default function DetailPage() {
             placeholder="금액"
             value={amount}
             onChange={handleAmountChange}
-            style={{ paddingRight: "40px" }}  // X 버튼 공간 확보
+            style={{ paddingRight: "40px" }}
           />
-
           {unformatNumber(amount) > 0 && (
-            <ClearBtn onClick={() => setAmount('')}>
-              ×
-            </ClearBtn>
+            <ClearBtn onClick={() => setAmount('')}>×</ClearBtn>
           )}
         </AmountInputWrap>
 
-
-        {/* 십만 · 백만 버튼 */}
         <UnitBtnRow>
           <UnitBtn onClick={() => multiplyUnit(100000)}>십만</UnitBtn>
           <UnitBtn onClick={() => multiplyUnit(1000000)}>백만</UnitBtn>
         </UnitBtnRow>
 
-        <Row>
-          <Btn onClick={() => saveRecord('income')}>수입</Btn>
-          <Btn onClick={() => saveRecord('expense')}>지출</Btn>
-        </Row>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          {isEditing ? (
+            <>
+              <button 
+                onClick={() => saveRecord(editType)}
+                style={{ flex: 1, padding: '12px', borderRadius: '6px', border: 'none', background: '#28a745', color: 'white' }}
+              >
+                수정 완료
+              </button>
+              <button 
+                onClick={cancelEdit}
+                style={{ flex: 0.5, padding: '12px', borderRadius: '6px', border: 'none', background: '#6c757d', color: 'white' }}
+              >
+                취소
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={() => saveRecord('income')} 
+                style={{ flex: 1, padding: '12px', borderRadius: '6px', border: 'none', background: '#1976d2', color: 'white' }}
+              >
+                수입
+              </button>
+              <button 
+                onClick={() => saveRecord('expense')} 
+                style={{ flex: 1, padding: '12px', borderRadius: '6px', border: 'none', background: '#d9534f', color: 'white' }}
+              >
+                지출
+              </button>
+            </>
+          )}
+        </div>
 
         <h3>수입 목록</h3>
         <ul>
           {income.map(r => (
             <ListItem key={r.id}>
-              <ColTitle>{r.title}</ColTitle>
+              <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
+                <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
+                <span style={{ fontWeight: 'bold' }}>{r.title}</span>
+              </ColTitle>
+
               <ColAmount>{formatNumber(r.amount)}</ColAmount>
               <ColUnit>{unit}</ColUnit>
+
               <DeleteCell>
                 <DeleteBtn onClick={() => deleteRecord(r.id)}>삭제</DeleteBtn>
               </DeleteCell>
@@ -322,9 +407,14 @@ export default function DetailPage() {
         <ul>
           {expense.map(r => (
             <ListItem key={r.id}>
-              <ColTitle>{r.title}</ColTitle>
+              <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
+                <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
+                <span style={{ fontWeight: 'bold' }}>{r.title}</span>
+              </ColTitle>
+
               <ColAmount>{formatNumber(r.amount)}</ColAmount>
               <ColUnit>{unit}</ColUnit>
+
               <DeleteCell>
                 <DeleteBtn onClick={() => deleteRecord(r.id)}>삭제</DeleteBtn>
               </DeleteCell>

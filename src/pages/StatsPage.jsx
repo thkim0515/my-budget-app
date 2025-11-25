@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { initDB } from '../db/indexedDB';
 import styled from 'styled-components';
 import Header from "../components/Header";
-import { formatNumber } from '../utils/numberFormat';
 import { formatCompact } from '../utils/numberFormat';
 import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
 
@@ -11,15 +10,17 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  ArcElement, // Pie
   Tooltip,
   Legend
 } from 'chart.js';
 
-import { Bar } from 'react-chartjs-2';
+import { Bar, Pie } from 'react-chartjs-2';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+// Chart.js 요소 등록
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
-// 레이아웃
+// ───────────────── 레이아웃 스타일 ─────────────────
 const PageWrap = styled.div`
   max-width: 480px;
   margin: 0 auto;
@@ -39,15 +40,15 @@ const HeaderFix = styled.div`
   margin: 0 auto;
   width: 100%;
   max-width: 480px;
-
   z-index: 20;
 `;
 
 const Content = styled.div`
   flex: 1;
   overflow-y: auto;
+
   padding: 16px;
-  padding-top: 96px;   
+  padding-top: 96px;
   padding-bottom: 100px;
 
   width: 100%;
@@ -55,10 +56,17 @@ const Content = styled.div`
   margin: 0 auto;
 `;
 
-// 스타일
+const ChartBox = styled.div`
+  margin-top: 20px;
+  background: ${({ theme }) => theme.card};
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid ${({ theme }) => theme.border};
+`;
+
 const Table = styled.table`
   width: 100%;
-  margin-top: 16px;
+  margin-top: 20px;
   border-collapse: collapse;
   background: ${({ theme }) => theme.card};
   border: 1px solid ${({ theme }) => theme.border};
@@ -84,13 +92,7 @@ const Td = styled.td`
   }
 `;
 
-const ChartBox = styled.div`
-  margin-top: 20px;
-  background: ${({ theme }) => theme.card};
-  padding: 20px;
-  border-radius: 10px;
-  border: 1px solid ${({ theme }) => theme.border};
-`;
+// ────────────────────────────────────────────────────
 
 export default function StatsPage() {
   const [chapters, setChapters] = useState([]);
@@ -98,18 +100,16 @@ export default function StatsPage() {
   const { unit } = useCurrencyUnit();
 
   useEffect(() => {
-    load();
+    loadData();
   }, []);
 
-  const load = async () => {
+  const loadData = async () => {
     const db = await initDB();
-    const chapterList = await db.getAll('chapters');
-    const recordList = await db.getAll('records');
-
-    setChapters(chapterList);
-    setRecords(recordList);
+    setChapters(await db.getAll("chapters"));
+    setRecords(await db.getAll("records"));
   };
 
+  // ───── 챕터별 집계 ─────
   const getSummaryByChapter = () => {
     return chapters.map(ch => {
       const filtered = records.filter(r => r.chapterId === ch.chapterId);
@@ -133,7 +133,8 @@ export default function StatsPage() {
 
   const summaryList = getSummaryByChapter();
 
-  const chartData = {
+  // ───── Bar Chart 데이터 ─────
+  const barData = {
     labels: summaryList.map(s => s.title),
     datasets: [
       {
@@ -146,7 +147,7 @@ export default function StatsPage() {
     ],
   };
 
-  const chartOptions = {
+  const barOptions = {
     responsive: true,
     plugins: { legend: { labels: { color: '#aaa' } } },
     scales: {
@@ -161,22 +162,65 @@ export default function StatsPage() {
     },
   };
 
+  // ───── 카테고리별 지출 Pie Chart ─────
+  const getCategoryData = () => {
+    const expenseRecords = records.filter(r => r.type === "expense");
+
+    const categorySum = {};
+
+    expenseRecords.forEach(r => {
+      const key = r.category || "기타";
+      categorySum[key] = (categorySum[key] || 0) + r.amount;
+    });
+
+    return {
+      labels: Object.keys(categorySum),
+      datasets: [
+        {
+          label: "지출 합계",
+          data: Object.values(categorySum),
+          backgroundColor: [
+            "#FF6384",
+            "#36A2EB",
+            "#FFCE56",
+            "#4BC0C0",
+            "#9966FF",
+            "#FF9F40",
+          ],
+        }
+      ]
+    };
+  };
+
+  // ────────────────────────────────────────────────────
+
   return (
     <PageWrap>
 
-      {/* 고정 헤더 */}
       <HeaderFix>
         <Header title="통계" />
       </HeaderFix>
 
-      {/* 콘텐츠 영역 */}
       <Content>
 
+        {/* Bar Chart */}
         <ChartBox>
-          <h3 style={{ marginBottom: 20 }}>잔액 차트</h3>
-          <Bar data={chartData} options={chartOptions} />
+          <h3>대제목별 잔액 (Bar)</h3>
+          <Bar data={barData} options={barOptions} />
         </ChartBox>
 
+        {/* Pie Chart */}
+        <ChartBox>
+          <h3>카테고리별 지출 (Pie)</h3>
+          <div style={{ height: "260px", display: "flex", justifyContent: "center" }}>
+            <Pie
+              data={getCategoryData()}
+              options={{ responsive: true, maintainAspectRatio: false }}
+            />
+          </div>
+        </ChartBox>
+
+        {/* 테이블 */}
         <Table>
           <thead>
             <tr>
@@ -186,7 +230,6 @@ export default function StatsPage() {
               <Th>잔액</Th>
             </tr>
           </thead>
-
           <tbody>
             {summaryList.map((s, idx) => (
               <tr key={idx}>
@@ -194,9 +237,6 @@ export default function StatsPage() {
                 <Td>{formatCompact(s.income)} {unit}</Td>
                 <Td>{formatCompact(s.expense)} {unit}</Td>
                 <Td>{formatCompact(s.balance)} {unit}</Td>
-                {/* <Td>{formatNumber(s.income)} {unit}</Td>
-                <Td>{formatNumber(s.expense)} {unit}</Td>
-                <Td>{formatNumber(s.balance)} {unit}</Td> */}
               </tr>
             ))}
           </tbody>

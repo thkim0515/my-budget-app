@@ -1,5 +1,6 @@
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import { useRef } from 'react';
 import { initDB } from '../db/indexedDB';
 import Header from "../components/Header";
 
@@ -21,7 +22,6 @@ const HeaderFix = styled.div`
   margin: 0 auto;
   width: 100%;
   max-width: 480px;
-
   z-index: 20;
 `;
 
@@ -30,7 +30,7 @@ const Content = styled.div`
   overflow-y: auto;
 
   padding: 16px;
-  padding-top: 96px;   
+  padding-top: 96px;
   padding-bottom: 100px;
 
   width: 100%;
@@ -50,7 +50,9 @@ const Btn = styled.button`
 
 export default function SettingsPage({ setMode, mode }) {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
+  // 전체 초기화
   const resetAll = async () => {
     const c = window.confirm("정말 초기화 하시겠습니까?");
     if (!c) return;
@@ -62,15 +64,87 @@ export default function SettingsPage({ setMode, mode }) {
     alert("전체 초기화 완료되었습니다.");
   };
 
+  // 데이터 백업 Export
+  const backupData = async () => {
+    const db = await initDB();
+    const chapters = await db.getAll('chapters');
+    const records = await db.getAll('records');
+
+    const data = {
+      chapters,
+      records,
+      exportedAt: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+
+    a.href = url;
+    a.download = `budget_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  };
+
+  // 데이터 복구 Import
+  const restoreData = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const ok = window.confirm(
+      "현재 데이터가 모두 삭제되고 백업 파일로 덮어씌워집니다. 진행하시겠습니까?"
+    );
+    if (!ok) {
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+
+        if (!data.chapters || !data.records) {
+          throw new Error("올바르지 않은 백업 파일입니다.");
+        }
+
+        const db = await initDB();
+
+        await db.clear('chapters');
+        await db.clear('records');
+
+        // 복구
+        const tx = db.transaction(['chapters', 'records'], 'readwrite');
+
+        for (const ch of data.chapters) {
+          tx.objectStore('chapters').put(ch);
+        }
+        for (const rec of data.records) {
+          tx.objectStore('records').put(rec);
+        }
+
+        await tx.done;
+
+        alert("복구가 완료되었습니다.");
+      } catch (err) {
+        console.error(err);
+        alert("복구 실패: " + err.message);
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
   return (
     <PageWrap>
-
-      {/* 고정 헤더 */}
       <HeaderFix>
         <Header title="설정" />
       </HeaderFix>
 
-      {/* 스크롤 콘텐츠 */}
       <Content>
 
         <Btn onClick={() => navigate("/settings/currency")}>
@@ -81,10 +155,29 @@ export default function SettingsPage({ setMode, mode }) {
           테마 변경 (현재: {mode === "light" ? "라이트모드" : "다크모드"})
         </Btn>
 
-        <Btn onClick={resetAll} style={{ background: "#d9534f" }}>
-          전체 데이터 초기화
+        <hr style={{ margin: '20px 0', border: 0, borderTop: '1px solid #ddd' }} />
+
+        <h3>데이터 관리</h3>
+
+        <Btn onClick={backupData} style={{ background: "#28a745" }}>
+          데이터 백업 (다운로드)
         </Btn>
 
+        <Btn onClick={() => fileInputRef.current.click()} style={{ background: "#17a2b8" }}>
+          데이터 복구 (파일 불러오기)
+        </Btn>
+
+        <input
+          type="file"
+          accept=".json"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          onChange={restoreData}
+        />
+
+        <Btn onClick={resetAll} style={{ background: "#d9534f", marginTop: "20px" }}>
+          전체 데이터 초기화
+        </Btn>
       </Content>
     </PageWrap>
   );
