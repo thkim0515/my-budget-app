@@ -251,7 +251,7 @@ export default function StatsPage() {
 
         {/* Bar Chart */}
         <ChartBox>
-          <h3>대제목별 잔액 (Bar)</h3>
+          <h3>제목별 잔액 (Bar)</h3>
           <Bar data={barData} options={barOptions} />
         </ChartBox>
 

@@ -66,8 +66,8 @@ export default function CreateChapterModal({ onClose, onSubmit }) {
         />
 
         <BtnRow>
-          <Btn danger onClick={onClose}>취소</Btn>
           <Btn onClick={() => onSubmit(value)}>확인</Btn>
+          <Btn danger onClick={onClose}>취소</Btn>
         </BtnRow>
       </Box>
     </Backdrop>

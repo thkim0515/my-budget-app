@@ -193,7 +193,7 @@ export default function DetailPage() {
 
   const { unit } = useCurrencyUnit();
 
-  const CATEGORIES = ["식비", "교통", "주거", "쇼핑", "문화", "기타"];
+  const CATEGORIES = ["카드비","식비", "교통", "주거", "쇼핑", "문화", "기타"];
 
   useEffect(() => {
     loadRecords();
