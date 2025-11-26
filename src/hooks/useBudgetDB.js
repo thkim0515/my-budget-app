@@ -18,6 +18,11 @@ export function useBudgetDB() {
     return await db.getAllFromIndex(store, index, value);
   };
 
+  const get = async (store, id) => {
+    if (!db) return null;
+    return await db.get(store, id);
+  };
+
   const add = async (store, data) => {
     if (!db) return;
     return await db.add(store, data);
@@ -40,6 +45,7 @@ export function useBudgetDB() {
 
   return {
     db,
+    get,             
     getAll,
     getAllFromIndex,
     add,

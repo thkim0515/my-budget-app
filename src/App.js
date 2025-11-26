@@ -12,6 +12,7 @@ import CurrencySettingsPage from './pages/CurrencySettingsPage';
 import StatsBySourcePage from './pages/StatsBySourcePage';
 import CategorySettingsPage from './pages/CategorySettingsPage';
 import CalendarStatsPage from './pages/CalendarStatsPage';
+import DateDetailPage from './pages/DateDetailPage';
 
 export default function App() {
   const [mode, setMode] = useState("light");
@@ -21,13 +22,18 @@ export default function App() {
       <div style={{ background: mode === "light" ? lightTheme.bg : darkTheme.bg, minHeight: "100vh" }}>
         <Routes>
           <Route path="/" element={<MainPage setMode={setMode} mode={mode} />} />
-          <Route path="/detail/:chapterId" element={<DetailPage />} />
+          {/* <Route path="/detail/:chapterId" element={<DetailPage />} /> */}
           <Route path="/settings" element={<SettingsPage setMode={setMode} mode={mode} />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings/currency" element={<CurrencySettingsPage />} />
           <Route path="/source-stats" element={<StatsBySourcePage />} />
           <Route path="/settings/categories" element={<CategorySettingsPage />} />
           <Route path="/calendar-stats" element={<CalendarStatsPage />} />
+          {/* <Route path="/detail/:date/:id" element={<DetailPage />} /> */}
+          <Route path="/detail/:chapterId" element={<DetailPage />} />
+          <Route path="/detail/:date/:id" element={<DateDetailPage />} />
+
+
 
         </Routes>
 

@@ -163,16 +163,17 @@ const SelectBox = styled.select`
   color: ${({ theme }) => theme.text};
 `;
 
-const HighlightItem = styled.li`
-  background: rgba(255, 215, 0, 0.18);
+const HighlightItem = styled.div`
+  background: rgba(255, 215, 0, 0.15);  
   border-left: 4px solid #f1c40f;
 `;
+
 
 /* ---------- Detail Page ---------- */
 export default function DetailPage() {
 
-  /* 메인에서 넘겨주는 chapterId */
-  const { chapterId } = useParams();
+  /* URL에서 날짜와 id 가져오기 */
+  const { date, id } = useParams();
 
   const [records, setRecords] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -180,20 +181,17 @@ export default function DetailPage() {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
-
-  /* 기본 날짜는 오늘 */
-  const [recordDate, setRecordDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [recordDate, setRecordDate] = useState(date);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editType, setEditType] = useState(null);
+  const [disableUrlHighlight, setDisableUrlHighlight] = useState(false);
 
   const { unit } = useCurrencyUnit();
-  const { db, getAllFromIndex, getAll, add, put, deleteItem } = useBudgetDB();
+  const { db, getAll, add, put, deleteItem } = useBudgetDB();
 
-  /* DB 로드 후 실행 */
+  /* DB 로드 후 목록/카테고리 가져오기 */
   useEffect(() => {
     if (db) {
       loadRecords();
@@ -201,15 +199,25 @@ export default function DetailPage() {
     }
   }, [db]);
 
-  /* 해당 chapterId의 기록 로드 */
+  /* 날짜 기준 레코드 로드 */
   const loadRecords = async () => {
-    const list = await getAllFromIndex(
-      "records",
-      "chapterId",
-      Number(chapterId)
-    );
+    const all = await getAll("records");
+    const list = all.filter(r => {
+      const d = (r.date || r.createdAt).split("T")[0];
+      return d === date;
+    });
     setRecords(list);
   };
+
+  /* 클릭한 레코드로 자동 스크롤 */
+  useEffect(() => {
+    if (records.length === 0) return;
+
+    const target = document.getElementById(`record-${id}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [records]);
 
   /* 카테고리 로드 */
   const loadCategories = async () => {
@@ -237,7 +245,6 @@ export default function DetailPage() {
     if (!title || !amount) return;
 
     const recordData = {
-      chapterId: Number(chapterId),
       title,
       amount: unformatNumber(amount),
       type,
@@ -259,22 +266,23 @@ export default function DetailPage() {
     setTitle('');
     setAmount('');
     if (categories.length > 0) setCategory(categories[0]);
-    setRecordDate(new Date().toISOString().split("T")[0]);
-
+    setRecordDate(date);
     loadRecords();
   };
 
   /* 수정 시작 */
   const startEdit = (record) => {
+    setDisableUrlHighlight(true);  // ← 중요!
     setTitle(record.title);
     setAmount(formatNumber(record.amount));
     setCategory(record.category || categories[0] || "");
-    setRecordDate(record.date);
+    setRecordDate(record.date.split("T")[0]);
     setIsEditing(true);
     setEditId(record.id);
     setEditType(record.type);
     window.scrollTo(0, 0);
   };
+
 
   const cancelEdit = () => {
     setIsEditing(false);
@@ -282,7 +290,7 @@ export default function DetailPage() {
     setTitle('');
     setAmount('');
     if (categories.length > 0) setCategory(categories[0]);
-    setRecordDate(new Date().toISOString().split("T")[0]);
+    setRecordDate(date);
   };
 
   const deleteRecord = async (id) => {
@@ -291,7 +299,7 @@ export default function DetailPage() {
 
     await deleteItem('records', id);
 
-    if (isEditing && editId === id) cancelEdit();
+    if (isEditing && editId === id)	cancelEdit();
     loadRecords();
   };
 
@@ -305,7 +313,7 @@ export default function DetailPage() {
   return (
     <PageWrap>
       <HeaderFix>
-        <Header title="상세 보기" />
+        <Header title={`${date} 상세 보기`} />
       </HeaderFix>
 
       <Content>
@@ -327,6 +335,7 @@ export default function DetailPage() {
           </SummaryRow>
         </SummaryBox>
 
+        {/* 입력 / 수정 UI */}
         <h2 style={{ margin: '20px 0' }}>
           {isEditing ? "내역 수정" : "입력"}
         </h2>
@@ -436,11 +445,20 @@ export default function DetailPage() {
         <h3>수입 목록</h3>
         <List>
           {income.map(r => (
-            <ListItem
-                key={r.id}
-                as={r.id === editId ? HighlightItem : "li"}
-              >
+            <ListItem 
+              key={r.id} 
+              id={`record-${r.id}`}
+              // as={r.id === Number(id) ? HighlightItem : "li"}
+              // as={r.id === Number(id) || r.id === editId ? HighlightItem : "li"}
+              as={
+                (!disableUrlHighlight && r.id === Number(id)) ||
+                r.id === editId
+                  ? HighlightItem
+                  : "li"
+              }
 
+
+            >
               <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
                 <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
                 <span style={{ fontWeight: 'bold' }}>{r.title}</span>
@@ -459,11 +477,20 @@ export default function DetailPage() {
         <h3>지출 목록</h3>
         <List>
           {expense.map(r => (
-            <ListItem
-                key={r.id}
-                as={r.id === editId ? HighlightItem : "li"}
-              >
+            <ListItem 
+              key={r.id} 
+              id={`record-${r.id}`}
+              // as={r.id === Number(id) ? HighlightItem : "li"}
+              // as={r.id === Number(id) || r.id === editId ? HighlightItem : "li"}
+              as={
+                (!disableUrlHighlight && r.id === Number(id)) ||
+                r.id === editId
+                  ? HighlightItem
+                  : "li"
+              }
 
+
+            >
               <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
                 <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
                 <span style={{ fontWeight: 'bold' }}>{r.title}</span>
@@ -478,6 +505,7 @@ export default function DetailPage() {
             </ListItem>
           ))}
         </List>
+
 
       </Content>
     </PageWrap>
