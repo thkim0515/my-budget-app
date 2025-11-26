@@ -1,24 +1,54 @@
 import styled from 'styled-components';
 import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
 import { useNavigate } from 'react-router-dom';
+import Header from "../components/Header";
 
-const Wrap = styled.div`
-  padding: 16px;
+/* ────────────────────────────── 레이아웃 기본 구조 ────────────────────────────── */
+const PageWrap = styled.div`
+  max-width: 480px;
+  margin: 0 auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: ${({ theme }) => theme.text};
 `;
+
+const HeaderFix = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  max-width: 480px;
+  z-index: 20;
+`;
+
+const Content = styled.div`
+  flex: 1;
+  padding: 16px;
+  padding-top: 96px;
+  padding-bottom: 100px;
+  overflow-y: auto;
+`;
+
+/* ────────────────────────────── UI 요소 ────────────────────────────── */
 
 const SelectBox = styled.select`
   width: 100%;
   padding: 12px;
   margin-bottom: 20px;
+
   border-radius: 6px;
-  border: 1px solid #ccc;
+  border: 1px solid ${({ theme }) => theme.border};
+  background: ${({ theme }) => theme.card};
+  color: ${({ theme }) => theme.text};
 `;
 
 const BackBtn = styled.button`
   width: 100%;
   padding: 12px;
   background: #1976d2;
-  color: white;
+  color: ${({ theme }) => theme.textBright};
   border: none;
   border-radius: 6px;
 `;
@@ -32,18 +62,26 @@ export default function CurrencySettingsPage() {
   };
 
   return (
-    <Wrap>
-      <h2 style={{ marginBottom: "20px" }}>금액 기호 설정</h2>
+    <PageWrap>
 
-      <SelectBox value={unit} onChange={changeUnit}>
-        <option value="원">원</option>
-        <option value="₩">₩</option>
-        <option value="$">$</option>
-        <option value="€">€</option>
-        <option value="¥">¥</option>
-      </SelectBox>
+      <HeaderFix>
+        <Header title="금액 기호 설정" />
+      </HeaderFix>
 
-      <BackBtn onClick={() => navigate(-1)}>뒤로가기</BackBtn>
-    </Wrap>
+      <Content>
+        <h2 style={{ marginBottom: "20px" }}>금액 기호 설정</h2>
+
+        <SelectBox value={unit} onChange={changeUnit}>
+          <option value="원">원</option>
+          <option value="₩">₩</option>
+          <option value="$">$</option>
+          <option value="€">€</option>
+          <option value="¥">¥</option>
+        </SelectBox>
+
+        {/* <BackBtn onClick={() => navigate(-1)}>뒤로가기</BackBtn> */}
+      </Content>
+
+    </PageWrap>
   );
 }

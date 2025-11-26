@@ -18,7 +18,6 @@ const HeaderFix = styled.div`
   top: 0;
   left: 0;
   right: 0;
-
   margin: 0 auto;
   width: 100%;
   max-width: 480px;
@@ -28,14 +27,9 @@ const HeaderFix = styled.div`
 const Content = styled.div`
   flex: 1;
   overflow-y: auto;
-
   padding: 16px;
   padding-top: 96px;
   padding-bottom: 100px;
-
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
 `;
 
 const Btn = styled.button`
@@ -58,28 +52,28 @@ export default function SettingsPage({ setMode, mode }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  // DB 훅
   const { db, getAll, clear } = useBudgetDB();
 
-  // 전체 초기화
   const resetAll = async () => {
     const c = window.confirm("정말 초기화 하시겠습니까?");
     if (!c) return;
 
     await clear("chapters");
     await clear("records");
+    await clear("categories");
 
     alert("전체 초기화 완료되었습니다.");
   };
 
-  // 데이터 백업 (다운로드)
   const backupData = async () => {
     const chapters = await getAll('chapters');
     const records = await getAll('records');
+    const categories = await getAll('categories');
 
     const data = {
       chapters,
       records,
+      categories,
       exportedAt: new Date().toISOString()
     };
 
@@ -89,61 +83,42 @@ export default function SettingsPage({ setMode, mode }) {
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-
     a.href = url;
     a.download = `budget_backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
-
     URL.revokeObjectURL(url);
   };
 
-  // 데이터 복구
   const restoreData = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const ok = window.confirm(
-      "현재 데이터가 모두 삭제되고 백업 파일로 덮어씌워집니다. 진행하시겠습니까?"
-    );
+    const ok = window.confirm("현재 데이터가 모두 삭제되고 백업 파일로 덮어씌워집니다. 진행하시겠습니까?");
     if (!ok) {
       e.target.value = '';
       return;
     }
 
     const reader = new FileReader();
-
     reader.onload = async (event) => {
-      try {
-        const data = JSON.parse(event.target.result);
+      const data = JSON.parse(event.target.result);
 
-        if (!data.chapters || !data.records) {
-          throw new Error("올바르지 않은 백업 파일입니다.");
-        }
+      await clear('chapters');
+      await clear('records');
+      await clear('categories');
 
-        if (!db) return;
+      const tx = db.transaction(['chapters', 'records', 'categories'], 'readwrite');
 
-        await clear('chapters');
-        await clear('records');
+      const chapterStore = tx.objectStore('chapters');
+      const recordStore = tx.objectStore('records');
+      const categoryStore = tx.objectStore('categories');
 
-        // 트랜잭션 복구
-        const tx = db.transaction(['chapters', 'records'], 'readwrite');
+      data.chapters.forEach(c => chapterStore.put(c));
+      data.records.forEach(r => recordStore.put(r));
+      data.categories.forEach(cat => categoryStore.put(cat));
 
-        const chapterStore = tx.objectStore('chapters');
-        const recordStore = tx.objectStore('records');
-
-        for (const ch of data.chapters) {
-          chapterStore.put(ch);
-        }
-        for (const rec of data.records) {
-          recordStore.put(rec);
-        }
-
-        await tx.done;
-
-        alert("복구가 완료되었습니다.");
-      } catch (err) {
-        alert("복구 실패: " + err.message);
-      }
+      await tx.done;
+      alert("복구 완료되었습니다.");
     };
 
     reader.readAsText(file);
@@ -160,6 +135,11 @@ export default function SettingsPage({ setMode, mode }) {
         <Btn onClick={() => navigate("/settings/currency")}>
           금액 기호 설정하기
         </Btn>
+
+        <Btn onClick={() => navigate("/settings/categories")}>
+          카테고리 관리
+        </Btn>
+
 
         <Btn onClick={() => setMode(mode === "light" ? "dark" : "light")}>
           테마 변경 (현재: {mode === "light" ? "라이트모드" : "다크모드"})

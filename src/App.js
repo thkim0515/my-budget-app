@@ -10,6 +10,7 @@ import StatsPage from './pages/StatsPage';
 import BottomTabBar from './components/BottomTabBar';
 import CurrencySettingsPage from './pages/CurrencySettingsPage';
 import StatsBySourcePage from './pages/StatsBySourcePage';
+import CategorySettingsPage from './pages/CategorySettingsPage';
 
 export default function App() {
   const [mode, setMode] = useState("light");
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings/currency" element={<CurrencySettingsPage />} />
           <Route path="/source-stats" element={<StatsBySourcePage />} />
+          <Route path="/settings/categories" element={<CategorySettingsPage />} />
 
         </Routes>
 

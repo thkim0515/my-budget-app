@@ -66,21 +66,6 @@ const InputBox = styled.input`
   color: ${({ theme }) => theme.text};
 `;
 
-const Row = styled.div`
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-`;
-
-const Btn = styled.button`
-  flex: 1;
-  padding: 10px;
-  background: #1976d2;
-  color: white;
-  border: none;
-  border-radius: 6px;
-`;
-
 const UnitBtnRow = styled.div`
   display: flex;
   gap: 10px;
@@ -95,6 +80,13 @@ const UnitBtn = styled.button`
   border: none;
   border-radius: 6px;
 `;
+
+const List = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+`;
+
 
 const ListItem = styled.li`
   display: flex;
@@ -117,19 +109,20 @@ const Cell = styled.div`
 `;
 
 const ColTitle = styled(Cell)`
-  flex: 3.5;
+  flex: 5;
   flex-direction: column;
 `;
 
 const ColAmount = styled(Cell)`
-  flex: 1.6;
-  justify-content: flex-start;
+  flex: 2;
+  justify-content: flex-end;   /* 금액 오른쪽 정렬 */
 `;
 
 const ColUnit = styled(Cell)`
-  flex: 0.8;
+  flex: 1;
   justify-content: center;
 `;
+
 
 const DeleteCell = styled(Cell)`
   width: 60px;
@@ -160,8 +153,6 @@ const ClearBtn = styled.button`
   color: ${({ theme }) => theme.text};
   font-size: 18px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
 `;
 
 const SelectBox = styled.select`
@@ -177,11 +168,13 @@ const SelectBox = styled.select`
 // ------------ Detail Page ------------
 export default function DetailPage() {
   const { chapterId } = useParams();
+
   const [records, setRecords] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('식비');
+  const [category, setCategory] = useState('');
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
@@ -191,16 +184,25 @@ export default function DetailPage() {
 
   const { unit } = useCurrencyUnit();
 
-  const { db, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
+  const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
 
-  const CATEGORIES = ["식비", "교통", "통신", "쇼핑", "문화", "금융", "카드", "기타"];
-
-  // DB 로드 완료 시 기록 로드
+  // DB 로드 완료 후 기록 + 카테고리 로드
   useEffect(() => {
     if (db) {
       loadRecords();
+      loadCategories();
     }
   }, [db]);
+
+  const loadCategories = async () => {
+    const rows = await getAll('categories');
+    const list = rows.map(c => c.name);
+    setCategories(list);
+
+    if (!category && list.length > 0) {
+      setCategory(list[0]);
+    }
+  };
 
   const loadRecords = async () => {
     const data = await getAllFromIndex('records', 'chapterId', Number(chapterId));
@@ -208,19 +210,15 @@ export default function DetailPage() {
   };
 
   const handleAmountChange = (e) => {
-    const value = e.target.value;
-    const cleaned = value.replace(/[^0-9.]/g, "");
-    const fixed = cleaned.replace(/(\..*)\./g, "$1");
+    const v = e.target.value.replace(/[^0-9.]/g, "");
+    const fixed = v.replace(/(\..*)\./g, "$1");
     setAmount(fixed);
   };
-
-  const multiplyUnit = () => {};
 
   const applyUnit = (value) => {
     const raw = unformatNumber(amount);
     if (!raw) return;
-    const multiplied = raw * value;
-    setAmount(formatNumber(multiplied));
+    setAmount(formatNumber(raw * value));
   };
 
   // 저장 & 수정
@@ -249,25 +247,19 @@ export default function DetailPage() {
 
     setTitle('');
     setAmount('');
-    setCategory('식비');
+    if (categories.length > 0) setCategory(categories[0]);
     setDate(new Date().toISOString().split("T")[0]);
-
     loadRecords();
   };
 
   const startEdit = (record) => {
     setTitle(record.title);
     setAmount(formatNumber(record.amount));
-    setCategory(record.category || '기타');
-
-    const existingDate =
-      record.date || new Date(record.createdAt).toISOString().split("T")[0];
-    setDate(existingDate);
-
+    setCategory(record.category || (categories[0] || ""));
+    setDate(record.date || new Date(record.createdAt).toISOString().split("T")[0]);
     setIsEditing(true);
     setEditId(record.id);
     setEditType(record.type);
-
     window.scrollTo(0, 0);
   };
 
@@ -276,7 +268,7 @@ export default function DetailPage() {
     setEditId(null);
     setTitle('');
     setAmount('');
-    setCategory('식비');
+    if (categories.length > 0) setCategory(categories[0]);
     setDate(new Date().toISOString().split("T")[0]);
   };
 
@@ -339,7 +331,7 @@ export default function DetailPage() {
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
-          {CATEGORIES.map(cat => (
+          {categories.map(cat => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
         </SelectBox>
@@ -431,9 +423,9 @@ export default function DetailPage() {
         </div>
 
         <h3>수입 목록</h3>
-        <ul>
+        <List>
           {income.map(r => (
-            <ListItem key={r.id}>
+            <ListItem key={r.id} >
               <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
                 <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
                 <span style={{ fontWeight: 'bold' }}>{r.title}</span>
@@ -447,10 +439,10 @@ export default function DetailPage() {
               </DeleteCell>
             </ListItem>
           ))}
-        </ul>
+        </List>
 
         <h3>지출 목록</h3>
-        <ul>
+        <List>
           {expense.map(r => (
             <ListItem key={r.id}>
               <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
@@ -466,7 +458,7 @@ export default function DetailPage() {
               </DeleteCell>
             </ListItem>
           ))}
-        </ul>
+        </List>
 
       </Content>
     </PageWrap>
