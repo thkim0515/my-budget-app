@@ -1,0 +1,6 @@
+{
+  "appId": "com.user.budgetapp",
+  "appName": "가계부",
+  "webDir": "build",
+  "bundledWebRuntime": false
+}

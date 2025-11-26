@@ -9,7 +9,9 @@ const Bar = styled.div`
   bottom: 0;
   left: 0;
   right: 0;
-  height: 70px;
+
+  /* 기존 85px → 100~120px 사이 권장 */
+  height: calc(90px + env(safe-area-inset-bottom));
 
   background: ${({ theme }) => theme.card};
   border-top: 1px solid ${({ theme }) => theme.border};
@@ -18,7 +20,12 @@ const Bar = styled.div`
   justify-content: space-around;
   align-items: center;
   z-index: 10;
+
+  /* iOS 안전영역 완전 대응 */
+  padding-bottom: env(safe-area-inset-bottom);
 `;
+
+
 
 const TabWrapper = styled.div`
   flex: 1;
@@ -28,7 +35,7 @@ const TabWrapper = styled.div`
 
 const ActiveCircle = styled.div`
   position: absolute;
-  top: 50%;
+  top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
 
@@ -41,6 +48,9 @@ const ActiveCircle = styled.div`
 `;
 
 const Tab = styled(Link)`
+  padding-top: 8px;
+  padding-bottom: 8px;
+  min-height: 60px;
   position: relative;
   z-index: 5;
   display: flex;
@@ -49,11 +59,10 @@ const Tab = styled(Link)`
 
   text-decoration: none;
 
-  color: ${({ active, theme }) =>
-    active ? theme.activeText : theme.text};
+  color: ${({ active, theme }) => (active ? theme.activeText : theme.text)};
 
   font-size: 12px;
-  font-weight: ${({ active }) => (active ? 'bold' : 'normal')};
+  font-weight: ${({ active }) => (active ? "bold" : "normal")};
 `;
 
 

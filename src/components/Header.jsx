@@ -3,17 +3,24 @@ import { Link } from 'react-router-dom';
 
 const HeaderWrap = styled.div`
   width: 100%;
-  height: 68px;                    /* 고정 높이 */
-  padding: 0 16px;                 /* 세로 패딩 제거 */
+  height: 68px;
+  padding: max(16px, env(safe-area-inset-top)) 16px 0 16px;
+
   display: flex;
   justify-content: space-between;
   align-items: center;
 
   background: ${({ theme }) => theme.headerBg};
   color: ${({ theme }) => theme.headerText};
+
   border-radius: 0 0 12px 12px;
   box-sizing: border-box;
+
+  /* 추가 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 `;
+
+
 
 
 

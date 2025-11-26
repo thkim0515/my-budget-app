@@ -130,6 +130,26 @@ const Content = styled.div`
     opacity: 0;
   }
 
+  .react-calendar__tile.day-holiday {
+    pointer-events: auto !important; /* ← 클릭 활성화 */
+    opacity: 1 !important; /* ← 혹시 투명하게 렌더링되는 문제 방지 */
+  }
+
+  .not-current-month {
+    opacity: 0.35 !important; /* 투명도 */
+    color: ${({ theme }) => theme.text}55 !important; /* 밝은 색 */
+  }
+  .react-calendar__tile abbr {
+    pointer-events: none !important;
+  }
+
+  .selected-tile {
+    background: ${({ theme }) => theme.activeBg} !important;
+    border: 1px solid ${({ theme }) => theme.activeText};
+  }
+  .selected-tile abbr {
+    color: ${({ theme }) => theme.activeText} !important;
+  }
 `;
 
 const AmountBox = styled.div`
@@ -194,7 +214,6 @@ export default function CalendarStatsPage() {
   const [slide, setSlide] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
 
-
   useEffect(() => {
     if (db) load();
   }, [db]);
@@ -231,34 +250,48 @@ export default function CalendarStatsPage() {
     );
   };
 
-  /* 날짜 스타일 */  
+
+  /* 날짜 스타일 */
+  /* 수정된 날짜 스타일 로직 */
   const tileClassName = ({ date, view }) => {
     if (view !== "month") return "";
 
-    const isHoliday = hd.isHoliday(date);
-    if (isHoliday) return "day-holiday";
+    const classes = [];
 
-    const day = date.getDay();
-    if (day === 0) return "day-sun";
-    if (day === 6) return "day-sat";
+    // 1. 현재 보고 있는 달이 아닌 경우
+    if (date.getMonth() !== selectedMonth.getMonth()) {
+      classes.push("not-current-month");
+    }
 
-    const key1 = formatDateKey(date);
-    const key2 = formatDateKey(selectedDate);
+    // 2. 날짜 색상 로직 (상호 배타적으로 처리)
+    if (hd.isHoliday(date)) {
+      // 공휴일이면 무조건 빨간색 (요일 클래스 추가 안 함)
+      classes.push("day-holiday");
+    } else if (date.getDay() === 0) {
+      // 일요일
+      classes.push("day-sun");
+    } else if (date.getDay() === 6) {
+      // 토요일
+      classes.push("day-sat");
+    } else {
+      // 평일 (공휴일도 아니고 주말도 아닐 때만 적용)
+      classes.push("day-weekday");
+    }
 
-    if (key1 === key2) return "selected-tile";
+    // 3. 선택된 날짜 (가장 마지막에 추가)
+    if (formatDateKey(date) === formatDateKey(selectedDate)) {
+      classes.push("selected-tile");
+    }
 
-    return "day-weekday";
+    return classes.join(" ");
   };
 
   /* 요일표시 */
-  const formatShortWeekday = (_, date) =>
-    ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
+  const formatShortWeekday = (_, date) => ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
 
   /* 선택된 날짜 상세 */
   const selectedKey = selectedDate ? formatDateKey(selectedDate) : null;
-  const selectedList = selectedKey
-    ? filtered.filter((r) => formatDateKey(new Date(r.date || r.createdAt)) === selectedKey)
-    : [];
+  const selectedList = selectedKey ? filtered.filter((r) => formatDateKey(new Date(r.date || r.createdAt)) === selectedKey) : [];
 
   /* 스와이프 */
   const handlers = useSwipeable({
@@ -295,7 +328,6 @@ export default function CalendarStatsPage() {
     trackMouse: true,
   });
 
-
   return (
     <PageWrap>
       <HeaderFix>
@@ -306,11 +338,15 @@ export default function CalendarStatsPage() {
         <SummaryBox>
           <Row>
             <span>총 수입</span>
-            <span>{formatNumber(filtered.filter(r=>r.type==="income").reduce((a,b)=>a+b.amount,0))} {unit}</span>
+            <span>
+              {formatNumber(filtered.filter((r) => r.type === "income").reduce((a, b) => a + b.amount, 0))} {unit}
+            </span>
           </Row>
           <Row>
             <span>총 지출</span>
-            <span>{formatNumber(filtered.filter(r=>r.type==="expense").reduce((a,b)=>a+b.amount,0))} {unit}</span>
+            <span>
+              {formatNumber(filtered.filter((r) => r.type === "expense").reduce((a, b) => a + b.amount, 0))} {unit}
+            </span>
           </Row>
         </SummaryBox>
 
@@ -328,17 +364,14 @@ export default function CalendarStatsPage() {
           />
         </div>
 
-
         {selectedList.length > 0 && (
           <DetailBox>
             <h3>{selectedKey} 상세 내역</h3>
             {selectedList.map((r) => (
-              <Card
-                key={r.id}
-                onClick={() => navigate(`/detail/${selectedKey}/${r.id}`)}
-                style={{ cursor: "pointer" }}
-              >
-                <Title>[{r.type === "income" ? "수입" : "지출"}] {r.title}</Title>
+              <Card key={r.id} onClick={() => navigate(`/detail/${selectedKey}/${r.id}`)} style={{ cursor: "pointer" }}>
+                <Title>
+                  [{r.type === "income" ? "수입" : "지출"}] {r.title}
+                </Title>
                 <Amount type={r.type}>
                   {r.type === "income" ? "+" : "-"}
                   {formatNumber(r.amount)} {unit}
