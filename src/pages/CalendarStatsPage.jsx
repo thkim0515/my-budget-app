@@ -115,6 +115,21 @@ const Content = styled.div`
     color: ${({ theme }) => theme.activeText} !important;
     font-weight: bold !important;
   }
+
+  .calendar-slide {
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+
+  .slide-left {
+    transform: translateX(-50px);
+    opacity: 0;
+  }
+
+  .slide-right {
+    transform: translateX(50px);
+    opacity: 0;
+  }
+
 `;
 
 const AmountBox = styled.div`
@@ -175,6 +190,10 @@ export default function CalendarStatsPage() {
   const [records, setRecords] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const [slide, setSlide] = useState("");
+  const [isAnimating, setIsAnimating] = useState(false);
+
 
   useEffect(() => {
     if (db) load();
@@ -244,17 +263,38 @@ export default function CalendarStatsPage() {
   /* 스와이프 */
   const handlers = useSwipeable({
     onSwipedLeft: () => {
-      const next = new Date(selectedMonth);
-      next.setMonth(selectedMonth.getMonth() + 1);
-      setSelectedMonth(next);
+      if (isAnimating) return;
+      setIsAnimating(true);
+      setSlide("slide-left");
+
+      setTimeout(() => {
+        const next = new Date(selectedMonth);
+        next.setMonth(selectedMonth.getMonth() + 1);
+        setSelectedMonth(next);
+
+        setSlide("");
+        setIsAnimating(false);
+      }, 150);
     },
+
     onSwipedRight: () => {
-      const prev = new Date(selectedMonth);
-      prev.setMonth(selectedMonth.getMonth() - 1);
-      setSelectedMonth(prev);
+      if (isAnimating) return;
+      setIsAnimating(true);
+      setSlide("slide-right");
+
+      setTimeout(() => {
+        const prev = new Date(selectedMonth);
+        prev.setMonth(selectedMonth.getMonth() - 1);
+        setSelectedMonth(prev);
+
+        setSlide("");
+        setIsAnimating(false);
+      }, 150);
     },
+
     trackMouse: true,
   });
+
 
   return (
     <PageWrap>
@@ -274,7 +314,7 @@ export default function CalendarStatsPage() {
           </Row>
         </SummaryBox>
 
-        <div {...handlers}>
+        <div {...handlers} className={`calendar-slide ${slide}`}>
           <Calendar
             key={selectedMonth.toISOString()}
             locale="ko-KR"
@@ -287,6 +327,7 @@ export default function CalendarStatsPage() {
             tileClassName={tileClassName}
           />
         </div>
+
 
         {selectedList.length > 0 && (
           <DetailBox>
