@@ -1,8 +1,8 @@
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { useRef } from 'react';
-import { initDB } from '../db/indexedDB';
 import Header from "../components/Header";
+import { useBudgetDB } from '../hooks/useBudgetDB';
 
 const PageWrap = styled.div`
   max-width: 480px;
@@ -58,23 +58,24 @@ export default function SettingsPage({ setMode, mode }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
+  // DB 훅
+  const { db, getAll, clear } = useBudgetDB();
+
   // 전체 초기화
   const resetAll = async () => {
     const c = window.confirm("정말 초기화 하시겠습니까?");
     if (!c) return;
 
-    const db = await initDB();
-    await db.clear("chapters");
-    await db.clear("records");
+    await clear("chapters");
+    await clear("records");
 
     alert("전체 초기화 완료되었습니다.");
   };
 
-  // 데이터 백업 Export
+  // 데이터 백업 (다운로드)
   const backupData = async () => {
-    const db = await initDB();
-    const chapters = await db.getAll('chapters');
-    const records = await db.getAll('records');
+    const chapters = await getAll('chapters');
+    const records = await getAll('records');
 
     const data = {
       chapters,
@@ -96,7 +97,7 @@ export default function SettingsPage({ setMode, mode }) {
     URL.revokeObjectURL(url);
   };
 
-  // 데이터 복구 Import
+  // 데이터 복구
   const restoreData = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -110,6 +111,7 @@ export default function SettingsPage({ setMode, mode }) {
     }
 
     const reader = new FileReader();
+
     reader.onload = async (event) => {
       try {
         const data = JSON.parse(event.target.result);
@@ -118,26 +120,28 @@ export default function SettingsPage({ setMode, mode }) {
           throw new Error("올바르지 않은 백업 파일입니다.");
         }
 
-        const db = await initDB();
+        if (!db) return;
 
-        await db.clear('chapters');
-        await db.clear('records');
+        await clear('chapters');
+        await clear('records');
 
-        // 복구
+        // 트랜잭션 복구
         const tx = db.transaction(['chapters', 'records'], 'readwrite');
 
+        const chapterStore = tx.objectStore('chapters');
+        const recordStore = tx.objectStore('records');
+
         for (const ch of data.chapters) {
-          tx.objectStore('chapters').put(ch);
+          chapterStore.put(ch);
         }
         for (const rec of data.records) {
-          tx.objectStore('records').put(rec);
+          recordStore.put(rec);
         }
 
         await tx.done;
 
         alert("복구가 완료되었습니다.");
       } catch (err) {
-        console.error(err);
         alert("복구 실패: " + err.message);
       }
     };
@@ -165,7 +169,6 @@ export default function SettingsPage({ setMode, mode }) {
 
         <SectionTitle>데이터 관리</SectionTitle>
 
-
         <Btn onClick={backupData} style={{ background: "#28a745" }}>
           데이터 백업 (다운로드)
         </Btn>
@@ -185,6 +188,7 @@ export default function SettingsPage({ setMode, mode }) {
         <Btn onClick={resetAll} style={{ background: "#d9534f", marginTop: "20px" }}>
           전체 데이터 초기화
         </Btn>
+
       </Content>
     </PageWrap>
   );

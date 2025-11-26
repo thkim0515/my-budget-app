@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { initDB } from '../db/indexedDB';
 import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import Header from "../components/Header";
-
 import CreateChapterModal from "../components/CreateChapterModal";
+import { useBudgetDB } from '../hooks/useBudgetDB';
 
 const PageWrap = styled.div`
   max-width: 480px;
@@ -20,7 +19,6 @@ const HeaderFix = styled.div`
   top: 0;
   left: 0;
   right: 0;
-
   margin: 0 auto;
   width: 100%;
   max-width: 480px;
@@ -89,32 +87,32 @@ export default function MainPage() {
 
   const navigate = useNavigate();
 
+  // 훅 적용
+  const { db, getAll, add, deleteItem } = useBudgetDB();
+
+  // DB 준비되면 로드
   useEffect(() => {
-    loadChapters();
-  }, []);
+    if (db) {
+      loadChapters();
+    }
+  }, [db]);
 
   const loadChapters = async () => {
-    const db = await initDB();
-    const list = await db.getAll('chapters');
-
-    // createdAt 기준 최신순 정렬
+    const list = await getAll('chapters');
     list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
     setChapters(list);
   };
 
   const createNewChapter = async (title) => {
     if (!title || !title.trim()) return;
 
-    const db = await initDB();
-    const id = await db.add("chapters", {
+    const id = await add("chapters", {
       title,
       createdAt: new Date()
     });
 
     loadChapters();
     navigate(`/detail/${id}`);
-
     setOpenModal(false);
   };
 
@@ -122,14 +120,13 @@ export default function MainPage() {
     const confirmDelete = window.confirm("해당 기록을 삭제하시겠습니까?");
     if (!confirmDelete) return;
 
-    const db = await initDB();
-    await db.delete("chapters", chapterId);
+    await deleteItem("chapters", chapterId);
 
-    const allRecords = await db.getAll('records');
+    const allRecords = await getAll('records');
     const toDelete = allRecords.filter(r => r.chapterId === chapterId);
 
     for (let r of toDelete) {
-      await db.delete("records", r.id);
+      await deleteItem("records", r.id);
     }
 
     loadChapters();
@@ -138,7 +135,6 @@ export default function MainPage() {
   return (
     <PageWrap>
 
-      {/* 고정 헤더 */}
       <HeaderFix>
         <Header
           title="가계부"
@@ -150,7 +146,6 @@ export default function MainPage() {
         />
       </HeaderFix>
 
-      {/* 리스트 */}
       <ListWrap>
 
         {chapters.length === 0 && (
@@ -173,7 +168,6 @@ export default function MainPage() {
 
       </ListWrap>
 
-      {/* 모달 */}
       {openModal && (
         <CreateChapterModal
           onClose={() => setOpenModal(false)}

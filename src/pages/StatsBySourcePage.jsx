@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { initDB } from '../db/indexedDB';
 import styled from 'styled-components';
 import Header from "../components/Header";
 import { formatNumber } from '../utils/numberFormat';
 import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
+import { useBudgetDB } from '../hooks/useBudgetDB';
 
 const PageWrap = styled.div`
   max-width: 480px;
@@ -61,17 +61,20 @@ export default function StatsBySourcePage() {
   const [records, setRecords] = useState([]);
   const { unit } = useCurrencyUnit();
 
+  const { db, getAll } = useBudgetDB();
+
   useEffect(() => {
-    load();
-  }, []);
+    if (db) {
+      load();
+    }
+  }, [db]);
 
   const load = async () => {
-    const db = await initDB();
-    const rec = await db.getAll('records');
+    const rec = await getAll('records');
     setRecords(rec);
   };
 
-  // 출처별 지출 집계
+  // 출처별 지출 그룹화
   const grouped = records
     .filter(r => r.type === 'expense')
     .reduce((acc, cur) => {

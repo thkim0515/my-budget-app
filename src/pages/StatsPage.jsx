@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { initDB } from '../db/indexedDB';
 import styled from 'styled-components';
 import Header from "../components/Header";
 import { formatCompact } from '../utils/numberFormat';
 import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
+import { useBudgetDB } from '../hooks/useBudgetDB';
 
 import {
   Chart as ChartJS,
@@ -88,7 +88,6 @@ const Td = styled.td`
   }
 `;
 
-// 월 선택 UI
 const MonthSelector = styled.div`
   display: flex;
   justify-content: space-between;
@@ -114,27 +113,30 @@ export default function StatsPage() {
 
   const { unit } = useCurrencyUnit();
 
-  // 현재 기준 월 (기본값: 오늘)
+  // 현재 월
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // 훅 연결
+  const { db, getAll } = useBudgetDB();
+
   useEffect(() => {
-    loadData();
-  }, []);
+    if (db) {
+      loadData();
+    }
+  }, [db]);
 
   const loadData = async () => {
-    const db = await initDB();
-    setChapters(await db.getAll("chapters"));
-    setRecords(await db.getAll("records"));
+    setChapters(await getAll("chapters"));
+    setRecords(await getAll("records"));
   };
 
-  // ───── 월 이동 함수 ─────
   const moveMonth = (delta) => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + delta);
     setCurrentDate(newDate);
   };
 
-  // ───── 해당 월 데이터 필터링 ─────
+  // 해당 월의 기록
   const filteredRecords = records.filter(r => {
     const rDate = new Date(r.date || r.createdAt);
 
@@ -144,7 +146,7 @@ export default function StatsPage() {
     );
   });
 
-  // ───── 챕터별 집계 ─────
+  // 챕터별 요약
   const getSummaryByChapter = () => {
     return chapters.map(ch => {
       const filtered = filteredRecords.filter(r => r.chapterId === ch.chapterId);
@@ -168,7 +170,7 @@ export default function StatsPage() {
 
   const summaryList = getSummaryByChapter();
 
-  // ───── Bar Chart 데이터 (월별) ─────
+  // BarChart
   const barData = {
     labels: summaryList.map(s => s.title),
     datasets: [
@@ -184,7 +186,9 @@ export default function StatsPage() {
 
   const barOptions = {
     responsive: true,
-    plugins: { legend: { labels: { color: "#aaa" } } },
+    plugins: { 
+      legend: { labels: { color: "#aaa" } } 
+    },
     scales: {
       x: {
         ticks: { color: "#aaa" },
@@ -197,7 +201,7 @@ export default function StatsPage() {
     },
   };
 
-  // ───── Pie Chart (월별) ─────
+  // PieChart
   const getCategoryData = () => {
     const expenseList = filteredRecords.filter(r => r.type === "expense");
 
@@ -208,26 +212,27 @@ export default function StatsPage() {
       categorySum[key] = (categorySum[key] || 0) + r.amount;
     });
 
+    const labels = Object.keys(categorySum);
+    const values = Object.values(categorySum);
+
+    // ● 자동 색상 생성 (카테고리 개수만큼 HSL 색상 생성)
+    const backgroundColors = labels.map((_, index) => {
+      const hue = (index * 360) / labels.length;  
+      return `hsl(${hue}, 65%, 60%)`;            
+    });
+
     return {
-      labels: Object.keys(categorySum),
+      labels,
       datasets: [
         {
           label: "지출 합계",
-          data: Object.values(categorySum),
-          backgroundColor: [
-            "#FF6384",
-            "#36A2EB",
-            "#FFCE56",
-            "#4BC0C0",
-            "#9966FF",
-            "#FF9F40",
-          ],
+          data: values,
+          backgroundColor: backgroundColors,
         }
       ]
     };
   };
 
-  // ────────────────────────────────────────────────────
 
   return (
     <PageWrap>
@@ -238,7 +243,6 @@ export default function StatsPage() {
 
       <Content>
 
-        {/* 월 선택 UI */}
         <MonthSelector>
           <ArrowBtn onClick={() => moveMonth(-1)}>◀</ArrowBtn>
 
@@ -249,13 +253,11 @@ export default function StatsPage() {
           <ArrowBtn onClick={() => moveMonth(1)}>▶</ArrowBtn>
         </MonthSelector>
 
-        {/* Bar Chart */}
         <ChartBox>
           <h3>제목별 잔액 (Bar)</h3>
           <Bar data={barData} options={barOptions} />
         </ChartBox>
 
-        {/* Pie Chart */}
         <ChartBox>
           <h3>카테고리별 지출 (Pie)</h3>
           <div style={{ height: "260px", display: "flex", justifyContent: "center" }}>
@@ -266,7 +268,6 @@ export default function StatsPage() {
           </div>
         </ChartBox>
 
-        {/* 테이블 */}
         <Table>
           <thead>
             <tr>
