@@ -94,6 +94,20 @@ const Content = styled.div`
     font-weight: bold;
   } 
 
+  .react-calendar__month-view__weekdays__weekday:nth-child(2~6) {
+    color: ${({ theme }) => theme.text} !important;
+  }
+
+  /* 평일 날짜(월~금) 숫자 흰색 처리 */
+  .react-calendar__month-view__days__day:nth-child(7n+2) abbr,
+  .react-calendar__month-view__days__day:nth-child(7n+3) abbr,
+  .react-calendar__month-view__days__day:nth-child(7n+4) abbr,
+  .react-calendar__month-view__days__day:nth-child(7n+5) abbr,
+  .react-calendar__month-view__days__day:nth-child(7n+6) abbr {
+    color: ${({ theme }) => theme.text} !important;
+  }
+
+
 
   .selected-tile abbr {
     color: ${({ theme }) => theme.activeText} !important;
