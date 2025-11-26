@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRef } from 'react';
 import Header from "../components/Header";
 import { useBudgetDB } from '../hooks/useBudgetDB';
+import { DEFAULT_CATEGORIES } from "../constants/categories";
 
 const PageWrap = styled.div`
   max-width: 480px;
@@ -54,6 +55,7 @@ export default function SettingsPage({ setMode, mode }) {
 
   const { db, getAll, clear } = useBudgetDB();
 
+  
   const resetAll = async () => {
     const c = window.confirm("정말 초기화 하시겠습니까?");
     if (!c) return;
@@ -61,6 +63,16 @@ export default function SettingsPage({ setMode, mode }) {
     await clear("chapters");
     await clear("records");
     await clear("categories");
+
+    // 기본 카테고리 자동 복원
+    const tx = db.transaction("categories", "readwrite");
+    const store = tx.objectStore("categories");
+
+    DEFAULT_CATEGORIES.forEach(name => {
+      store.add({ name });
+    });
+
+    await tx.done;
 
     alert("전체 초기화 완료되었습니다.");
   };
