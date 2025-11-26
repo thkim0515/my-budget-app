@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import { Link, useLocation } from 'react-router-dom';
 import { AiFillHome, AiOutlineBarChart, AiOutlineSetting } from "react-icons/ai";
-import { MdListAlt } from "react-icons/md"; // 예시 아이콘
+import { MdListAlt, MdCalendarToday } from "react-icons/md"; // ← 캘린더 아이콘 추가
 
 
 const Bar = styled.div`
@@ -35,9 +35,7 @@ const ActiveCircle = styled.div`
   width: 42px;
   height: 42px;
 
-  /* 밝은 파란색 하이라이트 (다크모드에서도 잘 보임) */
   background: rgba(25, 118, 210, 0.25);
-
   border-radius: 50%;
   transition: all 0.25s ease;
 `;
@@ -51,7 +49,6 @@ const Tab = styled(Link)`
 
   text-decoration: none;
 
-  /* 아이콘 색상 */
   color: ${({ active, theme }) =>
     active ? theme.activeText : theme.text};
 
@@ -66,6 +63,7 @@ export default function BottomTabBar() {
 
   return (
     <Bar>
+      {/* 홈 */}
       <TabWrapper>
         {path === "/" && <ActiveCircle />}
         <Tab to="/" active={path === "/"}>
@@ -73,6 +71,7 @@ export default function BottomTabBar() {
         </Tab>
       </TabWrapper>
 
+      {/* 통계 */}
       <TabWrapper>
         {path === "/stats" && <ActiveCircle />}
         <Tab to="/stats" active={path === "/stats"}>
@@ -80,6 +79,15 @@ export default function BottomTabBar() {
         </Tab>
       </TabWrapper>
 
+      {/* 새로 추가된 "캘린더 통계" */}
+      <TabWrapper>
+        {path === "/calendar-stats" && <ActiveCircle />}
+        <Tab to="/calendar-stats" active={path === "/calendar-stats"}>
+          <MdCalendarToday size={26} />
+        </Tab>
+      </TabWrapper>
+
+      {/* 출처 통계 */}
       <TabWrapper>
         {path === "/source-stats" && <ActiveCircle />}
         <Tab to="/source-stats" active={path === "/source-stats"}>
@@ -87,14 +95,13 @@ export default function BottomTabBar() {
         </Tab>
       </TabWrapper>
 
+      {/* 설정 */}
       <TabWrapper>
         {path === "/settings" && <ActiveCircle />}
         <Tab to="/settings" active={path === "/settings"}>
           <AiOutlineSetting size={26} />
         </Tab>
       </TabWrapper>
-
-
 
     </Bar>
   );
