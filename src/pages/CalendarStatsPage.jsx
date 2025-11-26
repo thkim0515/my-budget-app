@@ -217,6 +217,7 @@ export default function CalendarStatsPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [slide, setSlide] = useState("");
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const navigate = useNavigate();
 
@@ -307,21 +308,27 @@ export default function CalendarStatsPage() {
     
   const handlers = useSwipeable({
     onSwipedLeft: () => {
+      if (isAnimating) return;
+      setIsAnimating(true);
       setSlide("slide-left");
       setTimeout(() => {
         const next = new Date(selectedMonth);
         next.setMonth(selectedMonth.getMonth() + 1);
         setSelectedMonth(next);
         setSlide("");
+        setIsAnimating(false);
       }, 250);
     },
     onSwipedRight: () => {
+      if (isAnimating) return;
+      setIsAnimating(true);
       setSlide("slide-right");
       setTimeout(() => {
         const prev = new Date(selectedMonth);
         prev.setMonth(selectedMonth.getMonth() - 1);
         setSelectedMonth(prev);
         setSlide("");
+        setIsAnimating(false);
       }, 250);
     },
     trackMouse: true,
@@ -354,11 +361,17 @@ export default function CalendarStatsPage() {
         {/* 달력 */}
         <div {...handlers} className={`calendar-slide ${slide}`}>
           <Calendar
+            key={selectedMonth.toISOString()}
             locale="ko-KR"
             calendarType="gregory"
             formatShortWeekday={formatShortWeekday}
             onClickDay={(value) => setSelectedDate(value)}
-            onActiveStartDateChange={(v) => setSelectedMonth(v.activeStartDate)}
+            onActiveStartDateChange={(v) => {
+              if (!isAnimating) {
+                setSelectedMonth(v.activeStartDate);
+              }
+            }}
+
             value={selectedMonth}
             tileContent={tileContent}
             tileClassName={tileClassName}
