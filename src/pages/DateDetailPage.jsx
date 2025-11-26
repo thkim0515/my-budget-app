@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import styled from 'styled-components';
 
 import Header from "../components/Header";
@@ -190,6 +190,7 @@ export default function DetailPage() {
 
   const { unit } = useCurrencyUnit();
   const { db, getAll, add, put, deleteItem } = useBudgetDB();
+  const contentRef = useRef(null);
 
   /* DB 로드 후 목록/카테고리 가져오기 */
   useEffect(() => {
@@ -272,16 +273,28 @@ export default function DetailPage() {
 
   /* 수정 시작 */
   const startEdit = (record) => {
-    setDisableUrlHighlight(true);  // ← 중요!
+    setDisableUrlHighlight(true);
+
     setTitle(record.title);
     setAmount(formatNumber(record.amount));
     setCategory(record.category || categories[0] || "");
     setRecordDate(record.date.split("T")[0]);
+
     setIsEditing(true);
     setEditId(record.id);
     setEditType(record.type);
-    window.scrollTo(0, 0);
+
+    // 스크롤 탑 이동 (더 안정적인 방식)
+    setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTo({
+          top: 0,
+          behavior: "smooth"
+        });
+      }
+    }, 0);
   };
+
 
 
   const cancelEdit = () => {
@@ -316,7 +329,8 @@ export default function DetailPage() {
         <Header title={`${date} 상세 보기`} />
       </HeaderFix>
 
-      <Content>
+      <Content ref={contentRef}>
+
 
         <SummaryBox>
           <SummaryRow>
@@ -446,19 +460,18 @@ export default function DetailPage() {
         <List>
           {income.map(r => (
             <ListItem 
-              key={r.id} 
+              key={r.id}
               id={`record-${r.id}`}
-              // as={r.id === Number(id) ? HighlightItem : "li"}
-              // as={r.id === Number(id) || r.id === editId ? HighlightItem : "li"}
+              onClick={() => startEdit(r)}      // ← 중요!
               as={
                 (!disableUrlHighlight && r.id === Number(id)) ||
                 r.id === editId
                   ? HighlightItem
                   : "li"
               }
-
-
+              style={{ cursor: "pointer" }}     // ← 시각적 피드백용
             >
+
               <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
                 <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
                 <span style={{ fontWeight: 'bold' }}>{r.title}</span>
@@ -468,7 +481,15 @@ export default function DetailPage() {
               <ColUnit>{unit}</ColUnit>
 
               <DeleteCell>
-                <DeleteBtn onClick={() => deleteRecord(r.id)}>삭제</DeleteBtn>
+                <DeleteBtn 
+                  onClick={(e) => {
+                    e.stopPropagation(); 
+                    deleteRecord(r.id);
+                  }}
+                >
+                  삭제
+                </DeleteBtn>
+
               </DeleteCell>
             </ListItem>
           ))}
@@ -478,19 +499,18 @@ export default function DetailPage() {
         <List>
           {expense.map(r => (
             <ListItem 
-              key={r.id} 
+              key={r.id}
               id={`record-${r.id}`}
-              // as={r.id === Number(id) ? HighlightItem : "li"}
-              // as={r.id === Number(id) || r.id === editId ? HighlightItem : "li"}
+              onClick={() => startEdit(r)}    
               as={
                 (!disableUrlHighlight && r.id === Number(id)) ||
                 r.id === editId
                   ? HighlightItem
                   : "li"
               }
-
-
+              style={{ cursor: "pointer" }}     // ← 시각적 피드백용
             >
+
               <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
                 <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
                 <span style={{ fontWeight: 'bold' }}>{r.title}</span>
@@ -500,7 +520,14 @@ export default function DetailPage() {
               <ColUnit>{unit}</ColUnit>
 
               <DeleteCell>
-                <DeleteBtn onClick={() => deleteRecord(r.id)}>삭제</DeleteBtn>
+                <DeleteBtn 
+                  onClick={(e) => {
+                    e.stopPropagation(); 
+                    deleteRecord(r.id);
+                  }}
+                >
+                  삭제
+                </DeleteBtn>
               </DeleteCell>
             </ListItem>
           ))}

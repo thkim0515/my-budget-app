@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import styled from 'styled-components';
 
 import Header from "../components/Header";
@@ -192,7 +192,7 @@ export default function DetailPage() {
 
   const { unit } = useCurrencyUnit();
   const { db, getAllFromIndex, getAll, add, put, deleteItem } = useBudgetDB();
-
+  const contentRef = useRef(null);
   /* DB 로드 후 실행 */
   useEffect(() => {
     if (db) {
@@ -273,7 +273,15 @@ export default function DetailPage() {
     setIsEditing(true);
     setEditId(record.id);
     setEditType(record.type);
-    window.scrollTo(0, 0);
+
+    setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTo({
+          top: 0,
+          behavior: "smooth"
+        });
+      }
+    }, 0);
   };
 
   const cancelEdit = () => {
@@ -308,7 +316,7 @@ export default function DetailPage() {
         <Header title="상세 보기" />
       </HeaderFix>
 
-      <Content>
+      <Content ref={contentRef}>
 
         <SummaryBox>
           <SummaryRow>
@@ -437,9 +445,12 @@ export default function DetailPage() {
         <List>
           {income.map(r => (
             <ListItem
-                key={r.id}
-                as={r.id === editId ? HighlightItem : "li"}
-              >
+              key={r.id}
+              as={r.id === editId ? HighlightItem : "li"}
+              onClick={() => startEdit(r)}
+              style={{ cursor: "pointer" }}
+            >
+
 
               <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
                 <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
@@ -450,7 +461,14 @@ export default function DetailPage() {
               <ColUnit>{unit}</ColUnit>
 
               <DeleteCell>
-                <DeleteBtn onClick={() => deleteRecord(r.id)}>삭제</DeleteBtn>
+                <DeleteBtn
+                  onClick={(e) => {
+                    e.stopPropagation();   
+                    deleteRecord(r.id);
+                  }}
+                >
+                  삭제
+                </DeleteBtn>
               </DeleteCell>
             </ListItem>
           ))}
@@ -462,6 +480,8 @@ export default function DetailPage() {
             <ListItem
                 key={r.id}
                 as={r.id === editId ? HighlightItem : "li"}
+                onClick={() => startEdit(r)}
+                style={{ cursor: "pointer" }}
               >
 
               <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
@@ -473,7 +493,14 @@ export default function DetailPage() {
               <ColUnit>{unit}</ColUnit>
 
               <DeleteCell>
-                <DeleteBtn onClick={() => deleteRecord(r.id)}>삭제</DeleteBtn>
+                <DeleteBtn
+                  onClick={(e) => {
+                    e.stopPropagation();  
+                    deleteRecord(r.id);
+                  }}
+                >
+                  삭제
+                </DeleteBtn>
               </DeleteCell>
             </ListItem>
           ))}
