@@ -7,7 +7,7 @@ import { useBudgetDB } from "../hooks/useBudgetDB";
 import { formatNumber } from "../utils/numberFormat";
 import { useCurrencyUnit } from "../hooks/useCurrencyUnit";
 import { useNavigate } from "react-router-dom";
-
+import { formatCompact } from "../utils/numberFormat";
 /* ───────────── Layout ───────────── */
 const PageWrap = styled.div`
   max-width: 480px;
@@ -232,20 +232,21 @@ export default function CalendarStatsPage() {
     const data = dailyTotals[key];
 
     return (
-      <AmountBox>
+        <AmountBox>
         {data?.income > 0 && (
-          <div style={{ color: "#2ecc71" }}>
-            +{formatNumber(data.income)}
-          </div>
+            <div style={{ color: "#2ecc71" }}>
+            +{formatCompact(data.income)}
+            </div>
         )}
+
         {data?.expense > 0 && (
-          <div style={{ color: "#e74c3c" }}>
-            -{formatNumber(data.expense)}
-          </div>
+            <div style={{ color: "#e74c3c" }}>
+            -{formatCompact(data.expense)}
+            </div>
         )}
-      </AmountBox>
+        </AmountBox>
     );
-  };
+    };
 
   const tileClassName = ({ date, view }) => {
     if (view !== "month") return "";
