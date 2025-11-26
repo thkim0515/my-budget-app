@@ -8,6 +8,7 @@ import { formatNumber } from "../utils/numberFormat";
 import { useCurrencyUnit } from "../hooks/useCurrencyUnit";
 import { useNavigate } from "react-router-dom";
 import { formatCompact } from "../utils/numberFormat";
+import { useSwipeable } from "react-swipeable";
 /* ───────────── Layout ───────────── */
 const PageWrap = styled.div`
   max-width: 480px;
@@ -115,6 +116,21 @@ const Content = styled.div`
     // text-shadow: 0 0 3px rgba(0,0,0,0.4);
   }  
 
+  .calendar-slide {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.slide-left {
+  transform: translateX(-50px);
+  opacity: 0;
+}
+
+.slide-right {
+  transform: translateX(50px);
+  opacity: 0;
+}
+
+
 
   @keyframes fadeIn {
     from {
@@ -180,6 +196,8 @@ const Amount = styled.div`
   color: ${({ type }) => (type === "income" ? "#2ecc71" : "#e74c3c")};
 `;
 
+
+
 /* 날짜 Key 통일 함수 */
 const formatDateKey = (d) =>
   d
@@ -198,6 +216,7 @@ export default function CalendarStatsPage() {
   const [records, setRecords] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [slide, setSlide] = useState("");
 
   const navigate = useNavigate();
 
@@ -285,6 +304,29 @@ export default function CalendarStatsPage() {
         (r) => formatDateKey(new Date(r.date || r.createdAt)) === selectedKey
       )
     : [];
+    
+  const handlers = useSwipeable({
+    onSwipedLeft: () => {
+      setSlide("slide-left");
+      setTimeout(() => {
+        const next = new Date(selectedMonth);
+        next.setMonth(selectedMonth.getMonth() + 1);
+        setSelectedMonth(next);
+        setSlide("");
+      }, 250);
+    },
+    onSwipedRight: () => {
+      setSlide("slide-right");
+      setTimeout(() => {
+        const prev = new Date(selectedMonth);
+        prev.setMonth(selectedMonth.getMonth() - 1);
+        setSelectedMonth(prev);
+        setSlide("");
+      }, 250);
+    },
+    trackMouse: true,
+  });
+
 
   return (
     <PageWrap>
@@ -310,16 +352,18 @@ export default function CalendarStatsPage() {
         </SummaryBox>
 
         {/* 달력 */}
-        <Calendar
-          locale="ko-KR"
-          calendarType="gregory"
-          formatShortWeekday={formatShortWeekday}
-          onClickDay={(value) => setSelectedDate(value)}
-          onActiveStartDateChange={(v) => setSelectedMonth(v.activeStartDate)}
-          value={selectedMonth}
-          tileContent={tileContent}
-          tileClassName={tileClassName}
-        />
+        <div {...handlers} className={`calendar-slide ${slide}`}>
+          <Calendar
+            locale="ko-KR"
+            calendarType="gregory"
+            formatShortWeekday={formatShortWeekday}
+            onClickDay={(value) => setSelectedDate(value)}
+            onActiveStartDateChange={(v) => setSelectedMonth(v.activeStartDate)}
+            value={selectedMonth}
+            tileContent={tileContent}
+            tileClassName={tileClassName}
+          />
+        </div>
 
         {/* 상세 내역 */}
         {selectedList.length > 0 && (
