@@ -12,7 +12,7 @@ import CurrencySettingsPage from './pages/CurrencySettingsPage';
 import StatsBySourcePage from './pages/StatsBySourcePage';
 import CategorySettingsPage from './pages/CategorySettingsPage';
 import CalendarStatsPage from './pages/CalendarStatsPage';
-import DateDetailPage from './pages/DateDetailPage';
+// import DateDetailPage from './pages/DateDetailPage';
 
 export default function App() {
   const [mode, setMode] = useState("light");
@@ -30,8 +30,12 @@ export default function App() {
           <Route path="/settings/categories" element={<CategorySettingsPage />} />
           <Route path="/calendar-stats" element={<CalendarStatsPage />} />
           {/* <Route path="/detail/:date/:id" element={<DetailPage />} /> */}
-          <Route path="/detail/:chapterId" element={<DetailPage />} />
-          <Route path="/detail/:date/:id" element={<DateDetailPage />} />
+          {/* <Route path="/detail/:chapterId" element={<DetailPage />} />
+          <Route path="/detail/:date/:id" element={<DateDetailPage />} /> */}
+          <Route path="/detail/chapter/:chapterId" element={<DetailPage />} />
+          <Route path="/detail/date/:date/:id/:chapterId" element={<DetailPage />} />
+
+
 
 
 

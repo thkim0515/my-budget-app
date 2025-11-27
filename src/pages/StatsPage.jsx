@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import { formatCompact } from '../utils/numberFormat';
 import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
 import { useBudgetDB } from '../hooks/useBudgetDB';
+import { useSwipeable } from "react-swipeable";
 
 import {
   Chart as ChartJS,
@@ -235,6 +236,14 @@ export default function StatsPage() {
   };
 
 
+  const handlers = useSwipeable({
+    onSwipedLeft: () => moveMonth(1),   // 다음 달
+    onSwipedRight: () => moveMonth(-1), // 이전 달
+    trackMouse: true
+  });
+
+
+
   return (
     <PageWrap>
 
@@ -242,7 +251,7 @@ export default function StatsPage() {
         <Header title="통계" />
       </HeaderFix>
 
-      <Content>
+      <Content {...handlers}>
 
         <MonthSelector>
           <ArrowBtn onClick={() => moveMonth(-1)}>◀</ArrowBtn>

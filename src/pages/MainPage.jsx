@@ -112,7 +112,9 @@ export default function MainPage() {
     });
 
     loadChapters();
-    navigate(`/detail/${id}`);
+    // navigate(`/detail/${id}`);
+    navigate(`/detail/chapter/${id}`);
+
     setOpenModal(false);
   };
 
@@ -156,7 +158,9 @@ export default function MainPage() {
 
         {chapters.map((c) => (
           <ChapterItem key={c.chapterId}>
-            <ChapterLink to={`/detail/${c.chapterId}`}>
+            {/* <ChapterLink to={`/detail/${c.chapterId}`}> */}
+            <ChapterLink to={`/detail/chapter/${c.chapterId}`}>
+
               {c.title}
             </ChapterLink>
 

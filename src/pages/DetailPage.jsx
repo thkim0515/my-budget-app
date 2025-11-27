@@ -1,11 +1,12 @@
-import { useParams } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
-import styled from 'styled-components';
+/* 통합 DetailPage.jsx */
+import { useParams } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import styled from "styled-components";
 
 import Header from "../components/Header";
-import { formatNumber, unformatNumber } from '../utils/numberFormat';
-import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
-import { useBudgetDB } from '../hooks/useBudgetDB';
+import { formatNumber, unformatNumber } from "../utils/numberFormat";
+import { useCurrencyUnit } from "../hooks/useCurrencyUnit";
+import { useBudgetDB } from "../hooks/useBudgetDB";
 
 /* ---------- Layout ---------- */
 const PageWrap = styled.div`
@@ -35,7 +36,6 @@ const Content = styled.div`
   padding: 16px;
   padding-top: 96px;
   padding-bottom: calc(160px + env(safe-area-inset-bottom));
-
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
@@ -169,64 +169,82 @@ const HighlightItem = styled.li`
   border-left: 4px solid #f1c40f;
 `;
 
-/* ---------- Detail Page ---------- */
+/* ---------- Unified Detail Page ---------- */
 export default function DetailPage() {
+  /* chapter 기반 / 날짜 기반 모두 처리 */
+  const { chapterId, date, id } = useParams();
 
-  /* 메인에서 넘겨주는 chapterId */
-  const { chapterId } = useParams();
+  const isChapterMode = !!chapterId;
+  const isDateMode = !!date;
 
   const [records, setRecords] = useState([]);
   const [categories, setCategories] = useState([]);
 
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
+  const [title, setTitle] = useState("");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("");
 
-  /* 기본 날짜는 오늘 */
+  /* 날짜 초기값: chapter 모드는 오늘, 날짜 모드는 URL의 날짜 */
   const [recordDate, setRecordDate] = useState(
-    new Date().toISOString().split("T")[0]
+    isDateMode
+      ? date
+      : new Date().toISOString().split("T")[0]
   );
 
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editType, setEditType] = useState(null);
+  const [editRecord, setEditRecord] = useState(null);
 
   const { unit } = useCurrencyUnit();
-  const { db, getAllFromIndex, getAll, add, put, deleteItem } = useBudgetDB();
+  const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
   const contentRef = useRef(null);
-  /* DB 로드 후 실행 */
+
+  /* DB 로드 */
   useEffect(() => {
     if (db) {
       loadRecords();
       loadCategories();
     }
-  }, [db]);
+  }, [db, chapterId, date]);
 
-  /* 해당 chapterId의 기록 로드 */
+  /* 데이터 로드 (자동 분기) */
   const loadRecords = async () => {
-    const list = await getAllFromIndex(
-      "records",
-      "chapterId",
-      Number(chapterId)
-    );
+    let list = [];
+
+    if (isChapterMode) {
+      list = await getAllFromIndex(
+        "records",
+        "chapterId",
+        Number(chapterId)
+      );
+    } else if (isDateMode) {
+      const all = await getAll("records");
+      list = all.filter(
+        (r) => (r.date || r.createdAt).split("T")[0] === date
+      );
+    }
+
     setRecords(list);
   };
 
-  /* 카테고리 로드 */
+  /* 카테고리 */
   const loadCategories = async () => {
-    const rows = await getAll('categories');
-    const list = rows.map(c => c.name);
+    const rows = await getAll("categories");
+    const list = rows.map((c) => c.name);
     setCategories(list);
 
     if (!category && list.length > 0) setCategory(list[0]);
   };
 
+  /* 금액 입력 */
   const handleAmountChange = (e) => {
     const v = e.target.value.replace(/[^0-9.]/g, "");
     const fixed = v.replace(/(\..*)\./g, "$1");
     setAmount(fixed);
   };
 
+  /* 단위 버튼 */
   const applyUnit = (value) => {
     const raw = unformatNumber(amount);
     if (!raw) return;
@@ -238,42 +256,49 @@ export default function DetailPage() {
     if (!title || !amount) return;
 
     const recordData = {
+      /* 중요: 날짜 기반 모드에서도 기존 chapterId를 유지 */
+      // chapterId: isChapterMode
+      //   ? Number(chapterId)
+      //   : editRecord?.chapterId || 0,
       chapterId: Number(chapterId),
+
       title,
       amount: unformatNumber(amount),
       type,
       category,
       date: recordDate,
       source: title,
-      createdAt: new Date()
+      createdAt: editRecord?.createdAt || new Date()
     };
 
     if (isEditing && editId) {
-      await put('records', { ...recordData, id: editId });
-      alert("수정되었습니다.");
+      await put("records", { ...recordData, id: editId });
       setIsEditing(false);
       setEditId(null);
+      setEditRecord(null);
     } else {
-      await add('records', recordData);
+      await add("records", recordData);
     }
 
-    setTitle('');
-    setAmount('');
+    setTitle("");
+    setAmount("");
     if (categories.length > 0) setCategory(categories[0]);
-    setRecordDate(new Date().toISOString().split("T")[0]);
 
     loadRecords();
   };
 
-  /* 수정 시작 */
+  /* 수정 */
   const startEdit = (record) => {
+    setEditId(record.id);
+    setEditType(record.type);
+    setEditRecord(record);
+
     setTitle(record.title);
     setAmount(formatNumber(record.amount));
     setCategory(record.category || categories[0] || "");
-    setRecordDate(record.date);
+    setRecordDate((record.date || record.createdAt).split("T")[0]);
+
     setIsEditing(true);
-    setEditId(record.id);
-    setEditType(record.type);
 
     setTimeout(() => {
       if (contentRef.current) {
@@ -285,28 +310,28 @@ export default function DetailPage() {
     }, 0);
   };
 
-  const cancelEdit = () => {
-    setIsEditing(false);
-    setEditId(null);
-    setTitle('');
-    setAmount('');
-    if (categories.length > 0) setCategory(categories[0]);
-    setRecordDate(new Date().toISOString().split("T")[0]);
-  };
+  /* 자동 스크롤 (날짜 모드에서만) */
+  useEffect(() => {
+    if (!isDateMode) return;
+    if (records.length === 0) return;
 
-  const deleteRecord = async (id) => {
+    const target = document.getElementById(`record-${id}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [records]);
+
+  /* 삭제 */
+  const deleteRecord = async (rid) => {
     const ok = window.confirm("정말 삭제하시겠습니까?");
     if (!ok) return;
-
-    await deleteItem('records', id);
-
-    if (isEditing && editId === id) cancelEdit();
+    await deleteItem("records", rid);
     loadRecords();
   };
 
-  const income = records.filter(r => r.type === 'income');
-  const expense = records.filter(r => r.type === 'expense');
-
+  /* 집계 */
+  const income = records.filter((r) => r.type === "income");
+  const expense = records.filter((r) => r.type === "expense");
   const incomeSum = income.reduce((a, b) => a + b.amount, 0);
   const expenseSum = expense.reduce((a, b) => a + b.amount, 0);
   const balance = incomeSum - expenseSum;
@@ -314,29 +339,32 @@ export default function DetailPage() {
   return (
     <PageWrap>
       <HeaderFix>
-        <Header title="상세 보기" />
+        <Header
+          title={
+            isChapterMode
+              ? "상세 보기"
+              : `${date} 상세 보기`
+          }
+        />
       </HeaderFix>
 
       <Content ref={contentRef}>
-
         <SummaryBox>
           <SummaryRow>
             <span>총 수입</span>
             <span>{formatNumber(incomeSum)} {unit}</span>
           </SummaryRow>
-
           <SummaryRow>
             <span>총 지출</span>
             <span>{formatNumber(expenseSum)} {unit}</span>
           </SummaryRow>
-
-          <SummaryRow style={{ fontWeight: 'bold' }}>
+          <SummaryRow style={{ fontWeight: "bold" }}>
             <span>잔액</span>
             <span>{formatNumber(balance)} {unit}</span>
           </SummaryRow>
         </SummaryBox>
 
-        <h2 style={{ margin: '20px 0' }}>
+        <h2 style={{ margin: "20px 0" }}>
           {isEditing ? "내역 수정" : "입력"}
         </h2>
 
@@ -346,19 +374,21 @@ export default function DetailPage() {
           onChange={(e) => setRecordDate(e.target.value)}
         />
 
-        <SelectBox 
+        <SelectBox
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </SelectBox>
 
         <InputBox
           placeholder="항목명"
           value={title}
-          onChange={e => setTitle(e.target.value)}
+          onChange={(e) => setTitle(e.target.value)}
         />
 
         <AmountInputWrap>
@@ -369,7 +399,7 @@ export default function DetailPage() {
             style={{ paddingRight: "40px" }}
           />
           {unformatNumber(amount) > 0 && (
-            <ClearBtn onClick={() => setAmount('')}>×</ClearBtn>
+            <ClearBtn onClick={() => setAmount("")}>×</ClearBtn>
           )}
         </AmountInputWrap>
 
@@ -379,31 +409,38 @@ export default function DetailPage() {
           <UnitBtn onClick={() => applyUnit(1000000)}>백만</UnitBtn>
         </UnitBtnRow>
 
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            marginBottom: "20px"
+          }}
+        >
           {isEditing ? (
             <>
-              <button 
+              <button
                 onClick={() => saveRecord(editType)}
                 style={{
                   flex: 1,
-                  padding: '12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#28a745',
-                  color: 'white'
+                  padding: "12px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: "#28a745",
+                  color: "white"
                 }}
               >
                 수정 완료
               </button>
-              <button 
-                onClick={cancelEdit}
+
+              <button
+                onClick={() => setIsEditing(false)}
                 style={{
                   flex: 0.5,
-                  padding: '12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#6c757d',
-                  color: 'white'
+                  padding: "12px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: "#6c757d",
+                  color: "white"
                 }}
               >
                 취소
@@ -411,28 +448,28 @@ export default function DetailPage() {
             </>
           ) : (
             <>
-              <button 
-                onClick={() => saveRecord('income')} 
+              <button
+                onClick={() => saveRecord("income")}
                 style={{
                   flex: 1,
-                  padding: '12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#1976d2',
-                  color: 'white'
+                  padding: "12px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: "#1976d2",
+                  color: "white"
                 }}
               >
                 수입
               </button>
-              <button 
-                onClick={() => saveRecord('expense')} 
+              <button
+                onClick={() => saveRecord("expense")}
                 style={{
                   flex: 1,
-                  padding: '12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#d9534f',
-                  color: 'white'
+                  padding: "12px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: "#d9534f",
+                  color: "white"
                 }}
               >
                 지출
@@ -441,30 +478,46 @@ export default function DetailPage() {
           )}
         </div>
 
-        {/* 목록 */}
+        {/* 수입 목록 */}
         <h3>수입 목록</h3>
         <List>
-          {income.map(r => (
+          {income.map((r) => (
             <ListItem
               key={r.id}
-              as={r.id === editId ? HighlightItem : "li"}
+              id={`record-${r.id}`}
               onClick={() => startEdit(r)}
-              style={{ cursor: "pointer" }}
+              as={
+                isDateMode && Number(id) === r.id
+                  ? HighlightItem
+                  : r.id === editId
+                    ? HighlightItem
+                    : "li"
+              }
             >
-
-
-              <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
-                <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
-                <span style={{ fontWeight: 'bold' }}>{r.title}</span>
+              <ColTitle>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: "#888"
+                  }}
+                >
+                  {r.category}
+                </span>
+                <span
+                  style={{
+                    fontWeight: "bold"
+                  }}
+                >
+                  {r.title}
+                </span>
               </ColTitle>
-
               <ColAmount>{formatNumber(r.amount)}</ColAmount>
               <ColUnit>{unit}</ColUnit>
 
               <DeleteCell>
                 <DeleteBtn
                   onClick={(e) => {
-                    e.stopPropagation();   
+                    e.stopPropagation();
                     deleteRecord(r.id);
                   }}
                 >
@@ -475,28 +528,46 @@ export default function DetailPage() {
           ))}
         </List>
 
+        {/* 지출 목록 */}
         <h3>지출 목록</h3>
         <List>
-          {expense.map(r => (
+          {expense.map((r) => (
             <ListItem
-                key={r.id}
-                as={r.id === editId ? HighlightItem : "li"}
-                onClick={() => startEdit(r)}
-                style={{ cursor: "pointer" }}
-              >
-
-              <ColTitle onClick={() => startEdit(r)} style={{ cursor: 'pointer' }}>
-                <span style={{ fontSize: '12px', color: '#888' }}>{r.category}</span>
-                <span style={{ fontWeight: 'bold' }}>{r.title}</span>
+              key={r.id}
+              id={`record-${r.id}`}
+              onClick={() => startEdit(r)}
+              as={
+                isDateMode && Number(id) === r.id
+                  ? HighlightItem
+                  : r.id === editId
+                    ? HighlightItem
+                    : "li"
+              }
+            >
+              <ColTitle>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: "#888"
+                  }}
+                >
+                  {r.category}
+                </span>
+                <span
+                  style={{
+                    fontWeight: "bold"
+                  }}
+                >
+                  {r.title}
+                </span>
               </ColTitle>
-
               <ColAmount>{formatNumber(r.amount)}</ColAmount>
               <ColUnit>{unit}</ColUnit>
 
               <DeleteCell>
                 <DeleteBtn
                   onClick={(e) => {
-                    e.stopPropagation();  
+                    e.stopPropagation();
                     deleteRecord(r.id);
                   }}
                 >
@@ -506,8 +577,8 @@ export default function DetailPage() {
             </ListItem>
           ))}
         </List>
-
       </Content>
     </PageWrap>
   );
 }
+

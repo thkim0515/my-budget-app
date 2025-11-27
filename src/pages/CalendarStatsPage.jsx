@@ -369,7 +369,7 @@ export default function CalendarStatsPage() {
           <DetailBox>
             <h3>{selectedKey} 상세 내역</h3>
             {selectedList.map((r) => (
-              <Card key={r.id} onClick={() => navigate(`/detail/${selectedKey}/${r.id}`)} style={{ cursor: "pointer" }}>
+              <Card key={r.id} onClick={() => navigate(`/detail/date/${selectedKey}/${r.id}/${r.chapterId}`)} style={{ cursor: "pointer" }}>
                 <Title>
                   [{r.type === "income" ? "수입" : "지출"}] {r.title}
                 </Title>
