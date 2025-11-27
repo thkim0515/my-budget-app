@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import Header from "../components/Header";
 import { useBudgetDB } from '../hooks/useBudgetDB';
 import { DEFAULT_CATEGORIES } from "../constants/categories";
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 const PageWrap = styled.div`
   max-width: 480px;
@@ -78,6 +79,7 @@ export default function SettingsPage({ setMode, mode }) {
     alert("전체 초기화 완료되었습니다.");
   };
 
+
   const backupData = async () => {
     const chapters = await getAll('chapters');
     const records = await getAll('records');
@@ -90,23 +92,23 @@ export default function SettingsPage({ setMode, mode }) {
       exportedAt: new Date().toISOString()
     };
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json"
+    await Filesystem.writeFile({
+      path: `budget_backup_${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify(data, null, 2),
+      directory: Directory.Downloads,
+      encoding: Encoding.UTF8
     });
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `budget_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    alert("다운로드 폴더에 백업 파일이 저장되었습니다.");
   };
 
   const restoreData = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const ok = window.confirm("현재 데이터가 모두 삭제되고 백업 파일로 덮어씌워집니다. 진행하시겠습니까?");
+    const ok = window.confirm(
+      "현재 데이터가 모두 삭제되고 백업 파일로 덮어씌워집니다. 진행하시겠습니까?"
+    );
     if (!ok) {
       e.target.value = '';
       return;
@@ -114,7 +116,20 @@ export default function SettingsPage({ setMode, mode }) {
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const data = JSON.parse(event.target.result);
+      let data;
+
+      try {
+        data = JSON.parse(event.target.result);
+      } catch (err) {
+        alert("백업 파일을 읽는 중 문제가 발생했습니다.");
+        return;
+      }
+
+      // JSON 형식 검증
+      if (!data.chapters || !data.records || !data.categories) {
+        alert("잘못된 백업 파일입니다.");
+        return;
+      }
 
       await clear('chapters');
       await clear('records');
@@ -136,6 +151,7 @@ export default function SettingsPage({ setMode, mode }) {
 
     reader.readAsText(file);
   };
+
 
   return (
     <PageWrap>
