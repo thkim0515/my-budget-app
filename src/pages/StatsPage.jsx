@@ -52,7 +52,22 @@ const Content = styled.div`
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
+
+  .slide-box {
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+
+  .slide-left {
+    transform: translateX(-50px);
+    opacity: 0;
+  }
+
+  .slide-right {
+    transform: translateX(50px);
+    opacity: 0;
+  }
 `;
+
 
 const ChartBox = styled.div`
   margin-top: 20px;
@@ -114,6 +129,8 @@ export default function StatsPage() {
   const [records, setRecords] = useState([]);
 
   const { unit } = useCurrencyUnit();
+  const [slide, setSlide] = useState("");
+  const [isAnimating, setIsAnimating] = useState(false);
 
   // 현재 월
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -133,10 +150,22 @@ export default function StatsPage() {
   };
 
   const moveMonth = (delta) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() + delta);
-    setCurrentDate(newDate);
+    if (isAnimating) return;
+    setIsAnimating(true);
+
+    // 방향 판단
+    setSlide(delta > 0 ? "slide-left" : "slide-right");
+
+    setTimeout(() => {
+      const newDate = new Date(currentDate);
+      newDate.setMonth(currentDate.getMonth() + delta);
+      setCurrentDate(newDate);
+
+      setSlide(""); 
+      setIsAnimating(false);
+    }, 150);
   };
+
 
   // 해당 월의 기록
   const filteredRecords = records.filter(r => {
@@ -237,8 +266,8 @@ export default function StatsPage() {
 
 
   const handlers = useSwipeable({
-    onSwipedLeft: () => moveMonth(1),   // 다음 달
-    onSwipedRight: () => moveMonth(-1), // 이전 달
+    onSwipedLeft: () => moveMonth(1),
+    onSwipedRight: () => moveMonth(-1),
     trackMouse: true
   });
 
@@ -252,6 +281,8 @@ export default function StatsPage() {
       </HeaderFix>
 
       <Content {...handlers}>
+        <div className={`slide-box ${slide}`}>
+
 
         <MonthSelector>
           <ArrowBtn onClick={() => moveMonth(-1)}>◀</ArrowBtn>
@@ -298,7 +329,7 @@ export default function StatsPage() {
             ))}
           </tbody>
         </Table>
-
+        </div>
       </Content>
     </PageWrap>
   );
