@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom';
 
 const HeaderWrap = styled.div`
   width: 100%;
-  height: 68px;
-  padding: max(16px, env(safe-area-inset-top)) 16px 0 16px;
+  height: auto;
+
+  padding-top: calc(env(safe-area-inset-top) + 12px);
+  padding-bottom: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
 
   display: flex;
   justify-content: space-between;
@@ -16,27 +20,33 @@ const HeaderWrap = styled.div`
   border-radius: 0 0 12px 12px;
   box-sizing: border-box;
 
-  /* 추가 */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+
+  min-height: 88px;
 `;
+
 
 
 
 
 
 const Title = styled.h1`
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 600;
   margin: 0;
-  white-space: nowrap;        /* 줄바꿈 금지 */
+  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;    /* 너무 길면 … 처리 */
+  text-overflow: ellipsis;
 `;
 
+
 const RightArea = styled.div`
-  min-width: 100px;          /* 버튼 공간 확보 */
+  min-width: 80px;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
 `;
+
 
 const Btn = styled.button`
   background: #fff;
