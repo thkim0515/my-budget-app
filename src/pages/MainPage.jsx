@@ -30,7 +30,7 @@ const ListWrap = styled.div`
   overflow-y: auto;
   margin-top: 80px;
   padding: 0 16px;
-  padding-bottom: 100px;
+  padding-bottom: calc(160px + env(safe-area-inset-bottom));
 `;
 
 const CreateBtn = styled.button`

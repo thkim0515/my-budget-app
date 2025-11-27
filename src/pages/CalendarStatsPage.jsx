@@ -36,7 +36,8 @@ const Content = styled.div`
   flex: 1;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: 140px;
+  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+
   overflow-y: auto;
   color: ${({ theme }) => theme.text};
 

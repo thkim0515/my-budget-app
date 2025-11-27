@@ -46,7 +46,8 @@ const Content = styled.div`
   overflow-y: auto;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: 100px;
+  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
