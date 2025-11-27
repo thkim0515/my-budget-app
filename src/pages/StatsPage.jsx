@@ -168,14 +168,14 @@ export default function StatsPage() {
 
 
   // 해당 월의 기록
-  const filteredRecords = records.filter(r => {
-    const rDate = new Date(r.date || r.createdAt);
+  const filteredRecords = records.filter((r) => {
+    if (!r.date) return false;
 
-    return (
-      rDate.getFullYear() === currentDate.getFullYear() &&
-      rDate.getMonth() === currentDate.getMonth()
-    );
+    const rDate = new Date(r.date);
+
+    return rDate.getFullYear() === currentDate.getFullYear() && rDate.getMonth() === currentDate.getMonth();
   });
+
 
   // 챕터별 요약
   const getSummaryByChapter = () => {

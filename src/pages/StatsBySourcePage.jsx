@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import { useEffect, useState, useRef } from "react";
+import styled from "styled-components";
 import Header from "../components/Header";
-import { formatNumber } from '../utils/numberFormat';
-import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
-import { useBudgetDB } from '../hooks/useBudgetDB';
+import { formatNumber } from "../utils/numberFormat";
+import { useCurrencyUnit } from "../hooks/useCurrencyUnit";
+import { useBudgetDB } from "../hooks/useBudgetDB";
 
 const PageWrap = styled.div`
   max-width: 480px;
@@ -29,9 +29,8 @@ const Content = styled.div`
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-top: 96px; 
+  padding-top: 96px;
   padding-bottom: calc(160px + env(safe-area-inset-bottom));
-
 `;
 
 const Table = styled.table`
@@ -50,6 +49,7 @@ const Th = styled.th`
   color: ${({ theme }) => theme.headerText};
   text-align: center;
   border-bottom: 1px solid ${({ theme }) => theme.border};
+  cursor: pointer;
 `;
 
 const Td = styled.td`
@@ -60,8 +60,12 @@ const Td = styled.td`
 
 export default function StatsBySourcePage() {
   const [records, setRecords] = useState([]);
-  const { unit } = useCurrencyUnit();
+  const [, forceUpdate] = useState(0);
 
+  const sortMode = useRef(0);
+  // 0 = 원본, 1 = 내림차순, 2 = 오름차순
+
+  const { unit } = useCurrencyUnit();
   const { db, getAll } = useBudgetDB();
 
   useEffect(() => {
@@ -71,23 +75,35 @@ export default function StatsBySourcePage() {
   }, [db]);
 
   const load = async () => {
-    const rec = await getAll('records');
+    const rec = await getAll("records");
     setRecords(rec);
   };
 
-  // 출처별 지출 그룹화
   const grouped = records
-    .filter(r => r.type === 'expense')
+    .filter((r) => r.type === "expense")
     .reduce((acc, cur) => {
-      const key = cur.source || '출처 없음';
+      const key = cur.source || "출처 없음";
       acc[key] = (acc[key] || 0) + cur.amount;
       return acc;
     }, {});
 
-  const summary = Object.entries(grouped).map(([source, total]) => ({
+  let summary = Object.entries(grouped).map(([source, total]) => ({
     source,
-    total
+    total,
   }));
+
+  if (sortMode.current === 1) {
+    summary.sort((a, b) => b.total - a.total);
+  } else if (sortMode.current === 2) {
+    summary.sort((a, b) => a.total - b.total);
+  }
+
+  const onSortClick = () => {
+    sortMode.current = (sortMode.current + 1) % 3;
+    forceUpdate((n) => n + 1);
+  };
+
+  const sortIcon = sortMode.current === 0 ? "⇅" : sortMode.current === 1 ? "▼" : "▲";
 
   return (
     <PageWrap>
@@ -100,7 +116,7 @@ export default function StatsBySourcePage() {
           <thead>
             <tr>
               <Th>출처</Th>
-              <Th>총 지출</Th>
+              <Th onClick={onSortClick}>총 지출 {sortIcon}</Th>
             </tr>
           </thead>
 
@@ -108,7 +124,9 @@ export default function StatsBySourcePage() {
             {summary.map((item, idx) => (
               <tr key={idx}>
                 <Td>{item.source}</Td>
-                <Td>{formatNumber(item.total)} {unit}</Td>
+                <Td>
+                  {formatNumber(item.total)} {unit}
+                </Td>
               </tr>
             ))}
           </tbody>

@@ -28,10 +28,11 @@ const HeaderFix = styled.div`
 const ListWrap = styled.div`
   flex: 1;
   overflow-y: auto;
-  margin-top: 80px;
+  margin-top: 100px; // 기존 80px → 100px 등으로 수정
   padding: 0 16px;
   padding-bottom: calc(160px + env(safe-area-inset-bottom));
 `;
+
 
 const CreateBtn = styled.button`
   background: #1976d2;
@@ -45,19 +46,29 @@ const ChapterItem = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-
-  padding: 14px;
+  padding: 20px 16px;
   background: ${({ theme }) => theme.card};
   border-radius: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   border: 1px solid ${({ theme }) => theme.border};
+  transition: background 0.15s, transform 0.15s;
+
+  &:active {
+    background: rgba(0, 0, 0, 0.12);
+    transform: scale(0.98);
+  }
+
+  cursor: pointer;
 `;
 
-const ChapterLink = styled(Link)`
+
+const ChapterLink = styled.span`
   flex: 1;
   text-decoration: none;
   color: ${({ theme }) => theme.text};
 `;
+
+
 
 const DeleteBtn = styled.button`
   background: #d9534f;
@@ -136,20 +147,11 @@ export default function MainPage() {
 
   return (
     <PageWrap>
-
       <HeaderFix>
-        <Header
-          title="가계부"
-          rightButton={
-            <CreateBtn onClick={() => setOpenModal(true)}>
-              새로 만들기
-            </CreateBtn>
-          }
-        />
+        <Header title="가계부" rightButton={<CreateBtn onClick={() => setOpenModal(true)}>새로 만들기</CreateBtn>} />
       </HeaderFix>
 
       <ListWrap>
-
         {chapters.length === 0 && (
           <EmptyWrap>
             <EmptyMessage>새로운 가계부를 작성해 보세요!</EmptyMessage>
@@ -157,28 +159,22 @@ export default function MainPage() {
         )}
 
         {chapters.map((c) => (
-          <ChapterItem key={c.chapterId}>
-            {/* <ChapterLink to={`/detail/${c.chapterId}`}> */}
-            <ChapterLink to={`/detail/chapter/${c.chapterId}`}>
+          <ChapterItem key={c.chapterId} onClick={() => navigate(`/detail/chapter/${c.chapterId}`)}>
+            <ChapterLink>{c.title}</ChapterLink>
 
-              {c.title}
-            </ChapterLink>
-
-            <DeleteBtn onClick={() => deleteChapter(c.chapterId)}>
+            <DeleteBtn
+              onClick={(e) => {
+                e.stopPropagation(); // 삭제 버튼 눌러도 카드 클릭 무시
+                deleteChapter(c.chapterId);
+              }}
+            >
               삭제
             </DeleteBtn>
           </ChapterItem>
         ))}
-
       </ListWrap>
 
-      {openModal && (
-        <CreateChapterModal
-          onClose={() => setOpenModal(false)}
-          onSubmit={createNewChapter}
-        />
-      )}
-
+      {openModal && <CreateChapterModal onClose={() => setOpenModal(false)} onSubmit={createNewChapter} />}
     </PageWrap>
   );
 }

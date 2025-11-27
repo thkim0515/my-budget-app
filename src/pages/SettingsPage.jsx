@@ -4,7 +4,9 @@ import { useRef } from 'react';
 import Header from "../components/Header";
 import { useBudgetDB } from '../hooks/useBudgetDB';
 import { DEFAULT_CATEGORIES } from "../constants/categories";
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { PermissionsAndroid } from "@capacitor/core";
+
 
 const PageWrap = styled.div`
   max-width: 480px;
@@ -57,6 +59,11 @@ export default function SettingsPage({ setMode, mode }) {
 
   const { db, getAll, clear } = useBudgetDB();
 
+  const requestPermission = async () => {
+    const perm = await Filesystem.requestPermissions();
+    return perm.publicStorage === "granted";
+  };
+
   
   const resetAll = async () => {
     const c = window.confirm("정말 초기화 하시겠습니까?");
@@ -81,26 +88,33 @@ export default function SettingsPage({ setMode, mode }) {
 
 
   const backupData = async () => {
-    const chapters = await getAll('chapters');
-    const records = await getAll('records');
-    const categories = await getAll('categories');
+    const granted = await requestPermission();
+    if (!granted) {
+      alert("파일 저장 권한이 필요합니다.");
+      return;
+    }
+
+    const chapters = await getAll("chapters");
+    const records = await getAll("records");
+    const categories = await getAll("categories");
 
     const data = {
       chapters,
       records,
       categories,
-      exportedAt: new Date().toISOString()
+      exportedAt: new Date().toISOString(),
     };
 
     await Filesystem.writeFile({
       path: `budget_backup_${new Date().toISOString().slice(0, 10)}.json`,
       data: JSON.stringify(data, null, 2),
-      directory: Directory.Downloads,
-      encoding: Encoding.UTF8
+      directory: Directory.Documents, // Downloads 대신 Documents 사용 권장
+      encoding: Encoding.UTF8,
     });
 
-    alert("다운로드 폴더에 백업 파일이 저장되었습니다.");
+    alert("백업 파일이 저장되었습니다. 파일 관리 앱에서 확인할 수 있습니다.");
   };
+
 
   const restoreData = async (e) => {
     const file = e.target.files[0];
