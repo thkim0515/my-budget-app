@@ -2,6 +2,8 @@ import { Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { lightTheme, darkTheme } from './theme';
 import { useState } from 'react';
+import { App as CapacitorApp } from "@capacitor/app";
+import { useEffect } from "react";
 
 import MainPage from './pages/MainPage';
 import DetailPage from './pages/DetailPage';
@@ -16,6 +18,20 @@ import CalendarStatsPage from './pages/CalendarStatsPage';
 
 export default function App() {
   const [mode, setMode] = useState("light");
+
+  useEffect(() => {
+    const handler = CapacitorApp.addListener("backButton", ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        // 뒤로 갈 페이지 없으면 앱 종료 방지
+        // 종료 원하면 아래 사용
+        // CapacitorApp.exitApp();
+      }
+    });
+
+    return () => handler.remove();
+  }, []);
 
   return (
     <ThemeProvider theme={mode === "light" ? lightTheme : darkTheme}>
