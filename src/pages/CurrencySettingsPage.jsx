@@ -1,9 +1,10 @@
-import styled from 'styled-components';
-import { useCurrencyUnit } from '../hooks/useCurrencyUnit';
-import { useNavigate } from 'react-router-dom';
+// 스타일 컴포넌트와 훅 불러오기
+import styled from "styled-components";
+import { useCurrencyUnit } from "../hooks/useCurrencyUnit";
+import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 
-/* ────────────────────────────── 레이아웃 기본 구조 ────────────────────────────── */
+// 페이지 전체 레이아웃 컨테이너
 const PageWrap = styled.div`
   max-width: 480px;
   margin: 0 auto;
@@ -13,6 +14,7 @@ const PageWrap = styled.div`
   color: ${({ theme }) => theme.text};
 `;
 
+// 상단 헤더 고정 영역
 const HeaderFix = styled.div`
   position: fixed;
   top: 0;
@@ -23,28 +25,27 @@ const HeaderFix = styled.div`
   z-index: 20;
 `;
 
+// 본문 스크롤 영역
 const Content = styled.div`
   flex: 1;
   padding: 16px;
   padding-top: 96px;
   padding-bottom: calc(160px + env(safe-area-inset-bottom));
-
   overflow-y: auto;
 `;
 
-/* ────────────────────────────── UI 요소 ────────────────────────────── */
-
+// 통화 단위 선택 드롭다운
 const SelectBox = styled.select`
   width: 100%;
   padding: 12px;
   margin-bottom: 20px;
-
   border-radius: 6px;
   border: 1px solid ${({ theme }) => theme.border};
   background: ${({ theme }) => theme.card};
   color: ${({ theme }) => theme.text};
 `;
 
+// 뒤로가기 버튼 스타일
 const BackBtn = styled.button`
   width: 100%;
   padding: 12px;
@@ -54,17 +55,18 @@ const BackBtn = styled.button`
   border-radius: 6px;
 `;
 
+// 금액 기호 설정 페이지 컴포넌트
 export default function CurrencySettingsPage() {
-  const navigate = useNavigate();
-  const { unit, setUnit } = useCurrencyUnit();
+  const navigate = useNavigate(); // 페이지 이동 훅
+  const { unit, setUnit } = useCurrencyUnit(); // 통화 단위 상태
 
+  // 단위 변경 이벤트 처리
   const changeUnit = (e) => {
     setUnit(e.target.value);
   };
 
   return (
     <PageWrap>
-
       <HeaderFix>
         <Header title="금액 기호 설정" />
       </HeaderFix>
@@ -82,7 +84,6 @@ export default function CurrencySettingsPage() {
 
         {/* <BackBtn onClick={() => navigate(-1)}>뒤로가기</BackBtn> */}
       </Content>
-
     </PageWrap>
   );
 }
