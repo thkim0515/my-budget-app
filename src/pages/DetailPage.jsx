@@ -94,15 +94,17 @@ const List = styled.ul`
   margin: 0;
 `;
 
-/* 리스트 아이템 컨테이너 */
+/* 리스트 아이템 컨테이너 - 수정됨: isPaid 상태에 따라 배경색 변경 */
 const ListItem = styled.li`
   display: flex;
-  background: ${({ theme }) => theme.card};
+  /* 납부 완료(isPaid) 상태면 회색, 아니면 테마 카드색 */
+  background: ${({ theme, $isPaid }) => ($isPaid ? "#e0e0e0" : theme.card)};
   padding: 0;
   border-radius: 10px;
   margin-bottom: 10px;
   overflow: hidden;
   border: 1px solid ${({ theme }) => theme.border};
+  transition: background-color 0.2s ease;
 `;
 
 /* 셀 스타일 */
@@ -286,6 +288,8 @@ export default function DetailPage() {
       category,
       date: recordDate,
       source: title,
+      // 수정 시 기존의 납부 여부(isPaid)와 생성일자를 유지
+      isPaid: editRecord?.isPaid || false,
       createdAt: editRecord?.createdAt || new Date(),
     };
 
@@ -313,6 +317,33 @@ export default function DetailPage() {
       setChapter(updatedChapter);
     }
 
+    setTitle("");
+    setAmount("");
+    if (categories.length > 0) setCategory(categories[0]);
+
+    loadRecords();
+  };
+
+  /* 납부 완료/취소 토글 기능 (수정됨) */
+  const togglePaymentStatus = async () => {
+    if (!isEditing || !editId || !editRecord) return;
+
+    // 현재 상태의 반대값으로 설정 (토글)
+    const newStatus = !editRecord.isPaid;
+
+    const updatedRecord = {
+      ...editRecord,
+      isPaid: newStatus,
+    };
+
+    await put("records", updatedRecord);
+
+    // 수정 모드 종료 및 초기화
+    setIsEditing(false);
+    setEditId(null);
+    setEditRecord(null);
+    
+    // 입력 필드 초기화
     setTitle("");
     setAmount("");
     if (categories.length > 0) setCategory(categories[0]);
@@ -453,6 +484,23 @@ export default function DetailPage() {
                 수정 완료
               </button>
 
+              {/* 납부 완료/취소 버튼 */}
+              <button
+                onClick={togglePaymentStatus}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  borderRadius: "6px",
+                  border: "none",
+                  // 납부 완료 상태(true)면 취소색(오렌지/노랑), 아니면 완료색(청록)
+                  background: editRecord?.isPaid ? "#e67e22" : "#17a2b8", 
+                  color: "white",
+                }}
+              >
+                {/* 텍스트 조건부 렌더링 */}
+                {editRecord?.isPaid ? "납부 취소" : "납부 완료"}
+              </button>
+
               <button
                 onClick={() => setIsEditing(false)}
                 style={{
@@ -503,7 +551,14 @@ export default function DetailPage() {
         <h3>수입 목록</h3>
         <List>
           {income.map((r) => (
-            <ListItem key={r.id} id={`record-${r.id}`} onClick={() => startEdit(r)} as={isDateMode && Number(id) === r.id ? HighlightItem : r.id === editId ? HighlightItem : "li"}>
+            <ListItem 
+              key={r.id} 
+              id={`record-${r.id}`} 
+              onClick={() => startEdit(r)} 
+              // 수입은 납부 개념이 없지만, prop은 전달 (필요 시 확장)
+              $isPaid={r.isPaid}
+              as={isDateMode && Number(id) === r.id ? HighlightItem : r.id === editId ? HighlightItem : "li"}
+            >
               <ColTitle>
                 <span
                   style={{
@@ -542,7 +597,14 @@ export default function DetailPage() {
         <h3>지출 목록</h3>
         <List>
           {expense.map((r) => (
-            <ListItem key={r.id} id={`record-${r.id}`} onClick={() => startEdit(r)} as={isDateMode && Number(id) === r.id ? HighlightItem : r.id === editId ? HighlightItem : "li"}>
+            <ListItem 
+              key={r.id} 
+              id={`record-${r.id}`} 
+              onClick={() => startEdit(r)} 
+              // 납부 여부(isPaid)를 스타일 컴포넌트에 전달
+              $isPaid={r.isPaid}
+              as={isDateMode && Number(id) === r.id ? HighlightItem : r.id === editId ? HighlightItem : "li"}
+            >
               <ColTitle>
                 <span
                   style={{

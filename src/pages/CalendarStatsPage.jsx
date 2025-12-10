@@ -177,23 +177,31 @@ const DetailBox = styled.div`
   margin-top: 20px;
 `;
 
+/* 카드 스타일 수정: isPaid prop에 따라 배경색 변경 */
 const Card = styled.div`
-  background: ${({ theme }) => theme.card};
+  background: ${({ theme, $isPaid }) => ($isPaid ? "#e0e0e0" : theme.card)};
   border: 1px solid ${({ theme }) => theme.border};
   border-radius: 10px;
   padding: 14px;
   margin-bottom: 12px;
+  transition: background-color 0.2s ease;
+  opacity: ${({ $isPaid }) => ($isPaid ? 0.85 : 1)};
 `;
 
+/* 제목 스타일 수정: isPaid일 경우 취소선 및 색상 변경 */
 const Title = styled.div`
   font-size: 14px;
   margin-bottom: 6px;
+  text-decoration: ${({ $isPaid }) => ($isPaid ? "line-through" : "none")};
+  color: ${({ $isPaid, theme }) => ($isPaid ? "#888" : theme.text)};
 `;
 
+/* 금액 스타일 수정: isPaid일 경우 취소선 적용 */
 const Amount = styled.div`
   font-size: 16px;
   font-weight: bold;
   color: ${({ type }) => (type === "income" ? "#2ecc71" : "#e74c3c")};
+  text-decoration: ${({ $isPaid }) => ($isPaid ? "line-through" : "none")};
 `;
 
 /* 날짜 KEY */
@@ -250,7 +258,6 @@ export default function CalendarStatsPage() {
       </AmountBox>
     );
   };
-
 
   /* 날짜 스타일 */
   /* 수정된 날짜 스타일 로직 */
@@ -369,11 +376,16 @@ export default function CalendarStatsPage() {
           <DetailBox>
             <h3>{selectedKey} 상세 내역</h3>
             {selectedList.map((r) => (
-              <Card key={r.id} onClick={() => navigate(`/detail/date/${selectedKey}/${r.id}/${r.chapterId}`)} style={{ cursor: "pointer" }}>
-                <Title>
+              <Card 
+                key={r.id} 
+                onClick={() => navigate(`/detail/date/${selectedKey}/${r.id}/${r.chapterId}`)} 
+                style={{ cursor: "pointer" }}
+                $isPaid={r.isPaid} // 납부 여부 prop 전달
+              >
+                <Title $isPaid={r.isPaid}>
                   [{r.type === "income" ? "수입" : "지출"}] {r.title}
                 </Title>
-                <Amount type={r.type}>
+                <Amount type={r.type} $isPaid={r.isPaid}>
                   {r.type === "income" ? "+" : "-"}
                   {formatNumber(r.amount)} {unit}
                 </Amount>
