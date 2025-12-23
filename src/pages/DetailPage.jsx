@@ -2,6 +2,7 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import styled from "styled-components";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import Header from "../components/Header";
 import { formatNumber, unformatNumber } from "../utils/numberFormat";
@@ -94,17 +95,18 @@ const List = styled.ul`
   margin: 0;
 `;
 
-/* 리스트 아이템 컨테이너 - 수정됨: isPaid 상태에 따라 배경색 변경 */
+/* 리스트 아이템 컨테이너 - 다크모드/납부완료 가시성 개선 */
 const ListItem = styled.li`
   display: flex;
-  /* 납부 완료(isPaid) 상태면 회색, 아니면 테마 카드색 */
   background: ${({ theme, $isPaid }) => ($isPaid ? "#e0e0e0" : theme.card)};
+  color: ${({ $isPaid }) => ($isPaid ? "#333" : "inherit")}; 
   padding: 0;
   border-radius: 10px;
   margin-bottom: 10px;
   overflow: hidden;
   border: 1px solid ${({ theme }) => theme.border};
   transition: background-color 0.2s ease;
+  cursor: pointer;
 `;
 
 /* 셀 스타일 */
@@ -118,10 +120,12 @@ const Cell = styled.div`
   }
 `;
 
-/* 항목 제목 칼럼 */
+/* 항목 제목 칼럼 - 상단: 카테고리 [날짜], 하단: 항목명 */
 const ColTitle = styled(Cell)`
   flex: 5;
   flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
 `;
 
 /* 금액 칼럼 */
@@ -195,11 +199,17 @@ const formatChapterTitle = (dateString) => {
   return `${year}년 ${month}월`;
 };
 
+/* 드래그 정렬을 위한 배열 재배치 함수 */
+const reorder = (list, startIndex, endIndex) => {
+  const result = Array.from(list);
+  const [removed] = result.splice(startIndex, 1);
+  result.splice(endIndex, 0, removed);
+  return result;
+};
+
 /* 상세 페이지 컴포넌트 시작 */
 export default function DetailPage() {
-  /* URL 매개변수로 상태 모드를 판별 */
   const { chapterId, date, id } = useParams();
-
   const isChapterMode = !!chapterId;
   const isDateMode = !!date;
 
@@ -210,8 +220,6 @@ export default function DetailPage() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-
-  /* 입력 날짜 초기값 설정 */
   const [recordDate, setRecordDate] = useState(isDateMode ? date : new Date().toISOString().split("T")[0]);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -220,12 +228,9 @@ export default function DetailPage() {
   const [editRecord, setEditRecord] = useState(null);
 
   const { unit } = useCurrencyUnit();
-
-  /* 데이터베이스 훅 */
   const { db, getAll, getAllFromIndex, add, put, deleteItem, get } = useBudgetDB();
   const contentRef = useRef(null);
 
-  /* 데이터베이스 준비 시 레코드와 카테고리 로드 */
   useEffect(() => {
     if (db) {
       loadRecords();
@@ -236,408 +241,272 @@ export default function DetailPage() {
     }
   }, [db, chapterId, date]);
 
-  /* 조건에 따라 레코드를 로드 */
   const loadRecords = async () => {
     let list = [];
-
     if (isChapterMode) {
       list = await getAllFromIndex("records", "chapterId", Number(chapterId));
     } else if (isDateMode) {
       const all = await getAll("records");
-      list = all.filter((r) => (r.date || r.createdAt).split("T")[0] === date);
+      list = all.filter((r) => String(r.date || r.createdAt).split("T")[0] === date);
     }
-
+    list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     setRecords(list);
   };
 
-  /* 카테고리 목록 로드 */
   const loadCategories = async () => {
     const rows = await getAll("categories");
     const list = rows.map((c) => c.name);
     setCategories(list);
-
     if (!category && list.length > 0) setCategory(list[0]);
   };
 
-  /* 금액 입력값 처리 */
   const handleAmountChange = (e) => {
     const v = e.target.value.replace(/[^0-9.]/g, "");
     const fixed = v.replace(/(\..*)\./g, "$1");
     setAmount(fixed);
   };
 
-  /* 금액 단위 버튼 클릭 처리 */
   const applyUnit = (value) => {
     const raw = unformatNumber(amount);
     if (!raw) return;
     setAmount(formatNumber(raw * value));
   };
 
-  /* 레코드 저장 기능 */
+  /* 레코드 저장 기능 - 날짜 기반 챕터 자동 이동/생성 로직 추가 */
   const saveRecord = async (type) => {
     if (!title || !amount) return;
 
     const recordAmount = unformatNumber(amount);
-    const chapterID = Number(chapterId);
+    const newChapterTitle = formatChapterTitle(recordDate);
+    let targetChapterId = Number(chapterId);
+
+    /* [신규 기능] 날짜 변경 시 챕터 이동/생성 로직 */
+    if (isChapterMode && chapter && newChapterTitle !== chapter.title) {
+      const allChapters = await getAll("chapters");
+      const existingChapter = allChapters.find(c => c.title === newChapterTitle);
+
+      if (existingChapter) {
+        targetChapterId = existingChapter.chapterId;
+      } else {
+        // 해당 월의 챕터가 없으면 새로 생성
+        targetChapterId = await add("chapters", {
+          title: newChapterTitle,
+          createdAt: new Date(recordDate),
+          order: allChapters.length,
+          isTemporary: false,
+        });
+      }
+    }
 
     const recordData = {
-      chapterId: chapterID,
+      chapterId: targetChapterId, // 결정된 챕터 ID 사용
       title,
       amount: recordAmount,
       type,
       category,
       date: recordDate,
       source: title,
-      // 수정 시 기존의 납부 여부(isPaid)와 생성일자를 유지
       isPaid: editRecord?.isPaid || false,
       createdAt: editRecord?.createdAt || new Date(),
+      // 챕터가 유지되면 기존 순서, 바뀌면 마지막으로 보냄
+      order: (editRecord && targetChapterId === Number(chapterId)) 
+             ? editRecord.order 
+             : records.filter(r => r.type === type).length,
     };
-
-    let isNewRecord = true;
 
     if (isEditing && editId) {
       await put("records", { ...recordData, id: editId });
-      setIsEditing(false);
-      setEditId(null);
-      setEditRecord(null);
-      isNewRecord = false;
+      cancelEdit();
     } else {
       await add("records", recordData);
     }
 
-    /* 임시 챕터의 제목을 자동 생성해 갱신 */
-    if (isNewRecord && isChapterMode && chapter && chapter.isTemporary) {
-      const newTitle = formatChapterTitle(recordDate);
-      const updatedChapter = {
-        ...chapter,
-        title: newTitle,
-        isTemporary: false,
-      };
+    // 임시 챕터였고 날짜가 현재 챕터 내라면 제목 확정
+    if (isChapterMode && chapter && chapter.isTemporary && targetChapterId === Number(chapterId)) {
+      const updatedChapter = { ...chapter, title: newChapterTitle, isTemporary: false };
       await put("chapters", updatedChapter);
       setChapter(updatedChapter);
     }
 
     setTitle("");
     setAmount("");
-    if (categories.length > 0) setCategory(categories[0]);
-
-    loadRecords();
+    loadRecords(); // 챕터가 바뀌었다면 현재 리스트에서 자동으로 사라짐
   };
 
-  /* 납부 완료/취소 토글 기능 (수정됨) */
-  const togglePaymentStatus = async () => {
-    if (!isEditing || !editId || !editRecord) return;
-
-    // 현재 상태의 반대값으로 설정 (토글)
-    const newStatus = !editRecord.isPaid;
-
-    const updatedRecord = {
-      ...editRecord,
-      isPaid: newStatus,
-    };
-
-    await put("records", updatedRecord);
-
-    // 수정 모드 종료 및 초기화
+  const cancelEdit = () => {
     setIsEditing(false);
     setEditId(null);
     setEditRecord(null);
-    
-    // 입력 필드 초기화
+    setEditType(null);
     setTitle("");
     setAmount("");
     if (categories.length > 0) setCategory(categories[0]);
+  };
 
+  const togglePaymentStatus = async () => {
+    if (!isEditing || !editId || !editRecord) return;
+    const updatedRecord = { ...editRecord, isPaid: !editRecord.isPaid };
+    await put("records", updatedRecord);
+    cancelEdit();
     loadRecords();
   };
 
-  /* 레코드 수정 시작 기능 */
   const startEdit = (record) => {
     setEditId(record.id);
     setEditType(record.type);
     setEditRecord(record);
-
     setTitle(record.title);
     setAmount(formatNumber(record.amount));
     setCategory(record.category || categories[0] || "");
-    setRecordDate((record.date || record.createdAt).split("T")[0]);
-
+    setRecordDate(String(record.date || record.createdAt).split("T")[0]);
     setIsEditing(true);
-
     setTimeout(() => {
-      if (contentRef.current) {
-        contentRef.current.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
-      }
+      if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }, 0);
   };
 
-  /* 날짜모드에서 특정 레코드로 자동 스크롤 */
-  useEffect(() => {
-    if (!isDateMode) return;
-    if (records.length === 0) return;
+  const onDragEnd = async (result) => {
+    const { source, destination } = result;
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    const target = document.getElementById(`record-${id}`);
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    const sourceList = records.filter(r => r.type === (source.droppableId === 'incomeList' ? 'income' : 'expense'));
+    const destList = records.filter(r => r.type === (destination.droppableId === 'incomeList' ? 'income' : 'expense'));
+    const newType = destination.droppableId === 'incomeList' ? 'income' : 'expense';
+
+    if (source.droppableId === destination.droppableId) {
+      const items = reorder(sourceList, source.index, destination.index);
+      for (let i = 0; i < items.length; i++) await put("records", { ...items[i], order: i });
+    } else {
+      const sItems = [...sourceList];
+      const dItems = [...destList];
+      const [removed] = sItems.splice(source.index, 1);
+      const movedItem = { ...removed, type: newType };
+      dItems.splice(destination.index, 0, movedItem);
+      for (let i = 0; i < sItems.length; i++) await put("records", { ...sItems[i], order: i });
+      for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i });
     }
+    loadRecords();
+  };
+
+  useEffect(() => {
+    if (!isDateMode || records.length === 0) return;
+    const target = document.getElementById(`record-${id}`);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [records]);
 
-  /* 레코드 삭제 기능 */
   const deleteRecord = async (rid) => {
-    const ok = window.confirm("정말 삭제하시겠습니까?");
-    if (!ok) return;
+    if (!window.confirm("정말 삭제하시겠습니까?")) return;
     await deleteItem("records", rid);
     loadRecords();
   };
 
-  /* 집계 계산 */
-  const income = records.filter((r) => r.type === "income");
-  const expense = records.filter((r) => r.type === "expense");
-  const incomeSum = income.reduce((a, b) => a + b.amount, 0);
-  const expenseSum = expense.reduce((a, b) => a + b.amount, 0);
-  const balance = incomeSum - expenseSum;
-
-  /* 헤더 제목 결정 */
-  let headerTitle;
-  if (isChapterMode) {
-    headerTitle = chapter ? (chapter.isTemporary ? "내역 입력" : chapter.title) : "로딩 중";
-  } else if (isDateMode) {
-    headerTitle = `${date} 상세 내역`;
-  }
+  const incomeSum = records.filter(r => r.type === "income").reduce((a, b) => a + b.amount, 0);
+  const expenseSum = records.filter(r => r.type === "expense").reduce((a, b) => a + b.amount, 0);
 
   return (
     <PageWrap>
       <HeaderFix>
-        <Header title={headerTitle} />
+        <Header title={isChapterMode ? (chapter?.isTemporary ? "내역 입력" : chapter?.title) : `${date} 상세 내역`} />
       </HeaderFix>
 
       <Content ref={contentRef}>
         <SummaryBox>
-          <SummaryRow>
-            <span>총 수입</span>
-            <span>
-              {formatNumber(incomeSum)} {unit}
-            </span>
-          </SummaryRow>
-          <SummaryRow>
-            <span>총 지출</span>
-            <span>
-              {formatNumber(expenseSum)} {unit}
-            </span>
-          </SummaryRow>
-          <SummaryRow style={{ fontWeight: "bold" }}>
-            <span>잔액</span>
-            <span>
-              {formatNumber(balance)} {unit}
-            </span>
-          </SummaryRow>
+          <SummaryRow><span>총 수입</span><span>{formatNumber(incomeSum)} {unit}</span></SummaryRow>
+          <SummaryRow><span>총 지출</span><span>{formatNumber(expenseSum)} {unit}</span></SummaryRow>
+          <SummaryRow style={{ fontWeight: "bold" }}><span>잔액</span><span>{formatNumber(incomeSum - expenseSum)} {unit}</span></SummaryRow>
         </SummaryBox>
 
         <h2 style={{ margin: "20px 0" }}>{isEditing ? "내역 수정" : "입력"}</h2>
-
         <InputBox type="date" value={recordDate} onChange={(e) => setRecordDate(e.target.value)} />
-
         <SelectBox value={category} onChange={(e) => setCategory(e.target.value)}>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
+          {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </SelectBox>
-
         <InputBox placeholder="항목명" value={title} onChange={(e) => setTitle(e.target.value)} />
-
         <AmountInputWrap>
           <InputBox placeholder="금액" value={amount} onChange={handleAmountChange} style={{ paddingRight: "40px" }} />
           {unformatNumber(amount) > 0 && <ClearBtn onClick={() => setAmount("")}>×</ClearBtn>}
         </AmountInputWrap>
+        <UnitBtnRow><UnitBtn onClick={() => applyUnit(10000)}>만</UnitBtn><UnitBtn onClick={() => applyUnit(100000)}>십만</UnitBtn><UnitBtn onClick={() => applyUnit(1000000)}>백만</UnitBtn></UnitBtnRow>
 
-        <UnitBtnRow>
-          <UnitBtn onClick={() => applyUnit(10000)}>만</UnitBtn>
-          <UnitBtn onClick={() => applyUnit(100000)}>십만</UnitBtn>
-          <UnitBtn onClick={() => applyUnit(1000000)}>백만</UnitBtn>
-        </UnitBtnRow>
-
-        <div
-          style={{
-            display: "flex",
-            gap: "10px",
-            marginBottom: "20px",
-          }}
-        >
+        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
           {isEditing ? (
             <>
-              <button
-                onClick={() => saveRecord(editType)}
-                style={{
-                  flex: 1,
-                  padding: "12px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: "#28a745",
-                  color: "white",
-                }}
-              >
-                수정 완료
-              </button>
-
-              {/* 납부 완료/취소 버튼 */}
-              <button
-                onClick={togglePaymentStatus}
-                style={{
-                  flex: 1,
-                  padding: "12px",
-                  borderRadius: "6px",
-                  border: "none",
-                  // 납부 완료 상태(true)면 취소색(오렌지/노랑), 아니면 완료색(청록)
-                  background: editRecord?.isPaid ? "#e67e22" : "#17a2b8", 
-                  color: "white",
-                }}
-              >
-                {/* 텍스트 조건부 렌더링 */}
-                {editRecord?.isPaid ? "납부 취소" : "납부 완료"}
-              </button>
-
-              <button
-                onClick={() => setIsEditing(false)}
-                style={{
-                  flex: 0.5,
-                  padding: "12px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: "#6c757d",
-                  color: "white",
-                }}
-              >
-                취소
-              </button>
+              <button onClick={() => saveRecord(editType)} style={{ flex: 1, padding: "12px", borderRadius: "6px", border: "none", background: "#28a745", color: "white" }}>수정 완료</button>
+              <button onClick={togglePaymentStatus} style={{ flex: 1, padding: "12px", borderRadius: "6px", border: "none", background: editRecord?.isPaid ? "#e67e22" : "#17a2b8", color: "white" }}>{editRecord?.isPaid ? "납부 취소" : "납부 완료"}</button>
+              <button onClick={cancelEdit} style={{ flex: 0.5, padding: "12px", borderRadius: "6px", border: "none", background: "#6c757d", color: "white" }}>취소</button>
             </>
           ) : (
             <>
-              <button
-                onClick={() => saveRecord("income")}
-                style={{
-                  flex: 1,
-                  padding: "12px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: "#1976d2",
-                  color: "white",
-                }}
-              >
-                수입
-              </button>
-              <button
-                onClick={() => saveRecord("expense")}
-                style={{
-                  flex: 1,
-                  padding: "12px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: "#d9534f",
-                  color: "white",
-                }}
-              >
-                지출
-              </button>
+              <button onClick={() => saveRecord("income")} style={{ flex: 1, padding: "12px", borderRadius: "6px", border: "none", background: "#1976d2", color: "white" }}>수입</button>
+              <button onClick={() => saveRecord("expense")} style={{ flex: 1, padding: "12px", borderRadius: "6px", border: "none", background: "#d9534f", color: "white" }}>지출</button>
             </>
           )}
         </div>
 
-        {/* 수입 목록 */}
-        <h3>수입 목록</h3>
-        <List>
-          {income.map((r) => (
-            <ListItem 
-              key={r.id} 
-              id={`record-${r.id}`} 
-              onClick={() => startEdit(r)} 
-              // 수입은 납부 개념이 없지만, prop은 전달 (필요 시 확장)
-              $isPaid={r.isPaid}
-              as={isDateMode && Number(id) === r.id ? HighlightItem : r.id === editId ? HighlightItem : "li"}
-            >
-              <ColTitle>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "#888",
-                  }}
-                >
-                  {r.category}
-                </span>
-                <span
-                  style={{
-                    fontWeight: "bold",
-                  }}
-                >
-                  {r.title}
-                </span>
-              </ColTitle>
-              <ColAmount>{formatNumber(r.amount)}</ColAmount>
-              <ColUnit>{unit}</ColUnit>
+        <DragDropContext onDragEnd={onDragEnd}>
+          <h3>수입 목록</h3>
+          <Droppable droppableId="incomeList">
+            {(provided) => (
+              <List ref={provided.innerRef} {...provided.droppableProps}>
+                {records.filter(r => r.type === "income").map((r, index) => (
+                  <Draggable key={r.id} draggableId={String(r.id)} index={index}>
+                    {(p, snapshot) => (
+                      <ListItem
+                        ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                        id={`record-${r.id}`} onClick={() => startEdit(r)} $isPaid={r.isPaid}
+                        as={isDateMode && Number(id) === r.id ? HighlightItem : r.id === editId ? HighlightItem : "li"}
+                        style={{ ...p.draggableProps.style, opacity: snapshot.isDragging ? 0.7 : 1 }}
+                      >
+                        <ColTitle>
+                          <span style={{ fontSize: "12px", color: "#888", marginBottom: "4px" }}>
+                            {r.category} [{String(r.date || r.createdAt).split("T")[0]}]
+                          </span>
+                          <span style={{ fontWeight: "bold" }}>{r.title}</span>
+                        </ColTitle>
+                        <ColAmount>{formatNumber(r.amount)}</ColAmount>
+                        <ColUnit>{unit}</ColUnit>
+                        <DeleteCell><DeleteBtn onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }}>삭제</DeleteBtn></DeleteCell>
+                      </ListItem>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </List>
+            )}
+          </Droppable>
 
-              <DeleteCell>
-                <DeleteBtn
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteRecord(r.id);
-                  }}
-                >
-                  삭제
-                </DeleteBtn>
-              </DeleteCell>
-            </ListItem>
-          ))}
-        </List>
-
-        {/* 지출 목록 */}
-        <h3>지출 목록</h3>
-        <List>
-          {expense.map((r) => (
-            <ListItem 
-              key={r.id} 
-              id={`record-${r.id}`} 
-              onClick={() => startEdit(r)} 
-              // 납부 여부(isPaid)를 스타일 컴포넌트에 전달
-              $isPaid={r.isPaid}
-              as={isDateMode && Number(id) === r.id ? HighlightItem : r.id === editId ? HighlightItem : "li"}
-            >
-              <ColTitle>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "#888",
-                  }}
-                >
-                  {r.category}
-                </span>
-                <span
-                  style={{
-                    fontWeight: "bold",
-                  }}
-                >
-                  {r.title}
-                </span>
-              </ColTitle>
-              <ColAmount>{formatNumber(r.amount)}</ColAmount>
-              <ColUnit>{unit}</ColUnit>
-
-              <DeleteCell>
-                <DeleteBtn
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteRecord(r.id);
-                  }}
-                >
-                  삭제
-                </DeleteBtn>
-              </DeleteCell>
-            </ListItem>
-          ))}
-        </List>
+          <h3 style={{ marginTop: "20px" }}>지출 목록</h3>
+          <Droppable droppableId="expenseList">
+            {(provided) => (
+              <List ref={provided.innerRef} {...provided.droppableProps}>
+                {records.filter(r => r.type === "expense").map((r, index) => (
+                  <Draggable key={r.id} draggableId={String(r.id)} index={index}>
+                    {(p, snapshot) => (
+                      <ListItem
+                        ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                        id={`record-${r.id}`} onClick={() => startEdit(r)} $isPaid={r.isPaid}
+                        as={isDateMode && Number(id) === r.id ? HighlightItem : r.id === editId ? HighlightItem : "li"}
+                        style={{ ...p.draggableProps.style, opacity: snapshot.isDragging ? 0.7 : 1 }}
+                      >
+                        <ColTitle>
+                          <span style={{ fontSize: "12px", color: "#888", marginBottom: "4px" }}>
+                            {r.category} [{String(r.date || r.createdAt).split("T")[0]}]
+                          </span>
+                          <span style={{ fontWeight: "bold" }}>{r.title}</span>
+                        </ColTitle>
+                        <ColAmount>{formatNumber(r.amount)}</ColAmount>
+                        <ColUnit>{unit}</ColUnit>
+                        <DeleteCell><DeleteBtn onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }}>삭제</DeleteBtn></DeleteCell>
+                      </ListItem>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </List>
+            )}
+          </Droppable>
+        </DragDropContext>
       </Content>
     </PageWrap>
   );

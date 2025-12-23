@@ -263,6 +263,14 @@ export default function StatsPage() {
 
   const summaryList = getSummaryByChapter();
 
+  summaryList.sort((a, b) => {
+    const parseTitle = (title) => {
+      const match = title.match(/(\d+)년\s+(\d+)월/);
+      return match ? parseInt(match[1]) * 100 + parseInt(match[2]) : 0;
+    };
+    return parseTitle(a.title) - parseTitle(b.title);
+  });
+
   // 제목별 잔액 BarChart 데이터
   const barData = {
     labels: summaryList.map((s) => s.title),
