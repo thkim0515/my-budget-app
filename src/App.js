@@ -3,19 +3,21 @@ import { ThemeProvider } from "styled-components";
 import { lightTheme, darkTheme } from "./theme";
 import { useState, useEffect } from "react";
 
-import useBiometricLock from "./hooks/useBiometricLock";
-import useAndroidBackHandler from "./hooks/useAndroidBackHandler";
-import LockScreen from "./components/LockScreen";
+import {
+  useBiometricLock,
+  useAndroidBackHandler,
+  LockScreen,
+  BottomTabBar,
+  MainPage,
+  DetailPage,
+  SettingsPage,
+  StatsPage,
+  CurrencySettingsPage,
+  StatsBySourcePage,
+  CategorySettingsPage,
+  CalendarStatsPage,
+} from "./appImports";
 
-import MainPage from "./pages/Main/MainPage";
-import DetailPage from "./pages/Main/DetailPage";
-import SettingsPage from "./pages/Settings/SettingsPage";
-import StatsPage from "./pages/Stats/StatsPage";
-import BottomTabBar from "./components/BottomTabBar";
-import CurrencySettingsPage from "./pages/Settings/CurrencySettingsPage";
-import StatsBySourcePage from "./pages/Stats/StatsBySourcePage";
-import CategorySettingsPage from "./pages/Settings/CategorySettingsPage";
-import CalendarStatsPage from "./pages/CalendarStats/CalendarStatsPage";
 
 const getInitialMode = () => {
   const savedMode = localStorage.getItem("themeMode");
