@@ -5,6 +5,11 @@
     <!-- 필수 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- Android 13+ 알림 권한 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Notification Listener 바인딩용 -->
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
 
     <application
@@ -29,7 +34,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 🔥 알림 리스너 서비스 (수정 핵심) -->
+        <!-- 알림 리스너 서비스 -->
         <service
             android:name=".NotificationListener"
             android:label="@string/notification_listener_label"
@@ -41,7 +46,7 @@
             </intent-filter>
         </service>
 
-        <!-- FileProvider (기존 유지) -->
+        <!-- FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

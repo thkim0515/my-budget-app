@@ -18,51 +18,55 @@ const CATEGORY_RULES = [
 
 const detectCategory = (text) => {
   for (const rule of CATEGORY_RULES) {
-    if (rule.keywords.some(keyword => text.includes(keyword))) {
+    if (rule.keywords.some((keyword) => text.includes(keyword))) {
       return rule.category;
     }
   }
   return "기타";
 };
 
-
 export const parseAndCreateRecord = (text) => {
+  if (!text || typeof text !== "string") return null;
+
+  // 🔥 카카오톡/카드사 알림 대응용 정규화
+  const normalizedText = text.replace(/\n+/g, " ").replace(/\[|\]/g, "").replace(/\s+/g, " ").trim();
+
+  // 날짜 파싱
   const dateRegex = /(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})|(\d{4}-\d{2}-\d{2})/;
-  const dateMatch = text.match(dateRegex);
+  const dateMatch = normalizedText.match(dateRegex);
   let recordDate = new Date();
 
   if (dateMatch) {
     const rawDate = dateMatch[0];
-    recordDate = rawDate.includes('/') 
-      ? new Date(`${new Date().getFullYear()}/${rawDate}`) 
-      : new Date(rawDate);
+    recordDate = rawDate.includes("/") ? new Date(`${new Date().getFullYear()}/${rawDate}`) : new Date(rawDate);
   }
 
-  const infoRegex = /([가-힣\w]+)\s+([가-힣\w\s]+?)\s+([\d,]+)\s*원/;
-  const infoMatch = text.match(infoRegex);
+  // 결제 정보 파싱
+  const infoRegex = /([가-힣A-Za-z]+)\s+(.+?)\s+([\d,]+)\s*원/;
+  const infoMatch = normalizedText.match(infoRegex);
 
   if (!infoMatch) return null;
 
   const [, paymentSource, description, amountStr] = infoMatch;
-  const amount = parseInt(amountStr.replace(/,/g, ''), 10);
-  const dateStr = recordDate.toISOString().split('T')[0];
+  const amount = parseInt(amountStr.replace(/,/g, ""), 10);
+  if (isNaN(amount)) return null;
 
-  const cleanTitle = description
-  .replace(/(삼성|신한|현대|국민|KB|롯데|하나|우리)\s*카드/g, "")
-  .trim();
+  const dateStr = recordDate.toISOString().split("T")[0];
 
-  const autoCategory = detectCategory(text);
+  // 제목 정리
+  const cleanTitle = description.replace(/(삼성|신한|현대|국민|KB|롯데|하나|우리)\s*카드/gi, "").trim();
 
-    return {
+  const autoCategory = detectCategory(normalizedText);
+
+  return {
     title: cleanTitle,
     source: paymentSource.trim(),
     amount,
-    type: 'expense',
+    type: "expense",
     category: autoCategory,
     date: dateStr,
     chapterTitle: formatChapterTitle(dateStr),
     isPaid: false,
     createdAt: new Date(),
-    };
-
+  };
 };

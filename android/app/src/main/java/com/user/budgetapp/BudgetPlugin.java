@@ -9,12 +9,25 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.content.Intent;
 
+import android.util.Log;
 
 @CapacitorPlugin(name = "BudgetPlugin")
 public class BudgetPlugin extends Plugin {
 
     private static final String PREF_NAME = "BudgetData";
     private static final String KEY_PENDING = "pending_notis";
+
+    @PluginMethod
+    public void openNotificationAccessSettings(PluginCall call) {
+        Log.d("BudgetPlugin", "openNotificationAccessSettings 호출됨");
+
+        Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+
+        call.resolve();
+    }
+
 
     @PluginMethod
     public void getPendingNotifications(PluginCall call) {
@@ -65,12 +78,14 @@ public class BudgetPlugin extends Plugin {
         call.resolve(ret);
     }
 
-    @PluginMethod
-    public void openNotificationAccessSettings(PluginCall call) {
-        Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-        getActivity().startActivity(intent);
-        call.resolve();
-    }
+    // @PluginMethod
+    // public void openNotificationAccessSettings(PluginCall call) {
+    //     Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+    //     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    //     getContext().startActivity(intent);
+    //     call.resolve();
+    // }
+
 
 
 }
