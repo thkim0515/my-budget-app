@@ -75,7 +75,19 @@ export default function DetailPage() {
         (r) => String(r.date || r.createdAt).split("T")[0] === date
       );
     }
-    list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    list.sort((a, b) => {
+      const da = new Date(a.date || a.createdAt);
+      const db = new Date(b.date || b.createdAt);
+
+      // 1차: 날짜 오름차순
+      if (da.getTime() !== db.getTime()) {
+        return da - db;
+      }
+
+      // 2차: 같은 날짜면 order
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+
     setRecords(list);
   };
 
@@ -202,9 +214,21 @@ export default function DetailPage() {
     // 같은 화면에서 바로 보이도록 즉시 state 반영
     setRecords((prev) => {
       const appended = [...prev, { ...newRecord, id: newId }];
-      appended.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      appended.sort((a, b) => {
+        const da = new Date(a.date || a.createdAt);
+        const db = new Date(b.date || b.createdAt);
+
+        if (da.getTime() !== db.getTime()) return da - db;
+        return (a.order ?? 0) - (b.order ?? 0);
+      });
       return appended;
     });
+
+    // setRecords((prev) => {
+    //   const appended = [...prev, { ...newRecord, id: newId }];
+    //   appended.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    //   return appended;
+    // });
 
     // 임시 챕터였고 날짜가 현재 챕터 내라면 제목 확정
     if (isChapterMode && chapter && chapter.isTemporary && targetChapterId === currentChapterId) {
