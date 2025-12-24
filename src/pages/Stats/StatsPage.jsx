@@ -1,186 +1,50 @@
 import { useEffect, useState } from "react";
-import styled from "styled-components";
-import Header from "../components/Header";
-import { formatCompact } from "../utils/numberFormat";
-import { useCurrencyUnit } from "../hooks/useCurrencyUnit";
-import { useBudgetDB } from "../hooks/useBudgetDB";
+import Header from "../../components/Header";
+import { formatCompact } from "../../utils/numberFormat";
+import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
+import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useSwipeable } from "react-swipeable";
+import * as S from "./StatsPage.styles";
 
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from "chart.js";
-
 import { Bar, Pie } from "react-chartjs-2";
 
-// 차트 구성 요소를 등록합니다.
+// 차트 구성 요소를 등록 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
-// ────────────────────────────── 스타일 ──────────────────────────────
-const PageWrap = styled.div`
-  /* 페이지의 최대 너비를 설정하여 모바일 뷰를 유지합니다. */
-  max-width: 480px;
-  margin: 0 auto;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  color: ${({ theme }) => theme.text};
-`;
-
-const HeaderFix = styled.div`
-  /* 헤더를 상단에 고정합니다. */
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 480px;
-  z-index: 20;
-`;
-
-const Content = styled.div`
-  /* 스크롤 가능한 본문 영역입니다. */
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  padding-top: 96px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
-
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
-
-  .slide-box {
-    transition: transform 0.15s ease, opacity 0.15s ease;
-  }
-
-  .slide-left {
-    transform: translateX(-50px);
-    opacity: 0;
-  }
-
-  .slide-right {
-    transform: translateX(50px);
-    opacity: 0;
-  }
-`;
-
-const ChartBox = styled.div`
-  /* 차트를 감싸는 카드 스타일입니다. */
-  margin-top: 20px;
-  background: ${({ theme }) => theme.card};
-  padding: 20px;
-  border-radius: 10px;
-  border: 1px solid ${({ theme }) => theme.border};
-`;
-
-const Table = styled.table`
-  /* 챕터별 요약 테이블 스타일입니다. */
-  width: 100%;
-  margin-top: 20px;
-  border-collapse: collapse;
-  background: ${({ theme }) => theme.card};
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: 8px;
-  overflow: hidden;
-`;
-
-const Th = styled.th`
-  /* 테이블 헤더 스타일입니다. */
-  padding: 12px 8px;
-  background: ${({ theme }) => theme.headerBg};
-  color: ${({ theme }) => theme.headerText};
-  text-align: center;
-  border-bottom: 1px solid ${({ theme }) => theme.border};
-`;
-
-const Td = styled.td`
-  /* 테이블 데이터 셀 스타일입니다. */
-  padding: 12px 8px;
-  text-align: center;
-  border-bottom: 1px solid ${({ theme }) => theme.border};
-  color: ${({ theme }) => theme.text};
-  &:last-child {
-    font-weight: bold;
-  }
-`;
-
-const MonthSelector = styled.div`
-  /* 기간 표시 및 좌우 이동 버튼 레이아웃입니다. */
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 18px;
-  font-weight: bold;
-`;
-
-const ArrowBtn = styled.button`
-  /* 월 이동 버튼 스타일입니다. */
-  background: transparent;
-  border: none;
-  font-size: 22px;
-  color: ${({ theme }) => theme.text};
-  cursor: pointer;
-`;
-
-// 기간 선택 버튼을 위한 스타일 추가
-const RangeSelector = styled.div`
-  /* 1/3/6/12개월 선택 버튼 레이아웃입니다. */
-  display: flex;
-  justify-content: space-around;
-  gap: 8px;
-  margin-bottom: 20px;
-`;
-
-const RangeButton = styled.button`
-  /* 기간 선택 버튼의 기본 스타일 및 활성화 상태 스타일입니다. */
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid ${({ theme }) => theme.border};
-  /* $active는 styled-components에서 transient prop으로 처리되어 DOM에 전달되지 않습니다. */
-  background: ${({ theme, $active }) => ($active ? theme.headerBg : theme.card)};
-  color: ${({ theme, $active }) => ($active ? theme.headerText : theme.text)};
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex: 1;
-  min-width: 0;
-`;
-
-// ────────────────────────────── PAGE ──────────────────────────────
 
 export default function StatsPage() {
-  // 챕터와 모든 기록 상태를 관리합니다.
+  // 챕터와 모든 기록 상태를 관리 
   const [chapters, setChapters] = useState([]);
   const [records, setRecords] = useState([]);
 
   const { unit } = useCurrencyUnit();
-  // 슬라이드 애니메이션 상태입니다.
+  // 슬라이드 애니메이션 상태
   const [slide, setSlide] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // 현재 월 (선택된 기간의 가장 마지막 월을 나타냅니다. 즉, 우측 끝 월)
+  // 현재 월 (선택된 기간의 가장 마지막 월을 나타. 즉, 우측 끝 월)
   const [currentDate, setCurrentDate] = useState(new Date());
   // 기간 선택 상태 (1개월, 3개월, 6개월, 12개월 중 하나, 기본값 1개월)
   const [range, setRange] = useState(1);
 
-  // DB 훅을 연결합니다.
+  // DB 훅을 연결 
   const { db, getAll } = useBudgetDB();
 
-  // DB 준비되면 데이터를 로드합니다.
+  // DB 준비되면 데이터를 로드 
   useEffect(() => {
     if (db) {
       loadData();
     }
   }, [db]);
 
-  // 모든 챕터와 기록을 DB에서 불러옵니다.
+  // 모든 챕터와 기록을 DB에서 불러
   const loadData = async () => {
     setChapters(await getAll("chapters"));
     setRecords(await getAll("records"));
   };
 
-  // 날짜 범위 계산 함수: 현재 월을 포함하여 'months' 기간의 시작일과 마지막 날을 반환합니다.
+  // 날짜 범위 계산 함수: 현재 월을 포함하여 'months' 기간의 시작일과 마지막 날을 반환 
   const getPeriod = (date, months) => {
     // 선택된 월의 마지막 날을 계산 (범위의 끝, 현재 날짜의 월말)
     const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
@@ -189,22 +53,22 @@ export default function StatsPage() {
     const startDate = new Date(date);
     startDate.setMonth(startDate.getMonth() - (months - 1));
     startDate.setDate(1);
-    startDate.setHours(0, 0, 0, 0); // 시간 정보를 초기화하여 날짜 비교 오류를 방지합니다.
+    startDate.setHours(0, 0, 0, 0); // 시간 정보를 초기화하여 날짜 비교 오류를 방지 
 
     return { startDate, endDate };
   };
 
-  // 기간 이동 함수: delta만큼 currentDate를 변경합니다.
+  // 기간 이동 함수: delta만큼 currentDate를 변경 
   const moveMonth = (delta) => {
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // 슬라이드 방향을 설정합니다.
+    // 슬라이드 방향을 설정 
     setSlide(delta > 0 ? "slide-left" : "slide-right");
 
     setTimeout(() => {
       const newDate = new Date(currentDate);
-      // delta만큼 월을 이동합니다.
+      // delta만큼 월을 이동 
       newDate.setMonth(currentDate.getMonth() + delta);
       setCurrentDate(newDate);
 
@@ -213,22 +77,22 @@ export default function StatsPage() {
     }, 150);
   };
 
-  // 현재 선택된 기간에 해당하는 날짜 범위 (startDate ~ endDate)를 계산합니다.
+  // 현재 선택된 기간에 해당하는 날짜 범위 (startDate ~ endDate)를 계산 
   const { startDate, endDate } = getPeriod(currentDate, range);
 
-  // 해당 범위에 속하는 기록만 필터링합니다. (과거부터 현재까지의 데이터를 포함)
+  // 해당 범위에 속하는 기록만 필터링  (과거부터 현재까지의 데이터를 포함)
   const filteredRecords = records.filter((r) => {
     if (!r.date) return false;
 
     const rDate = new Date(r.date);
-    // 레코드의 날짜만 추출하여 정확한 비교를 수행합니다.
+    // 레코드의 날짜만 추출하여 정확한 비교를 수행 
     const recordDateOnly = new Date(rDate.getFullYear(), rDate.getMonth(), rDate.getDate());
 
-    // startDate 이상, endDate 이하의 레코드만 포함합니다.
+    // startDate 이상, endDate 이하의 레코드만 포함 
     return recordDateOnly >= startDate && recordDateOnly <= endDate;
   });
 
-  // 챕터별 요약을 계산합니다.
+  // 챕터별 요약을 계산 
   const getSummaryByChapter = () => {
     const chapterMap = new Map();
 
@@ -342,85 +206,85 @@ export default function StatsPage() {
     trackMouse: true,
   });
 
-  // MonthSelector에 표시할 텍스트를 구성합니다.
+  // MonthSelector에 표시할 텍스트를 구성 
   const monthDisplay =
     range === 1
       ? `${startDate.getFullYear()}년 ${startDate.getMonth() + 1}월` // 1개월은 단일 월만 표시
       : `${startDate.getFullYear()}년 ${startDate.getMonth() + 1}월 ~ ${endDate.getFullYear()}년 ${endDate.getMonth() + 1}월`; // 다중 개월은 시작월과 끝월을 표시 (과거 -> 현재/미래 순서)
 
   return (
-    <PageWrap>
-      <HeaderFix>
+    <S.PageWrap>
+      <S.HeaderFix>
         {/* 헤더 제목: 선택된 기간에 따라 동적으로 변경 */}
         <Header title={range === 1 ? "월간 통계" : `통계 (${range}개월)`} />
-      </HeaderFix>
+      </S.HeaderFix>
 
-      <Content {...handlers}>
+      <S.Content {...handlers}>
         <div className={`slide-box ${slide}`}>
           {/* 기간 선택 버튼 UI */}
-          <RangeSelector>
+          <S.RangeSelector>
             {[1, 3, 6, 12].map((r) => (
-              <RangeButton
+              <S.RangeButton
                 key={r}
                 $active={range === r} // 현재 선택된 기간인지 표시
                 onClick={() => setRange(r)} // 클릭 시 기간 변경
               >
                 {r}개월
-              </RangeButton>
+              </S.RangeButton>
             ))}
-          </RangeSelector>
+          </S.RangeSelector>
 
-          <MonthSelector>
+          <S.MonthSelector>
             {/* 이전 기간으로 이동하는 버튼 (선택된 기간(range)만큼 이동) */}
-            <ArrowBtn onClick={() => moveMonth(-range)}>◀</ArrowBtn>
+            <S.ArrowBtn onClick={() => moveMonth(-range)}>◀</S.ArrowBtn>
 
             {/* 계산된 기간을 '과거 → 현재/미래' 순서로 표시 */}
             <span>{monthDisplay}</span>
 
             {/* 다음 기간으로 이동하는 버튼 (선택된 기간(range)만큼 이동) */}
-            <ArrowBtn onClick={() => moveMonth(range)}>▶</ArrowBtn>
-          </MonthSelector>
+            <S.ArrowBtn onClick={() => moveMonth(range)}>▶</S.ArrowBtn>
+          </S.MonthSelector>
 
-          <ChartBox>
+          <S.ChartBox>
             <h3>제목별 잔액 (Bar)</h3>
             <Bar data={barData} options={barOptions} />
-          </ChartBox>
+          </S.ChartBox>
 
-          <ChartBox>
+          <S.ChartBox>
             <h3>카테고리별 지출 (Pie)</h3>
             <div style={{ height: "260px", display: "flex", justifyContent: "center" }}>
               <Pie data={getCategoryData()} options={{ responsive: true, maintainAspectRatio: false }} />
             </div>
-          </ChartBox>
+          </S.ChartBox>
 
-          <Table>
+          <S.Table>
             <thead>
               <tr>
-                <Th>대제목</Th>
-                <Th>수입</Th>
-                <Th>지출</Th>
-                <Th>잔액</Th>
+                <S.Th>대제목</S.Th>
+                <S.Th>수입</S.Th>
+                <S.Th>지출</S.Th>
+                <S.Th>잔액</S.Th>
               </tr>
             </thead>
             <tbody>
               {summaryList.map((s, idx) => (
                 <tr key={idx}>
-                  <Td>{s.title}</Td>
-                  <Td>
+                  <S.Td>{s.title}</S.Td>
+                  <S.Td>
                     {formatCompact(s.income)} {unit}
-                  </Td>
-                  <Td>
+                  </S.Td>
+                  <S.Td>
                     {formatCompact(s.expense)} {unit}
-                  </Td>
-                  <Td>
+                  </S.Td>
+                  <S.Td>
                     {formatCompact(s.balance)} {unit}
-                  </Td>
+                  </S.Td>
                 </tr>
               ))}
             </tbody>
-          </Table>
+          </S.Table>
         </div>
-      </Content>
-    </PageWrap>
+      </S.Content>
+    </S.PageWrap>
   );
 }

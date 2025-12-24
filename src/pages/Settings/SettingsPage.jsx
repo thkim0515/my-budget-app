@@ -1,121 +1,12 @@
-// 페이지 전체 레이아웃을 구성하는 컨테이너
-import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useRef, useEffect, useState } from "react";
-import Header from "../components/Header";
-import { useBudgetDB } from "../hooks/useBudgetDB";
-import { DEFAULT_CATEGORIES } from "../constants/categories";
+import Header from "../../components/Header";
+import { useBudgetDB } from "../../hooks/useBudgetDB";
+import { DEFAULT_CATEGORIES } from "../../constants/categories";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
 
-// 기본 페이지 레이아웃
-const PageWrap = styled.div`
-  max-width: 480px;
-  margin: 0 auto;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-`;
-
-// 고정된 상단 헤더 영역
-const HeaderFix = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 480px;
-  z-index: 20;
-`;
-
-// 스크롤 가능한 본문 영역
-const Content = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  padding-top: 96px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
-`;
-
-// 설정 버튼 스타일
-const Btn = styled.button`
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 12px;
-  border: none;
-  border-radius: 6px;
-  background: #1976d2;
-  color: white;
-  font-size: 15px;
-`;
-
-// 섹션 제목 스타일
-const SectionTitle = styled.h3`
-  color: ${({ theme }) => theme.text};
-  margin-top: 20px;
-  margin-bottom: 12px;
-`;
-
-// 토글 스위치 행
-const ToggleRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  background: ${({ theme }) => theme.card};
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: 6px;
-  margin-bottom: 12px;
-  color: ${({ theme }) => theme.text};
-`;
-
-// 토글 스위치 스타일 구성
-const ToggleSwitch = styled.label`
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 26px;
-
-  input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  span {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: 0.4s;
-    border-radius: 34px;
-  }
-
-  span:before {
-    position: absolute;
-    content: "";
-    height: 20px;
-    width: 20px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: 0.4s;
-    border-radius: 50%;
-  }
-
-  input:checked + span {
-    background-color: #1976d2;
-  }
-
-  input:checked + span:before {
-    transform: translateX(24px);
-  }
-`;
+import * as S from './SettingsPage.styles'
 
 // 설정 페이지 컴포넌트
 export default function SettingsPage({ setMode, mode }) {
@@ -271,50 +162,79 @@ export default function SettingsPage({ setMode, mode }) {
   };
 
   return (
-    <PageWrap>
-      <HeaderFix>
+    <S.PageWrap>
+      <S.HeaderFix>
         <Header title="설정" />
-      </HeaderFix>
+      </S.HeaderFix>
 
-      <Content>
-        <SectionTitle>앱 설정</SectionTitle>
+      <S.Content>
+        <S.SectionTitle>앱 설정</S.SectionTitle>
 
         {/* 생체 인증 토글 기능 */}
-        <ToggleRow>
+        <S.ToggleRow>
           <span style={{ fontSize: "15px" }}>지문 생체 잠금 사용</span>
-          <ToggleSwitch>
-            <input type="checkbox" checked={useBiometric} onChange={toggleBiometric} />
+          <S.ToggleSwitch>
+            <input
+              type="checkbox"
+              checked={useBiometric}
+              onChange={toggleBiometric}
+            />
             <span></span>
-          </ToggleSwitch>
-        </ToggleRow>
+          </S.ToggleSwitch>
+        </S.ToggleRow>
 
-        <Btn onClick={() => navigate("/settings/currency")}>금액 기호 설정하기</Btn>
+        <S.Btn onClick={() => navigate("/settings/currency")}>
+          금액 기호 설정하기
+        </S.Btn>
 
-        <Btn onClick={() => navigate("/settings/categories")}>카테고리 관리</Btn>
+        <S.Btn onClick={() => navigate("/settings/categories")}>
+          카테고리 관리
+        </S.Btn>
 
-        <Btn onClick={() => setMode(mode === "light" ? "dark" : "light")}>테마 변경 현재 {mode === "light" ? "라이트모드" : "다크모드"}</Btn>
+        <S.Btn onClick={() => setMode(mode === "light" ? "dark" : "light")}>
+          테마 변경 현재 {mode === "light" ? "라이트모드" : "다크모드"}
+        </S.Btn>
 
-        <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
+        <hr
+          style={{
+            margin: "20px 0",
+            border: 0,
+            borderTop: "1px solid #ddd",
+          }}
+        />
 
-        <SectionTitle>데이터 관리</SectionTitle>
+        <S.SectionTitle>데이터 관리</S.SectionTitle>
 
         {/* 데이터 백업 작동 버튼 */}
-        <Btn onClick={backupData} style={{ background: "#28a745" }}>
+        <S.Btn onClick={backupData} style={{ background: "#28a745" }}>
           데이터 백업 다운로드
-        </Btn>
+        </S.Btn>
 
         {/* 데이터 복구 파일 선택 */}
-        <Btn onClick={() => fileInputRef.current.click()} style={{ background: "#17a2b8" }}>
+        <S.Btn
+          onClick={() => fileInputRef.current.click()}
+          style={{ background: "#17a2b8" }}
+        >
           데이터 복구 파일 불러오기
-        </Btn>
+        </S.Btn>
 
-        <input type="file" accept=".json" ref={fileInputRef} style={{ display: "none" }} onChange={restoreData} />
+        <input
+          type="file"
+          accept=".json"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          onChange={restoreData}
+        />
 
         {/* 전체 데이터 초기화 */}
-        <Btn onClick={resetAll} style={{ background: "#d9534f", marginTop: "20px" }}>
+        <S.Btn
+          onClick={resetAll}
+          style={{ background: "#d9534f", marginTop: "20px" }}
+        >
           전체 데이터 초기화
-        </Btn>
-      </Content>
-    </PageWrap>
+        </S.Btn>
+      </S.Content>
+    </S.PageWrap>
   );
+
 }

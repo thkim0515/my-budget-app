@@ -5,15 +5,15 @@ import { useState, useEffect, useRef } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
 
-import MainPage from "./pages/MainPage";
-import DetailPage from "./pages/DetailPage";
-import SettingsPage from "./pages/SettingsPage";
-import StatsPage from "./pages/StatsPage";
+import MainPage from "./pages/Main/MainPage";
+import DetailPage from "./pages/Main/DetailPage";
+import SettingsPage from "./pages/Settings/SettingsPage";
+import StatsPage from "./pages/Stats/StatsPage";
 import BottomTabBar from "./components/BottomTabBar";
-import CurrencySettingsPage from "./pages/CurrencySettingsPage";
-import StatsBySourcePage from "./pages/StatsBySourcePage";
-import CategorySettingsPage from "./pages/CategorySettingsPage";
-import CalendarStatsPage from "./pages/CalendarStatsPage";
+import CurrencySettingsPage from "./pages/Settings/CurrencySettingsPage";
+import StatsBySourcePage from "./pages/Stats/StatsBySourcePage";
+import CategorySettingsPage from "./pages/Settings/CategorySettingsPage";
+import CalendarStatsPage from "./pages/CalendarStats/CalendarStatsPage";
 
 const getInitialMode = () => {
   const savedMode = localStorage.getItem("themeMode");

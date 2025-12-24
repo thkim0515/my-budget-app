@@ -1,0 +1,227 @@
+import { useState, useEffect } from "react";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+import Header from "../../components/Header";
+import { useBudgetDB } from "../../hooks/useBudgetDB";
+import { formatNumber, formatCompact } from "../../utils/numberFormat";
+import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
+import { useNavigate } from "react-router-dom";
+import { useSwipeable } from "react-swipeable";
+import Holidays from "date-holidays";
+
+import * as S from './CalendarStatsPage.styles'
+
+/* 공휴일 초기화 */
+const hd = new Holidays("KR");
+
+
+/* 날짜 KEY */
+const formatDateKey = (d) =>
+  d
+    .toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" })
+    .replace(/\. /g, "-")
+    .replace(".", "");
+
+export default function CalendarStatsPage() {
+  const { db, getAll } = useBudgetDB();
+  const { unit } = useCurrencyUnit();
+  const navigate = useNavigate();
+
+  const [records, setRecords] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const [slide, setSlide] = useState("");
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (db) load();
+  }, [db]);
+
+  const load = async () => {
+    const rec = await getAll("records");
+    setRecords(rec);
+  };
+
+  /* 월 데이터 필터 */
+  const filtered = records.filter((r) => {
+    const d = new Date(r.date || r.createdAt);
+    return d.getFullYear() === selectedMonth.getFullYear() && d.getMonth() === selectedMonth.getMonth();
+  });
+
+  /* 날짜별 금액 */
+  const dailyTotals = {};
+  filtered.forEach((r) => {
+    const key = formatDateKey(new Date(r.date || r.createdAt));
+    if (!dailyTotals[key]) dailyTotals[key] = { income: 0, expense: 0 };
+    dailyTotals[key][r.type] += r.amount;
+  });
+
+  /* 타일 금액 표시 */
+  const tileContent = ({ date, view }) => {
+    if (view !== "month") return null;
+    const key = formatDateKey(date);
+    const data = dailyTotals[key];
+    return (
+      <S.AmountBox>
+        {data?.income > 0 && <div style={{ color: "#2ecc71" }}>+{formatCompact(data.income)}</div>}
+        {data?.expense > 0 && <div style={{ color: "#e74c3c" }}>-{formatCompact(data.expense)}</div>}
+      </S.AmountBox>
+    );
+  };
+
+  /* 날짜 스타일 */
+  /* 수정된 날짜 스타일 로직 */
+  const tileClassName = ({ date, view }) => {
+    if (view !== "month") return "";
+
+    const classes = [];
+
+    // 1. 현재 보고 있는 달이 아닌 경우
+    if (date.getMonth() !== selectedMonth.getMonth()) {
+      classes.push("not-current-month");
+    }
+
+    // 2. 날짜 색상 로직 (상호 배타적으로 처리)
+    if (hd.isHoliday(date)) {
+      // 공휴일이면 무조건 빨간색 (요일 클래스 추가 안 함)
+      classes.push("day-holiday");
+    } else if (date.getDay() === 0) {
+      // 일요일
+      classes.push("day-sun");
+    } else if (date.getDay() === 6) {
+      // 토요일
+      classes.push("day-sat");
+    } else {
+      // 평일 (공휴일도 아니고 주말도 아닐 때만 적용)
+      classes.push("day-weekday");
+    }
+
+    // 3. 선택된 날짜 (가장 마지막에 추가)
+    if (formatDateKey(date) === formatDateKey(selectedDate)) {
+      classes.push("selected-tile");
+    }
+
+    return classes.join(" ");
+  };
+
+  /* 요일표시 */
+  const formatShortWeekday = (_, date) => ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
+
+  /* 선택된 날짜 상세 */
+  const selectedKey = selectedDate ? formatDateKey(selectedDate) : null;
+  const selectedList = selectedKey ? filtered.filter((r) => formatDateKey(new Date(r.date || r.createdAt)) === selectedKey) : [];
+
+  /* 스와이프 */
+  const handlers = useSwipeable({
+    onSwipedLeft: () => {
+      if (isAnimating) return;
+      setIsAnimating(true);
+      setSlide("slide-left");
+
+      setTimeout(() => {
+        const next = new Date(selectedMonth);
+        next.setMonth(selectedMonth.getMonth() + 1);
+        setSelectedMonth(next);
+
+        setSlide("");
+        setIsAnimating(false);
+      }, 150);
+    },
+
+    onSwipedRight: () => {
+      if (isAnimating) return;
+      setIsAnimating(true);
+      setSlide("slide-right");
+
+      setTimeout(() => {
+        const prev = new Date(selectedMonth);
+        prev.setMonth(selectedMonth.getMonth() - 1);
+        setSelectedMonth(prev);
+
+        setSlide("");
+        setIsAnimating(false);
+      }, 150);
+    },
+
+    trackMouse: true,
+  });
+
+  return (
+  <S.PageWrap>
+    <S.HeaderFix>
+      <Header title="월간 수입·지출 캘린더" />
+    </S.HeaderFix>
+
+    <S.Content>
+      <S.SummaryBox>
+        <S.Row>
+          <span>총 수입</span>
+          <span>
+            {formatNumber(
+              filtered
+                .filter((r) => r.type === "income")
+                .reduce((a, b) => a + b.amount, 0)
+            )}{" "}
+            {unit}
+          </span>
+        </S.Row>
+        <S.Row>
+          <span>총 지출</span>
+          <span>
+            {formatNumber(
+              filtered
+                .filter((r) => r.type === "expense")
+                .reduce((a, b) => a + b.amount, 0)
+            )}{" "}
+            {unit}
+          </span>
+        </S.Row>
+      </S.SummaryBox>
+
+      <div {...handlers} className={`calendar-slide ${slide}`}>
+        <Calendar
+          key={selectedMonth.toISOString()}
+          locale="ko-KR"
+          calendarType="gregory"
+          formatShortWeekday={formatShortWeekday}
+          onClickDay={(value) => setSelectedDate(value)}
+          onActiveStartDateChange={(v) =>
+            setSelectedMonth(v.activeStartDate)
+          }
+          value={selectedMonth}
+          tileContent={tileContent}
+          tileClassName={tileClassName}
+        />
+      </div>
+
+      {selectedList.length > 0 && (
+        <S.DetailBox>
+          <h3>{selectedKey} 상세 내역</h3>
+          {selectedList.map((r) => (
+            <S.Card
+              key={r.id}
+              onClick={() =>
+                navigate(
+                  `/detail/date/${selectedKey}/${r.id}/${r.chapterId}`
+                )
+              }
+              style={{ cursor: "pointer" }}
+              $isPaid={r.isPaid}
+            >
+              <S.Title $isPaid={r.isPaid}>
+                [{r.type === "income" ? "수입" : "지출"}] {r.title}
+              </S.Title>
+              <S.Amount type={r.type} $isPaid={r.isPaid}>
+                {r.type === "income" ? "+" : "-"}
+                {formatNumber(r.amount)} {unit}
+              </S.Amount>
+            </S.Card>
+          ))}
+        </S.DetailBox>
+      )}
+    </S.Content>
+  </S.PageWrap>
+);
+
+}

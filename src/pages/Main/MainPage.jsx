@@ -1,103 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import styled from "styled-components";
-import Header from "../components/Header";
+import Header from "../../components/Header";
 // 임시로 제거한 모달 import
 // import CreateChapterModal from "../components/CreateChapterModal";
-import { useBudgetDB } from "../hooks/useBudgetDB";
+import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
-// 페이지의 전체 레이아웃을 담당하는 래퍼
-const PageWrap = styled.div`
-  max-width: 480px;
-  margin: 0 auto;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-`;
-
-// 상단 헤더를 고정시키는 영역
-const HeaderFix = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 480px;
-  z-index: 20;
-`;
-
-// 챕터 목록을 담는 스크롤 영역
-const ListWrap = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  margin-top: 100px;
-  padding: 0 16px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
-`;
-
-// 새 챕터 생성 버튼 스타일
-const CreateBtn = styled.button`
-  background: #1976d2;
-  color: white;
-  padding: 8px 14px;
-  border: none;
-  border-radius: 6px;
-`;
-
-// 각 챕터 아이템 스타일
-const ChapterItem = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 16px;
-  background: ${({ theme }) => theme.card};
-  border-radius: 6px;
-  margin-bottom: 12px;
-  border: 1px solid ${({ theme }) => theme.border};
-  transition: background 0.15s, transform 0.15s;
-
-  &:active {
-    background: rgba(0, 0, 0, 0.12);
-    transform: scale(0.98);
-  }
-
-  cursor: pointer;
-`;
-
-// 챕터 제목 링크 스타일
-const ChapterLink = styled.span`
-  flex: 1;
-  text-decoration: none;
-  color: ${({ theme }) => theme.text};
-`;
-
-// 삭제 버튼 스타일
-const DeleteBtn = styled.button`
-  background: #d9534f;
-  color: white;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  margin-left: 10px;
-`;
-
-// 빈 목록일 때 메시지를 감싸는 영역
-const EmptyWrap = styled.div`
-  height: 60vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-// 빈 목록 메시지 텍스트 스타일
-const EmptyMessage = styled.div`
-  font-size: 18px;
-  color: ${({ theme }) => theme.text};
-  opacity: 0.7;
-`;
+import * as S from './MainPage.styles'
 
 // 드래그 정렬을 위한 배열 재배치 함수
 const reorder = (list, startIndex, endIndex) => {
@@ -176,25 +85,27 @@ export default function MainPage() {
 
     loadChapters();
   };
-
+  
   return (
-    <PageWrap>
-      <HeaderFix>
+    <S.PageWrap>
+      <S.HeaderFix>
         <Header
           title="가계부"
           rightButton={
             // 새 임시 챕터를 생성하는 버튼
-            <CreateBtn onClick={createTemporaryChapter}>새 내역 추가</CreateBtn>
+            <S.CreateBtn onClick={createTemporaryChapter}>
+              새 내역 추가
+            </S.CreateBtn>
           }
         />
-      </HeaderFix>
+      </S.HeaderFix>
 
-      <ListWrap>
+      <S.ListWrap>
         {/* 임시 챕터를 제외한 목록이 비어 있는지 판단 */}
         {chapters.filter((c) => !c.isTemporary).length === 0 && (
-          <EmptyWrap>
-            <EmptyMessage>새로운 가계부를 작성해 보세요</EmptyMessage>
-          </EmptyWrap>
+          <S.EmptyWrap>
+            <S.EmptyMessage>새로운 가계부를 작성해 보세요</S.EmptyMessage>
+          </S.EmptyWrap>
         )}
 
         <DragDropContext onDragEnd={onDragEnd}>
@@ -204,9 +115,13 @@ export default function MainPage() {
                 {chapters
                   .filter((c) => !c.isTemporary)
                   .map((c, index) => (
-                    <Draggable key={c.chapterId} draggableId={String(c.chapterId)} index={index}>
+                    <Draggable
+                      key={c.chapterId}
+                      draggableId={String(c.chapterId)}
+                      index={index}
+                    >
                       {(provided, snapshot) => (
-                        <ChapterItem
+                        <S.ChapterItem
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
@@ -214,19 +129,21 @@ export default function MainPage() {
                             ...provided.draggableProps.style,
                             opacity: snapshot.isDragging ? 0.7 : 1,
                           }}
-                          onClick={() => navigate(`/detail/chapter/${c.chapterId}`)}
+                          onClick={() =>
+                            navigate(`/detail/chapter/${c.chapterId}`)
+                          }
                         >
-                          <ChapterLink>{c.title}</ChapterLink>
+                          <S.ChapterLink>{c.title}</S.ChapterLink>
 
-                          <DeleteBtn
+                          <S.DeleteBtn
                             onClick={(e) => {
                               e.stopPropagation();
                               deleteChapter(c.chapterId);
                             }}
                           >
                             삭제
-                          </DeleteBtn>
-                        </ChapterItem>
+                          </S.DeleteBtn>
+                        </S.ChapterItem>
                       )}
                     </Draggable>
                   ))}
@@ -236,10 +153,12 @@ export default function MainPage() {
             )}
           </Droppable>
         </DragDropContext>
-      </ListWrap>
+      </S.ListWrap>
 
       {/* create chapter modal은 현재 사용되지 않음 */}
       {/* {openModal && <CreateChapterModal onClose={() => setOpenModal(false)} onSubmit={createNewChapter} />} */}
-    </PageWrap>
+    </S.PageWrap>
   );
+
+ 
 }
