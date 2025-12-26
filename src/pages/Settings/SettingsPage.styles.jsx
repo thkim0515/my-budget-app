@@ -109,3 +109,37 @@ export const ToggleSwitch = styled.label`
     transform: translateX(24px);
   }
 `;
+
+// src/pages/Settings/SettingsPage.styles.jsx 에 추가
+
+export const ColorConfigBox = styled.div`
+  margin-top: 20px;
+  padding: 15px;
+  /* 테마의 카드 배경색보다 약간 더 강조되거나 구분되는 배경색 사용 */
+  background: ${({ theme }) => theme.card}; 
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: 10px;
+`;
+
+export const ConfigTitle = styled.p`
+  font-size: 14px;
+  margin-bottom: 15px;
+  font-weight: bold;
+  color: ${({ theme }) => theme.text}; /* 테마 글자색 적용 */
+`;
+
+export const ResetSubBtn = styled.button`
+  background: transparent;
+  color: ${({ theme }) => theme.text};
+  opacity: 0.6; /* 약간 흐리게 처리 */
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 6px 10px;
+  margin-top: 10px;
+  cursor: pointer;
+
+  &:active {
+    opacity: 1;
+  }
+`;

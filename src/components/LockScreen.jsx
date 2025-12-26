@@ -1,8 +1,14 @@
+// src/components/LockScreen.jsx
 import { ThemeProvider } from "styled-components";
-import { lightTheme, darkTheme } from "../theme";
+import { getLightTheme, getDarkTheme } from "../theme"; // 🔥 수정됨
 
 export default function LockScreen({ mode, onAuthenticate }) {
-  const theme = mode === "light" ? lightTheme : darkTheme;
+  // 🔥 사용자가 설정한 색상을 반영하기 위해 localStorage 확인
+  const lightColor = localStorage.getItem("lightTextColor") || "#222222";
+  const darkColor = localStorage.getItem("darkTextColor") || "#e5e5e5";
+
+  // 🔥 함수를 호출하여 테마 객체 생성
+  const theme = mode === "light" ? getLightTheme(lightColor) : getDarkTheme(darkColor);
 
   return (
     <ThemeProvider theme={theme}>
@@ -14,7 +20,7 @@ export default function LockScreen({ mode, onAuthenticate }) {
           justifyContent: "center",
           alignItems: "center",
           background: theme.bg,
-          color: theme.text,
+          color: theme.text, // 이제 설정한 색상이 적용됩니다.
           padding: "20px",
         }}
       >

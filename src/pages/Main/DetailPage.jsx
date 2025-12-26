@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
@@ -51,6 +51,7 @@ export default function DetailPage() {
   const { unit } = useCurrencyUnit();
   const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
   const contentRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!db) return;
@@ -201,6 +202,17 @@ export default function DetailPage() {
     };
 
     const newId = await add("records", newRecord);
+
+    if (
+      isChapterMode &&
+      chapter &&
+      records.length === 0
+    ) {
+      setTitle("");
+      setAmount("");
+      navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
+      return;
+    }
 
     // 신규 생성인데 챕터가 바뀌면 즉시 이동
     // if (isChapterMode && chapterChanged) {

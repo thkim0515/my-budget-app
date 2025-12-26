@@ -1,28 +1,30 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Header from "../../components/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 
-import * as S from './CategorySettingsPage.stlyes'
+import * as S from "./CategorySettingsPage.stlyes";
 
 // 카테고리 설정 페이지 컴포넌트
 export default function CategorySettingsPage() {
-  const { db, getAll, add, deleteItem } = useBudgetDB(); // 데이터베이스 접근 훅
-  const [categories, setCategories] = useState([]); // 전체 카테고리 목록
-  const [newCat, setNewCat] = useState(""); // 새 카테고리 입력값
+  const { db, getAll, add, deleteItem } = useBudgetDB();
+  const [categories, setCategories] = useState([]);
+  const [newCat, setNewCat] = useState("");
+
+  // 카테고리 목록 로드 (Hooks 규칙 대응)
+  const loadCategories = useCallback(async () => {
+    const rows = await getAll("categories");
+    setCategories(rows);
+  }, [getAll]);
 
   // DB 준비 시 카테고리 로드
   useEffect(() => {
-    if (db) loadCategories();
-  }, [db]);
+    if (db) {
+      loadCategories();
+    }
+  }, [db, loadCategories]);
 
-  // 카테고리 목록 가져오기
-  const loadCategories = async () => {
-    const rows = await getAll("categories");
-    setCategories(rows);
-  };
-
-  // 새 카테고리 추가 기능
+  // 새 카테고리 추가
   const addCategory = async () => {
     if (!newCat.trim()) return;
 
@@ -31,7 +33,7 @@ export default function CategorySettingsPage() {
     loadCategories();
   };
 
-  // 카테고리 삭제 기능
+  // 카테고리 삭제
   const deleteCategory = async (id, name) => {
     if (DEFAULT_CATEGORIES.includes(name)) {
       alert(`"${name}"는 기본 제공 카테고리이며 삭제할 수 없습니다.`);
@@ -52,7 +54,6 @@ export default function CategorySettingsPage() {
       </S.HeaderFix>
 
       <S.Content>
-        {/* 카테고리 입력창과 추가 버튼 */}
         <S.InputBox
           placeholder="새 카테고리 입력"
           value={newCat}
@@ -60,7 +61,6 @@ export default function CategorySettingsPage() {
         />
         <S.Btn onClick={addCategory}>카테고리 추가</S.Btn>
 
-        {/* 기본 카테고리 출력 */}
         <h3 style={{ marginBottom: "10px" }}>기본 카테고리</h3>
         <S.DefaultGrid>
           {categories
@@ -70,7 +70,6 @@ export default function CategorySettingsPage() {
             ))}
         </S.DefaultGrid>
 
-        {/* 추가된 카테고리 출력 */}
         <h3 style={{ marginTop: "20px", marginBottom: "10px" }}>
           추가된 카테고리
         </h3>
@@ -91,5 +90,4 @@ export default function CategorySettingsPage() {
       </S.Content>
     </S.PageWrap>
   );
-
 }

@@ -1,6 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
-import { lightTheme, darkTheme } from "./theme";
+import { getLightTheme, getDarkTheme } from "./theme";
 import { useState, useEffect } from "react";
 
 import {
@@ -16,9 +16,9 @@ import {
   StatsBySourcePage,
   CategorySettingsPage,
   CalendarStatsPage,
+  TextColorSettingsPage // 🔥 추가
 } from "./appImports";
 
-// 🔥 네이티브 자동 동기화 훅
 import { useNativeSync } from "./hooks/useNativeSync";
 
 const getInitialMode = () => {
@@ -28,38 +28,39 @@ const getInitialMode = () => {
 
 export default function App() {
   const [mode, setMode] = useState(getInitialMode);
+  const [lightTextColor, setLightTextColor] = useState(localStorage.getItem("lightTextColor") || "#222222");
+  const [darkTextColor, setDarkTextColor] = useState(localStorage.getItem("darkTextColor") || "#e5e5e5");
 
-  // 생체 인증 / 뒤로가기
   const { isLocked, isChecking, authenticate } = useBiometricLock();
   useAndroidBackHandler();
-
-  // 🔥 앱 실행 시 네이티브 알림 자동 동기화
   useNativeSync();
 
-  // 테마 저장
   useEffect(() => {
     localStorage.setItem("themeMode", mode);
   }, [mode]);
 
-  // 생체 인증 체크 중
   if (isChecking) return null;
+  if (isLocked) return <LockScreen mode={mode} onAuthenticate={authenticate} />;
 
-  // 잠금 상태
-  if (isLocked) {
-    return <LockScreen mode={mode} onAuthenticate={authenticate} />;
-  }
+  const theme = mode === "light" ? getLightTheme(lightTextColor) : getDarkTheme(darkTextColor);
 
   return (
-    <ThemeProvider theme={mode === "light" ? lightTheme : darkTheme}>
-      <div
-        style={{
-          background: mode === "light" ? lightTheme.bg : darkTheme.bg,
-          minHeight: "100vh",
-        }}
-      >
+    <ThemeProvider theme={theme}>
+      <div style={{ background: theme.bg, minHeight: "100vh", transition: "background 0.3s ease" }}>
         <Routes>
           <Route path="/" element={<MainPage setMode={setMode} mode={mode} />} />
           <Route path="/settings" element={<SettingsPage setMode={setMode} mode={mode} />} />
+          <Route 
+            path="/settings/text-color" 
+            element={
+              <TextColorSettingsPage 
+                lightTextColor={lightTextColor}
+                setLightTextColor={setLightTextColor}
+                darkTextColor={darkTextColor}
+                setDarkTextColor={setDarkTextColor}
+              />
+            } 
+          />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings/currency" element={<CurrencySettingsPage />} />
           <Route path="/source-stats" element={<StatsBySourcePage />} />
@@ -68,7 +69,6 @@ export default function App() {
           <Route path="/detail/chapter/:chapterId" element={<DetailPage />} />
           <Route path="/detail/date/:date/:id/:chapterId" element={<DetailPage />} />
         </Routes>
-
         <BottomTabBar />
       </div>
     </ThemeProvider>
