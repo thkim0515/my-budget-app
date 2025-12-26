@@ -17,15 +17,19 @@ public class BudgetPlugin extends Plugin {
     private static final String PREF_NAME = "BudgetData";
     private static final String KEY_PENDING = "pending_notis";
 
+    // BudgetPlugin.java 내 해당 메서드 수정
     @PluginMethod
     public void openNotificationAccessSettings(PluginCall call) {
         Log.d("BudgetPlugin", "openNotificationAccessSettings 호출됨");
 
         Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(intent);
-
-        call.resolve();
+        // getContext() 대신 getActivity() 사용 추천
+        if (getActivity() != null) {
+            getActivity().startActivity(intent);
+            call.resolve();
+        } else {
+            call.reject("Activity not found");
+        }
     }
 
 

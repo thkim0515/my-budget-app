@@ -19,7 +19,7 @@ public final class NotificationListener extends NotificationListenerService {
     private static final String PREF_NAME = "BudgetData";
     private static final String KEY_PENDING = "pending_notis";
     private static final String KEY_HASHES = "recent_hashes";
-    private static final int MAX_HASH_SIZE = 50;
+    private static final int MAX_HASH_SIZE = 100;
 
     // 🔥 리스너가 실제로 연결되었는지 확인하는 핵심 로그
     @Override

@@ -1,11 +1,13 @@
 package com.user.budgetapp;
 
-import android.os.Bundle;
+import android.os.Bundle; // 추가
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        registerPlugin(BudgetPlugin.class);
     }
 }
