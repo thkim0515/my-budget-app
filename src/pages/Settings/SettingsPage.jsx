@@ -8,6 +8,7 @@ import { NativeBiometric } from "@capgo/capacitor-native-biometric";
 import { Capacitor } from "@capacitor/core";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 
+
 import * as S from './SettingsPage.styles';
 
 export default function SettingsPage({ setMode, mode }) {
@@ -66,16 +67,50 @@ export default function SettingsPage({ setMode, mode }) {
     alert("전체 초기화 완료되었습니다.");
   };
 
+
   const backupData = async () => {
-    const granted = await requestPermission();
-    if (!granted) { alert("파일 저장 권한이 필요합니다."); return; }
     const chapters = await getAll("chapters");
     const records = await getAll("records");
     const categories = await getAll("categories");
-    const data = { chapters, records, categories, exportedAt: new Date().toISOString() };
+
+    const data = {
+      chapters,
+      records,
+      categories,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const fileName = `budget_backup_${new Date().toISOString().slice(0, 10)}.json`;
+
+    // 웹 환경
+    if (!Capacitor.isNativePlatform()) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      alert("백업 파일이 다운로드되었습니다.");
+      return;
+    }
+
+    // 모바일 환경
+    const granted = await requestPermission();
+    if (!granted) {
+      alert("파일 저장 권한이 필요합니다.");
+      return;
+    }
+
     try {
       await Filesystem.writeFile({
-        path: `budget_backup_${new Date().toISOString().slice(0, 10)}.json`,
+        path: fileName,
         data: JSON.stringify(data, null, 2),
         directory: Directory.Documents,
         encoding: Encoding.UTF8,
@@ -85,6 +120,7 @@ export default function SettingsPage({ setMode, mode }) {
       alert("백업 실패: " + err.message);
     }
   };
+
 
   const restoreData = async (e) => {
     const file = e.target.files[0];
