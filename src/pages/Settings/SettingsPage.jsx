@@ -7,6 +7,7 @@ import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
 import { Capacitor } from "@capacitor/core";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
+import SyncAction from "./SyncAction";
 
 
 import * as S from './SettingsPage.styles';
@@ -171,7 +172,6 @@ export default function SettingsPage({ setMode, mode }) {
         <S.Btn onClick={openNotificationAccess}>알림 접근 권한 설정</S.Btn>
         <S.Btn onClick={() => navigate("/settings/currency")}>금액 기호 설정하기</S.Btn>
         
-        {/* 🔥 새로 추가된 글자 색상 설정 이동 버튼 */}
         <S.Btn onClick={() => navigate("/settings/text-color")}>글자 색상 설정하기</S.Btn>
 
         <S.Btn onClick={() => navigate("/settings/categories")}>카테고리 관리</S.Btn>
@@ -181,6 +181,9 @@ export default function SettingsPage({ setMode, mode }) {
 
         <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
         <S.SectionTitle>데이터 관리</S.SectionTitle>
+
+        <SyncAction />
+        
         <S.Btn onClick={backupData} style={{ background: "#28a745" }}>데이터 백업 다운로드</S.Btn>
         <S.Btn onClick={() => fileInputRef.current.click()} style={{ background: "#17a2b8" }}>데이터 복구 파일 불러오기</S.Btn>
         <input type="file" accept=".json" ref={fileInputRef} style={{ display: "none" }} onChange={restoreData} />
