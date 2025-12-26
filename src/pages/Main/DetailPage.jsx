@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
@@ -28,7 +28,6 @@ const reorder = (list, startIndex, endIndex) => {
 /* 상세 페이지 컴포넌트 시작 */
 export default function DetailPage() {
   const { chapterId, date, id } = useParams();
-  const navigate = useNavigate();
 
   const isChapterMode = !!chapterId;
   const isDateMode = !!date;

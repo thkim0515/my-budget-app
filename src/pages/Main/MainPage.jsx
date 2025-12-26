@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {  useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 // 임시로 제거한 모달 import
 // import CreateChapterModal from "../components/CreateChapterModal";

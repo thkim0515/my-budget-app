@@ -1,5 +1,4 @@
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
 
 const HeaderWrap = styled.div`
   width: 100%;
@@ -27,9 +26,6 @@ const HeaderWrap = styled.div`
 
 
 
-
-
-
 const Title = styled.h1`
   font-size: 22px;
   font-weight: 600;
@@ -48,13 +44,6 @@ const RightArea = styled.div`
 `;
 
 
-const Btn = styled.button`
-  background: #fff;
-  color: #1976d2;
-  padding: 8px 12px;
-  border: none;
-  border-radius: 6px;
-`;
 
 export default function Header({ title, rightButton }) {
   return (
