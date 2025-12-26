@@ -7,7 +7,9 @@ export const getLightTheme = (customTextColor) => ({
   headerText: "#ffffff",
   border: "#ddd",
   activeText: "#1976d2",
-  activeBg: "#e3f2fd"
+  activeBg: "#e3f2fd",
+  completedBg: "#e6f4ea",
+  completedBorder: "#b7dfc3",
 });
 
 export const getDarkTheme = (customTextColor) => ({
@@ -18,7 +20,9 @@ export const getDarkTheme = (customTextColor) => ({
   headerText: "#fff",
   border: "#444",
   activeText: "#ffffff",
-  activeBg: "#333"
+  activeBg: "#333",
+  completedBg: "#1f2a24",
+  completedBorder: "#2f5d46",
 });
 // export const lightTheme = {
 //   bg: "#f8f9fa",
