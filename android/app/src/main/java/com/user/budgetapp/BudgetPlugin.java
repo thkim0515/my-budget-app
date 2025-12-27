@@ -22,13 +22,22 @@ public class BudgetPlugin extends Plugin {
     public void openNotificationAccessSettings(PluginCall call) {
         Log.d("BudgetPlugin", "openNotificationAccessSettings 호출됨");
 
-        Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-        // getContext() 대신 getActivity() 사용 추천
-        if (getActivity() != null) {
-            getActivity().startActivity(intent);
-            call.resolve();
-        } else {
-            call.reject("Activity not found");
+        try {
+            // 정확한 설정 화면 Intent (API 18 이상 공통)
+            Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            if (getActivity() != null) {
+                getActivity().startActivity(intent);
+                call.resolve();
+            } else {
+                // Context를 통해서라도 실행 시도
+                getContext().startActivity(intent);
+                call.resolve();
+            }
+        } catch (Exception e) {
+            Log.e("BudgetPlugin", "설정 화면 열기 실패: " + e.getMessage());
+            call.reject("설정 화면을 열 수 없습니다: " + e.getMessage());
         }
     }
 

@@ -20,3 +20,6 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 -keep class com.user.budgetapp.NotificationListener { *; }
+-keep public class com.user.budgetapp.BudgetPlugin { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keepnames class * extends com.getcapacitor.Plugin

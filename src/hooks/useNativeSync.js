@@ -9,42 +9,64 @@ export const useNativeSync = () => {
   const isRunningRef = useRef(false);
 
   useEffect(() => {
-    if (Capacitor.getPlatform() !== "android") return;
+    // 1. 플랫폼 및 플러그인 로드 상태 확인
+    const platform = Capacitor.getPlatform();
+    console.log(`[Native Sync] 현재 플랫폼: ${platform}`);
+
+    // 이 로그에서 { getPendingNotifications: f, ... } 처럼 메서드들이 보여야 합니다.
+    console.log("[Native Sync] BudgetPlugin 객체 상태:", BudgetPlugin);
+
+    if (platform !== "android") {
+      console.log("[Native Sync] 안드로이드가 아니므로 동기화를 중단합니다.");
+      return;
+    }
+
     if (isRunningRef.current) return;
 
     const sync = async () => {
       isRunningRef.current = true;
+      console.log("[Native Sync] 동기화 프로세스 시작...");
 
       try {
+        // 2. 알림 데이터 가져오기 호출
+        console.log("[Native Sync] getPendingNotifications 호출 중...");
         const result = await BudgetPlugin.getPendingNotifications();
-        const notis = JSON.parse(result.data || "[]");
+        console.log("[Native Sync] 네이티브 응답 데이터:", result);
 
-        if (!Array.isArray(notis) || notis.length === 0) return;
+        const jsonString = result.data || "[]";
+        const notis = JSON.parse(jsonString);
+        console.log(`[Native Sync] 파싱된 알림 개수: ${notis.length}`);
+
+        if (!Array.isArray(notis) || notis.length === 0) {
+          console.log("[Native Sync] 처리할 새로운 알림이 없습니다.");
+          return;
+        }
 
         const chapters = await getAll("chapters");
         const records = await getAll("records");
 
         for (const noti of notis) {
-          // 🔥 제목과 내용을 합쳐서 파싱 시도 (카카오톡 대응)
           const combinedText = `${noti.title} ${noti.text}`;
           const recordData = parseAndCreateRecord(combinedText);
-          
+
           if (!recordData) {
-            console.log("[Native Sync] 파싱 실패 또는 제외 대상:", combinedText);
+            console.log("[Native Sync] 파싱 실패 문자열:", combinedText);
             continue;
           }
 
-          // 중복 체크 (날짜, 금액, 제목이 모두 같으면 건너뜀)
-          const isDuplicate = records.some(
-            (r) => r.date === recordData.date && 
-                   r.amount === recordData.amount && 
-                   r.title === recordData.title
-          );
-          if (isDuplicate) continue;
+          // 중복 체크 로직
+          const isDuplicate = records.some((r) => r.date === recordData.date && r.amount === recordData.amount && r.title === recordData.title);
+
+          if (isDuplicate) {
+            console.log("[Native Sync] 이미 저장된 데이터 스킵:", recordData.title);
+            continue;
+          }
 
           let targetChapter = chapters.find((c) => c.title === recordData.chapterTitle);
 
+          // 챕터 자동 생성
           if (!targetChapter) {
+            console.log("[Native Sync] 새 챕터 생성:", recordData.chapterTitle);
             const newChapterId = await add("chapters", {
               title: recordData.chapterTitle,
               createdAt: new Date(recordData.date),
@@ -62,27 +84,38 @@ export const useNativeSync = () => {
             ...finalRecord,
             chapterId: targetChapter.chapterId,
           });
+          console.log("[Native Sync] 레코드 추가 완료:", finalRecord.title);
         }
 
-        // 처리가 끝나면 알림 목록 비우기
+        // 3. 네이티브 저장소 비우기
+        console.log("[Native Sync] clearNotifications 호출 중...");
         await BudgetPlugin.clearNotifications();
-        console.log("[Native Sync] 완료");
+        console.log("[Native Sync] 동기화 및 네이티브 큐 청소 완료");
       } catch (error) {
-        console.error("[Native Sync] 실패", error);
+        console.error("[Native Sync] 실행 중 에러 발생:", error);
+        if (error.message) {
+          console.error("[Native Sync] 상세 에러 메시지:", error.message);
+        }
       } finally {
         isRunningRef.current = false;
       }
     };
 
     const checkPermissionAndSync = async () => {
-      const result = await BudgetPlugin.hasNotificationAccess();
+      try {
+        console.log("[Native Sync] 권한 확인 시도...");
+        const result = await BudgetPlugin.hasNotificationAccess();
+        console.log("[Native Sync] 권한 확인 결과:", result);
 
-      if (!result.granted) {
-        // 권한이 없을 경우 사용자에게 요청 (이미 설정화면 이동 버튼이 있으므로 선택사항)
-        return;
+        if (!result || !result.granted) {
+          console.log("[Native Sync] 알림 접근 권한이 없습니다.");
+          return;
+        }
+
+        await sync();
+      } catch (error) {
+        console.error("[Native Sync] 권한 확인 단계 실패:", error);
       }
-
-      await sync();
     };
 
     checkPermissionAndSync();
