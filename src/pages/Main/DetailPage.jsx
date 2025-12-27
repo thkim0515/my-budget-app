@@ -66,6 +66,8 @@ export default function DetailPage() {
   }, [db, chapterId, date]);
 
   const loadRecords = async () => {
+    if (!db) return;
+
     let list = [];
     if (isChapterMode) {
       list = await getAllFromIndex("records", "chapterId", Number(chapterId));
@@ -92,6 +94,8 @@ export default function DetailPage() {
   };
 
   const loadCategories = async () => {
+    if (!db) return;
+    
     const rows = await getAll("categories");
     const list = rows.map((c) => c.name);
     setCategories(list);
