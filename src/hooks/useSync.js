@@ -55,6 +55,10 @@ export function useSync() {
    * @param {string} password - 업로드 시 설정했던 암호
    */
   const syncFromServer = async (code, password) => {
+    if (!db) {
+      alert("다운로드 및 병합 진행중입니다. 잠시후 다시 시도해주세요.");
+      return false;
+    }
     try {
       const response = await fetch(DOWNLOAD_URL, {
         method: "POST",
@@ -110,6 +114,9 @@ export function useSync() {
       mergedCategories.forEach(v => tx.objectStore("categories").put(v));
 
       await tx.done;
+
+      window.dispatchEvent(new CustomEvent("budget-db-updated"));
+      
       return true;
 
     } catch (err) {

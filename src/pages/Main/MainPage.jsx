@@ -17,7 +17,7 @@ export default function MainPage() {
   const [pressedId, setPressedId] = useState(null);
   const pressTimerRef = useRef(null);
   const navigate = useNavigate();
-  const { db, getAll, add, deleteItem, put } = useBudgetDB();
+  const { db, getAll, getAllFromIndex, add, deleteItem, put } = useBudgetDB();
 
   const loadChapters = useCallback(async () => {
     if (!db) return; // DB 객체가 있을 때만 실행
@@ -34,7 +34,7 @@ export default function MainPage() {
   useEffect(() => {
     loadChapters();
 
-    // ★ 네이티브 동기화 완료 신호를 받으면 리스트를 새로고침합니다.
+    // 네이티브 동기화 완료 신호를 받으면 리스트를 새로고침합니다.
     const handleSyncUpdate = () => {
       console.log("[MainPage] 네이티브 동기화 완료 감지 - 리스트 갱신");
       loadChapters();
@@ -71,11 +71,18 @@ export default function MainPage() {
 
   const deleteChapter = async (chapterId) => {
     if (!window.confirm("해당 기록을 삭제하시겠습니까?")) return;
+
+    // 1. 챕터 삭제 (Soft Delete)
     await deleteItem("chapters", chapterId);
-    const allRecords = await getAll("records");
-    for (let r of allRecords.filter((r) => r.chapterId === chapterId)) {
+
+    // 2. [개선] 인덱스를 사용하여 해당 챕터의 기록들만 가져와 삭제
+    // getAll 대신 getAllFromIndex를 사용하면 전체 데이터를 뒤지지 않아도 됩니다.
+    const recordsInChapter = await getAllFromIndex("records", "chapterId", Number(chapterId));
+    
+    for (let r of recordsInChapter) {
       await deleteItem("records", r.id);
     }
+
     loadChapters();
   };
 
