@@ -2,21 +2,20 @@ import LZString from "lz-string";
 import { useBudgetDB } from "./useBudgetDB";
 
 export function useSync() {
-  const { getAll, clear, db } = useBudgetDB();
+  // Task 1에서 추가한 getAllRaw를 사용하여 삭제된 데이터까지 포함해 병합합니다.
+  const { getAllRaw, db } = useBudgetDB();
 
-  // Cloud Functions 주소
   const UPLOAD_URL = process.env.REACT_APP_UPLOAD_URL;
   const DOWNLOAD_URL = process.env.REACT_APP_DOWNLOAD_URL;
 
   /**
-   * [업로드] 데이터 백업 및 코드 발급
+   * [업로드] 데이터 백업 (동일)
    */
   const generateSyncCode = async () => {
     try {
-      // 데이터 수집
-      const chapters = await getAll("chapters");
-      const records = await getAll("records");
-      const categories = await getAll("categories");
+      const chapters = await getAllRaw("chapters");
+      const records = await getAllRaw("records");
+      const categories = await getAllRaw("categories");
 
       const rawData = JSON.stringify({
         chapters,
@@ -25,103 +24,82 @@ export function useSync() {
         exportedAt: new Date().toISOString(),
       });
 
-      // 압축
       const compressed = LZString.compressToUTF16(rawData);
 
-      // 서버 요청
       const response = await fetch(UPLOAD_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ payload: compressed }),
       });
 
-      // 에러 핸들링
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMsg = "서버 연결에 실패했습니다.";
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMsg = errorJson.error || errorMsg;
-        } catch (e) {
-          errorMsg = errorText || errorMsg;
-        }
-        throw new Error(`${response.status}: ${errorMsg}`);
-      }
-
+      if (!response.ok) throw new Error("서버 업로드 실패");
       const result = await response.json();
       return result.data.pairingCode;
-
     } catch (err) {
-      console.error("Upload Sync Error:", err);
-      // 멘트 수정: 업로드 실패 시
-      alert(`데이터 백업 중 문제가 발생했습니다: ${err.message}`);
+      alert(`백업 중 오류: ${err.message}`);
       throw err;
     }
   };
 
   /**
-   * [다운로드] 서버 데이터 복원
+   * [다운로드 및 병합] 최신순 병합 엔진
    */
   const syncFromServer = async (code) => {
     try {
-      // 1. 서버 요청
       const response = await fetch(DOWNLOAD_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
 
-      // 에러 핸들링
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMsg = "데이터를 찾을 수 없습니다.";
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMsg = errorJson.error || errorMsg;
-        } catch (e) {
-          errorMsg = errorText || errorMsg;
-        }
-        throw new Error(`${response.status}: ${errorMsg}`);
-      }
-
+      if (!response.ok) throw new Error("데이터를 찾을 수 없습니다.");
       const result = await response.json();
-
-      // 2. 압축 해제
       const decompressed = LZString.decompressFromUTF16(result.data);
-      if (!decompressed) {
-        throw new Error("데이터 파일이 손상되어 복구할 수 없습니다.");
-      }
+      const serverData = JSON.parse(decompressed);
 
-      const data = JSON.parse(decompressed);
+      // 병합 처리 함수: 로컬과 서버 데이터를 비교하여 최신본 추출
+      const merge = (localArr, serverArr, keyName) => {
+        const map = new Map();
+        
+        // 1. 로컬 데이터 먼저 맵에 담기
+        localArr.forEach(item => map.set(item[keyName], item));
+        
+        // 2. 서버 데이터와 비교하며 최신본으로 교체
+        serverArr.forEach(serverItem => {
+          const localItem = map.get(serverItem[keyName]);
+          if (!localItem || (serverItem.updatedAt > (localItem.updatedAt || 0))) {
+            map.set(serverItem[keyName], serverItem);
+          }
+        });
+        
+        return Array.from(map.values());
+      };
 
-      // 3. 기존 로컬 데이터 삭제
-      await clear("chapters");
-      await clear("records");
-      await clear("categories");
+      // 각 스토어별 로컬 데이터 가져오기 (삭제된 것 포함)
+      const localChapters = await getAllRaw("chapters");
+      const localRecords = await getAllRaw("records");
+      const localCategories = await getAllRaw("categories");
 
-      // 4. 새 데이터 저장 (트랜잭션)
-      const tx = db.transaction(
-        ["chapters", "records", "categories"],
-        "readwrite"
-      );
+      // 병합 실행
+      const mergedChapters = merge(localChapters, serverData.chapters || [], "chapterId");
+      const mergedRecords = merge(localRecords, serverData.records || [], "id");
+      const mergedCategories = merge(localCategories, serverData.categories || [], "id");
 
-      if (data.chapters) data.chapters.forEach((v) => tx.objectStore("chapters").put(v));
-      if (data.records) data.records.forEach((v) => tx.objectStore("records").put(v));
-      if (data.categories) data.categories.forEach((v) => tx.objectStore("categories").put(v));
+      // 트랜잭션을 통해 병합된 데이터 저장
+      const tx = db.transaction(["chapters", "records", "categories"], "readwrite");
+      
+      // 기존 데이터를 지우지 않고 put(수정/추가) 방식으로 저장
+      mergedChapters.forEach(v => tx.objectStore("chapters").put(v));
+      mergedRecords.forEach(v => tx.objectStore("records").put(v));
+      mergedCategories.forEach(v => tx.objectStore("categories").put(v));
 
       await tx.done;
-
- 
-      alert("성공적으로 데이터를 불러왔습니다."); 
+      alert("기기 간 데이터 병합이 완료되었습니다.");
       return true;
 
     } catch (err) {
-      console.error("Download Sync Error:", err);
-      alert(`데이터를 불러오는 중 문제가 발생했습니다: ${err.message}`);
+      console.error("Sync Error:", err);
+      alert(`동기화 중 오류: ${err.message}`);
       return false;
     }
   };
