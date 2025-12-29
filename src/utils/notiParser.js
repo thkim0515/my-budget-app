@@ -31,7 +31,13 @@ export const parseAndCreateRecord = (text) => {
   if (!text || typeof text !== "string") return null;
 
   // 1. 텍스트 정제 (줄바꿈 제거 및 공백 통일)
-  const cleanText = text.replace(/\n+/g, " ").replace(/[\[\]\(\)]/g, " ").replace(/\s+/g, " ").trim();
+  // const cleanText = text.replace(/\n+/g, " ").replace(/[\[\]\(\)]/g, " ").replace(/\s+/g, " ").trim();
+  const cleanText = text
+    .replace(/\n+/g, " ")
+    .replace(/[()[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 
   // 2. 금액 추출
   const amountMatch = cleanText.match(/([\d,]+)\s*(?:원|KRW)/);

@@ -60,7 +60,7 @@ export default function DetailPage() {
   const [categories, setCategories] = useState([]);
   const [chapter, setChapter] = useState(null);
 
-  // ★ [수정] 수입/지출 각각의 모아보기 상태 관리
+  // [수정] 수입/지출 각각의 모아보기 상태 관리
   const [isIncomeGrouped, setIsIncomeGrouped] = useState(() => {
     return localStorage.getItem("isIncomeGrouped") === "true";
   });
@@ -85,7 +85,7 @@ export default function DetailPage() {
   const contentRef = useRef(null);
   const navigate = useNavigate();
 
-  // ★ [수정] 토글 상태 저장
+  // 토글 상태 저장
   useEffect(() => {
     localStorage.setItem("isIncomeGrouped", isIncomeGrouped);
   }, [isIncomeGrouped]);
@@ -101,9 +101,31 @@ export default function DetailPage() {
     loadCategories();
 
     if (isChapterMode) {
-      db.get("chapters", Number(chapterId)).then(setChapter);
+      db.get("chapters", Number(chapterId)).then((data) => {
+        setChapter(data);
+        
+        // 챕터 모드일 때 해당 챕터의 월에 맞춰 날짜 자동 설정
+        if (data && !isDateMode && !isEditing) {
+          const chapterDate = new Date(data.createdAt);
+          const today = new Date();
+          
+          const cYear = chapterDate.getFullYear();
+          const cMonth = chapterDate.getMonth();
+          const tYear = today.getFullYear();
+          const tMonth = today.getMonth();
+
+          // 만약 챕터의 년/월이 현재와 같다면 '오늘' 날짜로, 
+          // 아니라면 해당 월의 '1일'로 설정
+          if (cYear === tYear && cMonth === tMonth) {
+            setRecordDate(today.toISOString().split("T")[0]);
+          } else {
+            const yyyy = cYear;
+            const mm = String(cMonth + 1).padStart(2, "0");
+            setRecordDate(`${yyyy}-${mm}-01`);
+          }
+        }
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db, chapterId, date]);
 
   const loadRecords = async () => {
@@ -372,14 +394,14 @@ export default function DetailPage() {
     .filter((r) => r.type === "expense")
     .reduce((a, b) => a + b.amount, 0);
 
-  // ★ [핵심] 수입 리스트 가공
+  // 수입 리스트 가공
   const displayedIncomeList = useMemo(() => {
     const list = records.filter((r) => r.type === "income");
     if (!isIncomeGrouped) return list;
     return groupRecordsByTitle(list);
   }, [records, isIncomeGrouped]);
 
-  // ★ [핵심] 지출 리스트 가공
+  // 지출 리스트 가공
   const displayedExpenseList = useMemo(() => {
     const list = records.filter((r) => r.type === "expense");
     if (!isExpenseGrouped) return list;
@@ -503,7 +525,7 @@ export default function DetailPage() {
         </div>
 
         <DragDropContext onDragEnd={onDragEnd}>
-          {/* ★ 수입 목록 헤더 + 토글 */}
+          {/* 수입 목록 헤더 + 토글 */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 10 }}>
             <h3 style={{ margin: 0 }}>수입 목록</h3>
             <S.ToggleLabel onClick={() => setIsIncomeGrouped(!isIncomeGrouped)}>
@@ -581,7 +603,7 @@ export default function DetailPage() {
             )}
           </Droppable>
 
-          {/* ★ 지출 목록 헤더 + 토글 */}
+          {/* 지출 목록 헤더 + 토글 */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 10 }}>
             <h3 style={{ margin: 0 }}>지출 목록</h3>
             <S.ToggleLabel onClick={() => setIsExpenseGrouped(!isExpenseGrouped)}>

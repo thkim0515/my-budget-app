@@ -13,7 +13,7 @@ export function useSync() {
    */
   const generateSyncCode = async () => {
     try {
-      // 1. 데이터 수집
+      // 데이터 수집
       const chapters = await getAll("chapters");
       const records = await getAll("records");
       const categories = await getAll("categories");
@@ -25,10 +25,10 @@ export function useSync() {
         exportedAt: new Date().toISOString(),
       });
 
-      // 2. 압축
+      // 압축
       const compressed = LZString.compressToUTF16(rawData);
 
-      // 3. 서버 요청
+      // 서버 요청
       const response = await fetch(UPLOAD_URL, {
         method: "POST",
         headers: {

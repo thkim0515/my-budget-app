@@ -3,11 +3,11 @@ import { ThemeProvider } from "styled-components";
 import { getLightTheme, getDarkTheme } from "../theme"; // 🔥 수정됨
 
 export default function LockScreen({ mode, onAuthenticate }) {
-  // 🔥 사용자가 설정한 색상을 반영하기 위해 localStorage 확인
+  // 사용자가 설정한 색상을 반영하기 위해 localStorage 확인
   const lightColor = localStorage.getItem("lightTextColor") || "#222222";
   const darkColor = localStorage.getItem("darkTextColor") || "#e5e5e5";
 
-  // 🔥 함수를 호출하여 테마 객체 생성
+  // 함수를 호출하여 테마 객체 생성
   const theme = mode === "light" ? getLightTheme(lightColor) : getDarkTheme(darkColor);
 
   return (

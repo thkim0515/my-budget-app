@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { BudgetPlugin } from "../plugins/BudgetPlugin";
@@ -9,7 +9,7 @@ export const useNativeSync = () => {
   const { db, add, getAll, deleteItem } = useBudgetDB();
   const isRunningRef = useRef(false);
 
-  const sync = async () => {
+  const sync = useCallback(async () => {
     if (!db) return;
     if (isRunningRef.current) return;
 
@@ -45,29 +45,33 @@ export const useNativeSync = () => {
 
         if (!recordData) continue;
 
-        // 1. 토글 설정 체크
+        // 토글 설정 체크
         if (recordData.type === "income" && !autoSaveIncome) continue;
         if (recordData.type === "expense" && !autoSaveExpense) continue;
 
-        // 2. 결제 취소 처리
+        // 결제 취소 처리
         if (recordData.isCancellation) {
-          const target = records.find(r => 
-            r.amount === recordData.amount && 
-            (r.title.includes(recordData.title) || recordData.title.includes(r.title))
+          const target = records.find(
+            (r) =>
+              r.amount === recordData.amount &&
+              (r.title.includes(recordData.title) ||
+                recordData.title.includes(r.title))
           );
           if (target) {
             await deleteItem("records", target.id);
-            records = records.filter(r => r.id !== target.id);
+            records = records.filter((r) => r.id !== target.id);
             console.log("[Native Sync] 취소 처리 완료: ", target.title);
           }
-          continue; // 취소 알림 자체는 등록하지 않음
+          continue;
         }
 
-        // 3. 중복 알림 방지 (날짜 + 금액 + 유사한 제목)
-        const isDuplicate = records.some((r) => 
-          r.date === recordData.date && 
-          r.amount === recordData.amount && 
-          (r.title.includes(recordData.title) || recordData.title.includes(r.title))
+        // 중복 알림 방지 (날짜 + 금액 + 유사한 제목)
+        const isDuplicate = records.some(
+          (r) =>
+            r.date === recordData.date &&
+            r.amount === recordData.amount &&
+            (r.title.includes(recordData.title) ||
+              recordData.title.includes(r.title))
         );
 
         if (isDuplicate) {
@@ -75,8 +79,10 @@ export const useNativeSync = () => {
           continue;
         }
 
-        // 4. 저장 로직
-        let targetChapter = chapters.find((c) => c.title === recordData.chapterTitle);
+        // 저장 로직
+        let targetChapter = chapters.find(
+          (c) => c.title === recordData.chapterTitle
+        );
         if (!targetChapter) {
           const newChapterId = await add("chapters", {
             title: recordData.chapterTitle,
@@ -84,7 +90,10 @@ export const useNativeSync = () => {
             order: chapters.length,
             isTemporary: false,
           });
-          targetChapter = { chapterId: newChapterId, title: recordData.chapterTitle };
+          targetChapter = {
+            chapterId: newChapterId,
+            title: recordData.chapterTitle,
+          };
           chapters.push(targetChapter);
         }
 
@@ -103,17 +112,27 @@ export const useNativeSync = () => {
     } finally {
       isRunningRef.current = false;
     }
-  };
+  }, [db, add, getAll, deleteItem]);
 
   useEffect(() => {
     let appStateListener;
+
     const setupSync = async () => {
       if (db) await sync();
-      appStateListener = await App.addListener("appStateChange", ({ isActive }) => {
-        if (isActive) sync();
-      });
+      appStateListener = await App.addListener(
+        "appStateChange",
+        ({ isActive }) => {
+          if (isActive) sync();
+        }
+      );
     };
+
     setupSync();
-    return () => { if (appStateListener) appStateListener.remove(); };
-  }, [db, add, getAll]);
+
+    return () => {
+      if (appStateListener) {
+        appStateListener.remove();
+      }
+    };
+  }, [db, sync]);
 };
