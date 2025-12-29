@@ -179,7 +179,7 @@ export default function StatsPage() {
           <S.Table>
             <thead>
               <tr>
-                <S.Th>대제목</S.Th>
+                <S.Th>목록</S.Th>
                 <S.Th>수입</S.Th>
                 <S.Th>지출</S.Th>
                 <S.Th>잔액</S.Th>

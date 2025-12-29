@@ -30,7 +30,7 @@ const detectCategory = (text) => {
 export const parseAndCreateRecord = (text) => {
   if (!text || typeof text !== "string") return null;
 
-  // 1. 텍스트 정제 (줄바꿈 제거 및 공백 통일)
+  // 텍스트 정제 (줄바꿈 제거 및 공백 통일)
   // const cleanText = text.replace(/\n+/g, " ").replace(/[\[\]\(\)]/g, " ").replace(/\s+/g, " ").trim();
   const cleanText = text
     .replace(/\n+/g, " ")
@@ -39,22 +39,22 @@ export const parseAndCreateRecord = (text) => {
     .trim();
 
 
-  // 2. 금액 추출
+  // 금액 추출
   const amountMatch = cleanText.match(/([\d,]+)\s*(?:원|KRW)/);
   if (!amountMatch) return null;
   const amount = parseInt(amountMatch[1].replace(/,/g, ""), 10);
   if (isNaN(amount) || amount <= 0) return null;
 
-  // 3. 결제 취소 여부 확인
+  // 결제 취소 여부 확인
   const cancelKeywords = ["취소", "승인취소", "결제취소", "취소승인"];
   const isCancellation = cancelKeywords.some(k => cleanText.includes(k));
 
-  // 4. 입금/지출(income/expense) 구분
+  // 입금/지출(income/expense) 구분
   const incomeKeywords = ["입금", "환급", "입금완료", "받으세요", "수입"];
   const isIncome = incomeKeywords.some(k => cleanText.includes(k)) && !isCancellation;
   const type = isIncome ? "income" : "expense";
 
-  // 5. 결제 수단(은행/카드사) 표준화 추출
+  // 결제 수단(은행/카드사) 표준화 추출
   const bankMap = [
     { key: "삼성", name: "삼성카드" },
     { key: "카카오뱅크", name: "카카오뱅크" },
