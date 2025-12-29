@@ -32,6 +32,16 @@ export const Content = styled.div`
   padding-bottom: calc(160px + env(safe-area-inset-bottom));
 `;
 
+export const Row50 = styled.div`
+  display: flex;
+  gap: 10px;
+  width: 100%;
+
+  & > button {
+    flex: 1;
+  }
+`;
+
 // 설정 버튼 스타일
 export const Btn = styled.button`
   width: 100%;
