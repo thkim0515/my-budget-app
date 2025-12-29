@@ -195,6 +195,10 @@ export default function SettingsPage({ setMode, mode }) {
         <SyncAction />
         <BackupAction />
 
+        <S.Btn onClick={() => navigate("/settings/privacy")} style={{ background: "#6c757d", marginTop: "10px" }}>
+          개인정보 처리방침 확인
+        </S.Btn>
+
         <S.Btn
           onClick={resetAll}
           style={{ background: "#d9534f", marginTop: "20px" }}

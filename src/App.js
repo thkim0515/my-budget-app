@@ -16,7 +16,8 @@ import {
   StatsBySourcePage,
   CategorySettingsPage,
   CalendarStatsPage,
-  TextColorSettingsPage 
+  TextColorSettingsPage,
+  PrivacyPolicyPage
 } from "./appImports";
 
 import { useNativeSync } from "./hooks/useNativeSync";
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/calendar-stats" element={<CalendarStatsPage />} />
           <Route path="/detail/chapter/:chapterId" element={<DetailPage />} />
           <Route path="/detail/date/:date/:id/:chapterId" element={<DetailPage />} />
+          <Route path="/settings/privacy" element={<PrivacyPolicyPage />} />
         </Routes>
         <BottomTabBar />
       </div>

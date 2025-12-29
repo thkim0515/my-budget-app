@@ -5,6 +5,7 @@ export { default as useAndroidBackHandler } from "./hooks/useAndroidBackHandler"
 // components
 export { default as LockScreen } from "./components/LockScreen";
 export { default as BottomTabBar } from "./components/BottomTabBar";
+export { default as PrivacyPolicyPage } from "./components/PrivacyPolicyPage";
 
 // pages
 export { default as MainPage } from "./pages/Main/MainPage";
