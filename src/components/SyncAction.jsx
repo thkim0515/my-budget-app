@@ -2,11 +2,27 @@ import { useState, useEffect } from "react";
 import { useSync } from "../hooks/useSync";
 import { auth } from "../db/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components"; // keyframes 추가
+import { useNavigate } from "react-router-dom";
 
 const Container = styled.div`
   width: 100%;
-  /* margin-bottom 제거: GoogleAuth와의 간격은 SettingsPage에서 조절 */
+`;
+
+// 스피너 애니메이션 정의
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+// 로딩 스피너 스타일
+const Spinner = styled.div`
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
 `;
 
 export const Row50 = styled.div`
@@ -24,18 +40,24 @@ export const Btn = styled.button`
   margin-bottom: 12px;
   border: none;
   border-radius: 6px;
-  background: #1976d2;
+  background: ${props => props.disabled ? "#adb5bd" : (props.bg || "#1976d2")};
   color: white;
   font-size: 15px;
-  cursor: pointer;
-  &:active { opacity: 0.8; }
+  cursor: ${props => props.disabled ? "not-allowed" : "pointer"};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  &:active { opacity: ${props => props.disabled ? 1 : 0.8}; }
 `;
 
 export default function SyncAction() {
   const { uploadData, downloadAndMerge } = useSync();
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false); // 로딩 상태 추가
 
-  // 로직은 필요하므로 인증 상태 감시만 유지 (UI 출력은 안 함)
+  const navigate = useNavigate();
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -52,10 +74,11 @@ export default function SyncAction() {
       return;
     }
 
+    setIsLoading(true); // 로딩 시작
     try {
       const code = await uploadData(password);
 
-      // 클립보드 복사
+      // 클립보드 복사 로직
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(code);
       } else {
@@ -74,44 +97,46 @@ export default function SyncAction() {
       alert(msg);
     } catch (err) {
       alert("업로드 실패: " + err.message);
+    } finally {
+      setIsLoading(false); // 로딩 종료
     }
   };
 
   const handleDownload = async () => {
-    // 1. 복호화 비밀번호는 누구에게나 필수입니다.
     const password = prompt("데이터 복호화를 위해 설정했던 비밀번호 4자리를 입력하세요.");
     if (!password) return;
 
     let code = null;
-
-    // 2. 로그인 여부에 따른 코드 요청 분기
     if (!user) {
-      // 로그인을 안 했다면 6자리 코드가 반드시 필요합니다.
       code = prompt("6자리 동기화 코드를 입력하세요.");
       if (!code) return;
-    } 
-    // [수정 포인트] 로그인 상태라면 별도의 질문 없이 code는 null인 상태로 진행합니다.
-    // 서버는 uid가 있으면 계정 데이터를 우선적으로 가져오도록 이미 설계되어 있습니다.
+    }
 
+    setIsLoading(true); // 로딩 시작
     try {
       const success = await downloadAndMerge(password, code);
       if (success) {
         alert("동기화 성공! 데이터를 불러왔습니다.");
-        window.location.reload();
+        // window.location.reload();
+        navigate("/", { replace: true });
       }
     } catch (err) {
       alert("동기화 실패: " + err.message);
+    } finally {
+      setIsLoading(false); // 로딩 종료
     }
   };
 
   return (
     <Container>
       <Row50>
-        <Btn onClick={handleUpload} style={{ background: "#4C6EF5" }}>
-          서버로 보내기
+        <Btn onClick={handleUpload} bg="#4C6EF5" disabled={isLoading}>
+          {isLoading ? <Spinner /> : null}
+          {isLoading ? "전송 중..." : "서버로 보내기"}
         </Btn>
-        <Btn onClick={handleDownload} style={{ background: "#6C757D" }}>
-          서버에서 가져오기
+        <Btn onClick={handleDownload} bg="#6C757D" disabled={isLoading}>
+          {isLoading ? <Spinner /> : null}
+          {isLoading ? "가져오는 중..." : "서버에서 가져오기"}
         </Btn>
       </Row50>
     </Container>
