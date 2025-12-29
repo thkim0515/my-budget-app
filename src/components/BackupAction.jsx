@@ -1,8 +1,8 @@
 import { useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
-import { useBudgetDB } from "../../hooks/useBudgetDB";
-import * as S from "./SettingsPage.styles";
+import { useBudgetDB } from "../hooks/useBudgetDB";
+import * as S from "../pages/Settings/SettingsPage.styles";
 
 export default function BackupAction() {
   const fileInputRef = useRef(null);
@@ -120,14 +120,14 @@ export default function BackupAction() {
       <S.Row50>
         <S.Btn
           onClick={backupData}
-          style={{ background: "#28a745" }}
+          style={{ background: "#4C6EF5" }}
         >
           데이터 백업 다운로드
         </S.Btn>
 
         <S.Btn
           onClick={() => fileInputRef.current.click()}
-          style={{ background: "#17a2b8" }}
+          style={{ background: "#6C757D" }}
         >
           데이터 복구 파일 불러오기
         </S.Btn>

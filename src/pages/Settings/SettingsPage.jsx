@@ -7,8 +7,8 @@ import { NativeBiometric } from "@capgo/capacitor-native-biometric";
 import { Capacitor } from "@capacitor/core";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 
-import SyncAction from "./SyncAction";
-import BackupAction from "./BackupAction";
+import SyncAction from "../../components/SyncAction";
+import BackupAction from "../../components/BackupAction";
 
 import * as S from "./SettingsPage.styles";
 

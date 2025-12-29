@@ -1,4 +1,4 @@
-import { useSync } from "../../hooks/useSync";
+import { useSync } from "../hooks/useSync";
 import styled from "styled-components";
 
 export const Row50 = styled.div`
@@ -60,10 +60,10 @@ export default function SyncAction() {
 
   return (
     <Row50>
-        <Btn onClick={handleUpload} style={{ background: "#6f42c1" }}>
+        <Btn onClick={handleUpload} style={{ background: "#4C6EF5" }}>
             서버로 보내기
         </Btn>
-        <Btn onClick={handleDownload} style={{ background: "#fd7e14" }}>
+        <Btn onClick={handleDownload} style={{ background: "#6C757D" }}>
             서버에서 가져오기
         </Btn>
     </Row50>
