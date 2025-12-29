@@ -5,54 +5,61 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 initializeApp();
 const db = getFirestore();
 
+/**
+ * 6자리 숫자 랜덤 코드 생성
+ */
 function generateCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
-  for (let i = 0; i < 7; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 6; i++) {
+    code += Math.floor(Math.random() * 10).toString();
   }
   return code;
 }
 
+/**
+ * 데이터 업로드
+ */
 exports.uploadSyncData = onRequest(
   { 
     region: "asia-northeast3", 
     memory: "1GiB", 
-    cors: true, // application/json 요청 시 Preflight(OPTIONS) 자동 처리됨
+    cors: true, 
   },
   async (req, res) => {
     try {
-      // 1. Content-Type이 application/json이면 req.body는 이미 객체입니다.
-      // 혹시 모를 상황(text/plain 등)을 대비해 방어 로직은 유지하되 간소화합니다.
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-      // 2. Payload 추출
-      // 클라이언트에서 JSON.stringify({ payload: ... }) 로 보냈으므로 body.payload로 접근
+      // payload와 사용자 지정 암호(password)를 받습니다.
       const compressedPayload = body.payload || body.data?.payload;
+      const userPassword = body.password || body.data?.password;
 
       if (!compressedPayload) {
-        console.error("Missing payload. Received body:", body); // 디버깅용 로그
-        return res.status(400).json({ error: "payload is required" });
+        return res.status(400).json({ error: "payload가 필요합니다." });
+      }
+      if (!userPassword) {
+        return res.status(400).json({ error: "보안을 위한 암호를 설정해주세요." });
       }
 
       const pairingCode = generateCode();
 
+      // Firestore에 암호와 함께 저장
       await db.collection("sync_codes").doc(pairingCode).set({
         payload: compressedPayload,
+        password: userPassword, // 사용자 지정 암호 저장
         createdAt: FieldValue.serverTimestamp(),
         isUsed: false,
       });
 
       return res.json({ data: { pairingCode } });
     } catch (err) {
-      console.error("Function Error:", err);
+      console.error("Upload Error:", err);
       return res.status(500).json({ error: err.message });
     }
   }
 );
 
 /**
- * 다운로드
+ * 데이터 다운로드
  */
 exports.downloadSyncData = onRequest(
   { 
@@ -62,12 +69,12 @@ exports.downloadSyncData = onRequest(
   },
   async (req, res) => {
     try {
-      // 업로드와 동일하게 처리
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const code = (body.code || body.data?.code)?.toUpperCase();
+      const code = (body.code || body.data?.code);
+      const inputPassword = body.password || body.data?.password; // 사용자가 입력한 암호
 
-      if (!code) {
-        return res.status(400).json({ error: "code is required" });
+      if (!code || !inputPassword) {
+        return res.status(400).json({ error: "코드와 암호를 모두 입력해주세요." });
       }
 
       const ref = db.collection("sync_codes").doc(code);
@@ -78,21 +85,29 @@ exports.downloadSyncData = onRequest(
       }
 
       const doc = snap.data();
+
+      // 1. 사용 여부 체크
       if (doc.isUsed) {
         return res.status(409).json({ error: "이미 사용된 코드입니다." });
       }
 
-      // 3분 만료 체크
+      // 2. 암호 일치 여부 체크
+      if (doc.password !== inputPassword) {
+        return res.status(401).json({ error: "암호가 일치하지 않습니다." });
+      }
+
+      // 3. 3분 만료 체크
       const createdAt = doc.createdAt.toMillis();
       if ((Date.now() - createdAt) / (1000 * 60) > 3) {
         return res.status(410).json({ error: "코드가 만료되었습니다." });
       }
 
+      // 성공 시 사용 완료 처리
       await ref.update({ isUsed: true });
 
       return res.json({ data: doc.payload });
     } catch (err) {
-      console.error(err);
+      console.error("Download Error:", err);
       return res.status(500).json({ error: err.message });
     }
   }
