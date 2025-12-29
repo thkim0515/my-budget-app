@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Header from "../../components/Header";
+import GoogleAuth from "../../components/GoogleAuth";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
@@ -80,9 +81,17 @@ export default function SettingsPage({ setMode, mode }) {
     await clear("categories");
 
     const tx = db.transaction("categories", "readwrite");
+    const now = Date.now();
     DEFAULT_CATEGORIES.forEach((name) => {
-      tx.objectStore("categories").add({ name });
+      tx.objectStore("categories").add({ 
+        name, 
+        updatedAt: now, 
+        isDeleted: false 
+      });
     });
+    // DEFAULT_CATEGORIES.forEach((name) => {
+    //   tx.objectStore("categories").add({ name });
+    // });
     await tx.done;
 
     alert("전체 초기화 완료되었습니다.");
@@ -182,7 +191,7 @@ export default function SettingsPage({ setMode, mode }) {
         <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
 
         <S.SectionTitle>데이터 관리</S.SectionTitle>
-
+        <GoogleAuth /> {/* 구글 로그인 UI */}
         <SyncAction />
         <BackupAction />
 
