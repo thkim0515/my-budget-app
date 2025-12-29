@@ -20,6 +20,7 @@ import {
 } from "./appImports";
 
 import { useNativeSync } from "./hooks/useNativeSync";
+import { syncParsingRules } from "./utils/notiParser"; // Task 3: 파싱 규칙 동기화 함수 임포트
 
 const getInitialMode = () => {
   const savedMode = localStorage.getItem("themeMode");
@@ -35,6 +36,12 @@ export default function App() {
   useAndroidBackHandler();
   useNativeSync();
 
+  // 1. 앱 초기 구동 시 Firestore에서 파싱 규칙을 딱 한 번만 불러옵니다.
+  useEffect(() => {
+    syncParsingRules();
+  }, []);
+
+  // 2. 테마 모드가 변경될 때마다 로컬 스토리지에 저장합니다.
   useEffect(() => {
     localStorage.setItem("themeMode", mode);
   }, [mode]);
