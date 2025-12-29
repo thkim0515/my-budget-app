@@ -9,19 +9,37 @@ import { Capacitor } from "@capacitor/core";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 import SyncAction from "./SyncAction";
 
-
 import * as S from './SettingsPage.styles';
 
 export default function SettingsPage({ setMode, mode }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const { db, getAll, clear } = useBudgetDB();
+  
   const [useBiometric, setUseBiometric] = useState(false);
+  const [hasNotiAccess, setHasNotiAccess] = useState(false);
+  const [autoSaveIncome, setAutoSaveIncome] = useState(true);
+  const [autoSaveExpense, setAutoSaveExpense] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem("useBiometric") === "true";
-    setUseBiometric(saved);
+    setUseBiometric(localStorage.getItem("useBiometric") === "true");
+    setAutoSaveIncome(localStorage.getItem("autoSaveIncome") !== "false");
+    setAutoSaveExpense(localStorage.getItem("autoSaveExpense") !== "false");
+
+    const checkAccess = async () => {
+      if (Capacitor.getPlatform() === "android") {
+        const result = await BudgetPlugin.hasNotificationAccess();
+        setHasNotiAccess(!!result.granted);
+      }
+    };
+    checkAccess();
   }, []);
+
+  const toggleAutoSave = (key, currentVal, setter) => {
+    const newVal = !currentVal;
+    localStorage.setItem(key, String(newVal));
+    setter(newVal);
+  };
 
   const toggleBiometric = async (e) => {
     const isChecked = e.target.checked;
@@ -33,6 +51,7 @@ export default function SettingsPage({ setMode, mode }) {
           setUseBiometric(false);
           return;
         }
+        // ★ 복구된 상세 옵션 (subtitle, description)
         await NativeBiometric.verifyIdentity({
           reason: "지문 인식 기능을 활성화합니다.",
           title: "본인 인증",
@@ -43,7 +62,6 @@ export default function SettingsPage({ setMode, mode }) {
         setUseBiometric(true);
         alert("지문 잠금이 활성화되었습니다.");
       } catch (error) {
-        console.error("Biometric setup failed", error);
         setUseBiometric(false);
       }
     } else {
@@ -62,47 +80,38 @@ export default function SettingsPage({ setMode, mode }) {
     await clear("chapters");
     await clear("records");
     await clear("categories");
+
     const tx = db.transaction("categories", "readwrite");
-    DEFAULT_CATEGORIES.forEach((name) => { tx.objectStore("categories").add({ name }); });
+    DEFAULT_CATEGORIES.forEach((name) => {
+      tx.objectStore("categories").add({ name });
+    });
     await tx.done;
+
     alert("전체 초기화 완료되었습니다.");
   };
-
 
   const backupData = async () => {
     const chapters = await getAll("chapters");
     const records = await getAll("records");
     const categories = await getAll("categories");
-
-    const data = {
-      chapters,
-      records,
-      categories,
-      exportedAt: new Date().toISOString(),
-    };
-
+    const data = { chapters, records, categories, exportedAt: new Date().toISOString() };
     const fileName = `budget_backup_${new Date().toISOString().slice(0, 10)}.json`;
 
-    // 웹 환경
+    // 웹 환경 백업 로직
     if (!Capacitor.isNativePlatform()) {
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
-
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
+      
+      // ★ 복구된 완료 알림
       alert("백업 파일이 다운로드되었습니다.");
       return;
     }
 
-    // 모바일 환경
+    // 모바일 환경 백업 로직
     const granted = await requestPermission();
     if (!granted) {
       alert("파일 저장 권한이 필요합니다.");
@@ -122,21 +131,21 @@ export default function SettingsPage({ setMode, mode }) {
     }
   };
 
-
   const restoreData = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (!window.confirm("기존 데이터가 삭제되고 백업 파일로 대체됩니다.")) { 
-      e.target.value = ""; 
-      return; 
+      e.target.value = ""; return; 
     }
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
         let data = JSON.parse(event.target.result);
+        
         if (!data.chapters || !data.records || !data.categories) {
           throw new Error("올바르지 않은 백업 파일 형식입니다.");
         }
+
         await clear("chapters"); await clear("records"); await clear("categories");
         const tx = db.transaction(["chapters", "records", "categories"], "readwrite");
         data.chapters.forEach((c) => tx.objectStore("chapters").put(c));
@@ -162,28 +171,58 @@ export default function SettingsPage({ setMode, mode }) {
       <S.Content>
         <S.SectionTitle>앱 설정</S.SectionTitle>
         <S.ToggleRow>
-          <span style={{ fontSize: "15px" }}>지문 생체 잠금 사용</span>
+          <span>지문 생체 잠금 사용</span>
           <S.ToggleSwitch>
             <input type="checkbox" checked={useBiometric} onChange={toggleBiometric} />
             <span></span>
           </S.ToggleSwitch>
         </S.ToggleRow>
 
-        <S.Btn onClick={openNotificationAccess}>알림 접근 권한 설정</S.Btn>
         <S.Btn onClick={() => navigate("/settings/currency")}>금액 기호 설정하기</S.Btn>
-        
         <S.Btn onClick={() => navigate("/settings/text-color")}>글자 색상 설정하기</S.Btn>
-
         <S.Btn onClick={() => navigate("/settings/categories")}>카테고리 관리</S.Btn>
         <S.Btn onClick={() => setMode(mode === "light" ? "dark" : "light")}>
-          테마 변경 (현재 {mode === "light" ? "라이트모드" : "다크모드"})
+          테마 변경 (현재 {mode === "light" ? "라이트" : "다크"})
         </S.Btn>
 
         <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
-        <S.SectionTitle>데이터 관리</S.SectionTitle>
 
+        <S.SectionTitle>자동 기록 설정</S.SectionTitle>
+        <S.Btn onClick={openNotificationAccess}>알림 접근 권한 설정</S.Btn>
+        <S.ToggleRow style={{ opacity: hasNotiAccess ? 1 : 0.5 }}>
+          <span>입금 자동 저장</span>
+          <S.ToggleSwitch>
+            <input 
+              type="checkbox" 
+              disabled={!hasNotiAccess}
+              checked={autoSaveIncome} 
+              onChange={() => toggleAutoSave("autoSaveIncome", autoSaveIncome, setAutoSaveIncome)} 
+            />
+            <span></span>
+          </S.ToggleSwitch>
+        </S.ToggleRow>
+        <S.ToggleRow style={{ opacity: hasNotiAccess ? 1 : 0.5 }}>
+          <span>지출 자동 저장</span>
+          <S.ToggleSwitch>
+            <input 
+              type="checkbox" 
+              disabled={!hasNotiAccess}
+              checked={autoSaveExpense} 
+              onChange={() => toggleAutoSave("autoSaveExpense", autoSaveExpense, setAutoSaveExpense)} 
+            />
+            <span></span>
+          </S.ToggleSwitch>
+        </S.ToggleRow>
+        {!hasNotiAccess && (
+          <p style={{ color: "#d9534f", fontSize: "12px", marginBottom: "10px" }}>
+            * 알림 접근 권한이 꺼져 있어 자동 저장을 사용할 수 없습니다.
+          </p>
+        )}
+
+        <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
+
+        <S.SectionTitle>데이터 관리</S.SectionTitle>
         <SyncAction />
-        
         <S.Btn onClick={backupData} style={{ background: "#28a745" }}>데이터 백업 다운로드</S.Btn>
         <S.Btn onClick={() => fileInputRef.current.click()} style={{ background: "#17a2b8" }}>데이터 복구 파일 불러오기</S.Btn>
         <input type="file" accept=".json" ref={fileInputRef} style={{ display: "none" }} onChange={restoreData} />

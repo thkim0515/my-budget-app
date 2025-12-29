@@ -30,49 +30,67 @@ const detectCategory = (text) => {
 export const parseAndCreateRecord = (text) => {
   if (!text || typeof text !== "string") return null;
 
-  // 1. 텍스트 정제 (불필요한 기호 제거 및 공백 통일)
-  const cleanText = text
-    .replace(/\n+/g, " ")
-    .replace(/[\[\]\(\)]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  // 1. 텍스트 정제 (줄바꿈 제거 및 공백 통일)
+  const cleanText = text.replace(/\n+/g, " ").replace(/[\[\]\(\)]/g, " ").replace(/\s+/g, " ").trim();
 
-  // 2. 금액 추출 (숫자와 쉼표 조합 뒤에 '원' 또는 'KRW'가 오는 경우)
-  // 예: "12,000원", "130,000 원" 모두 대응
+  // 2. 금액 추출
   const amountMatch = cleanText.match(/([\d,]+)\s*(?:원|KRW)/);
   if (!amountMatch) return null;
-
   const amount = parseInt(amountMatch[1].replace(/,/g, ""), 10);
   if (isNaN(amount) || amount <= 0) return null;
 
-  // 3. 결제 수단 추정
-  const sourceKeywords = ["카드", "은행", "뱅크", "페이", "체크", "카카오", "신한", "국민", "현대", "삼성", "우리", "하나", "롯데", "농협"];
-  let paymentSource = "기타";
-  const words = cleanText.split(" ");
+  // 3. 결제 취소 여부 확인
+  const cancelKeywords = ["취소", "승인취소", "결제취소", "취소승인"];
+  const isCancellation = cancelKeywords.some(k => cleanText.includes(k));
 
-  for (const word of words) {
-    if (sourceKeywords.some((k) => word.includes(k))) {
-      paymentSource = word;
+  // 4. 입금/지출(income/expense) 구분
+  const incomeKeywords = ["입금", "환급", "입금완료", "받으세요", "수입"];
+  const isIncome = incomeKeywords.some(k => cleanText.includes(k)) && !isCancellation;
+  const type = isIncome ? "income" : "expense";
+
+  // 5. 결제 수단(은행/카드사) 표준화 추출
+  const bankMap = [
+    { key: "삼성", name: "삼성카드" },
+    { key: "카카오뱅크", name: "카카오뱅크" },
+    { key: "국민", name: "국민카드" },
+    { key: "KB", name: "국민카드" },
+    { key: "신한", name: "신한카드" },
+    { key: "우리", name: "우리은행" },
+    { key: "하나", name: "하나카드" },
+    { key: "농협", name: "농협은행" },
+    { key: "현대", name: "현대카드" },
+    { key: "롯데", name: "롯데카드" },
+    { key: "카카오페이", name: "카카오페이" },
+  ];
+  
+  let paymentSource = "기타";
+  for (const b of bankMap) {
+    if (cleanText.includes(b.key)) {
+      paymentSource = b.name;
       break;
     }
   }
 
-  // 4. 상호명(Title) 추출
-  // 제외할 단어들
-  const excludeKeywords = ["승인", "결제", "완료", "입금", "출금", "일시불", "타인", "원", "KRW", "건당"];
-  const timeRegex = /(\d{1,2}:\d{1,2})|(\d{1,2}\/\d{1,2})/; // 시간 및 날짜 형태(12/27) 제외
+  // 6. 상호명(Title) 추출 및 노이즈 제거 강화
+  const excludeKeywords = [
+    "승인", "결제", "완료", "입금", "출금", "일시불", "타인", "원", "KRW", "건당", 
+    "누적", "Web발신", "님", "확인", "잔액", "체크", "카드", "뱅크", "취소"
+  ];
+  
+  // 날짜(12/25), 시간(22:28), 카드번호(6373), 이름가리기(김*현) 등 제거
+  const noiseRegex = /(\d{1,2}:\d{1,2})|(\d{1,2}\/\d{1,2})|(\d{4})|(.\*.)/;
 
+  const words = cleanText.split(" ");
   const titleParts = words.filter((word) => {
     const isAmount = word.includes(amountMatch[1]);
     const isExcluded = excludeKeywords.some((k) => word.includes(k));
-    const isTime = timeRegex.test(word);
-    const isSource = word === paymentSource;
-    return !isAmount && !isExcluded && !isTime && !isSource;
+    const isNoise = noiseRegex.test(word);
+    const isSource = word.includes(paymentSource.replace("카드", "").replace("뱅크", ""));
+    return !isAmount && !isExcluded && !isNoise && !isSource && word.length > 1;
   });
 
-  const finalTitle = titleParts.join(" ").trim() || "지출 내역";
+  const finalTitle = titleParts.join(" ").trim() || (isIncome ? "입금 내역" : "지출 내역");
 
-  // 5. 날짜 처리
   const now = new Date();
   const dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
 
@@ -80,7 +98,8 @@ export const parseAndCreateRecord = (text) => {
     title: finalTitle,
     source: paymentSource,
     amount,
-    type: "expense", // DB 설계에 따라 'out' 일 수도 있으니 확인 필요
+    type,
+    isCancellation, // 취소 여부 전달
     category: detectCategory(cleanText),
     date: dateStr,
     chapterTitle: formatChapterTitle(dateStr),

@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import Header from "../../components/Header";
@@ -7,7 +7,7 @@ import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 
-import * as S from "./DetailPage.styles"
+import * as S from "./DetailPage.styles";
 
 /* 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 */
 const formatChapterTitle = (dateString) => {
@@ -25,6 +25,30 @@ const reorder = (list, startIndex, endIndex) => {
   return result;
 };
 
+/* 데이터 그룹화(모아보기) 헬퍼 함수 */
+const groupRecordsByTitle = (list) => {
+  const grouped = {};
+  list.forEach((r) => {
+    // 키 생성: 같은 제목이면 묶음
+    const key = r.title;
+    if (!grouped[key]) {
+      grouped[key] = {
+        ...r,
+        count: 1,
+        isAggregated: true,
+        id: `grouped-${r.id}`, // 가상 ID
+        originalId: r.id,
+      };
+    } else {
+      grouped[key].amount += r.amount;
+      grouped[key].count += 1;
+      grouped[key].originalId = null;
+    }
+  });
+  // 금액 내림차순 정렬
+  return Object.values(grouped).sort((a, b) => b.amount - a.amount);
+};
+
 /* 상세 페이지 컴포넌트 시작 */
 export default function DetailPage() {
   const { chapterId, date, id } = useParams();
@@ -35,6 +59,14 @@ export default function DetailPage() {
   const [records, setRecords] = useState([]);
   const [categories, setCategories] = useState([]);
   const [chapter, setChapter] = useState(null);
+
+  // ★ [수정] 수입/지출 각각의 모아보기 상태 관리
+  const [isIncomeGrouped, setIsIncomeGrouped] = useState(() => {
+    return localStorage.getItem("isIncomeGrouped") === "true";
+  });
+  const [isExpenseGrouped, setIsExpenseGrouped] = useState(() => {
+    return localStorage.getItem("isExpenseGrouped") === "true";
+  });
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -52,6 +84,15 @@ export default function DetailPage() {
   const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
   const contentRef = useRef(null);
   const navigate = useNavigate();
+
+  // ★ [수정] 토글 상태 저장
+  useEffect(() => {
+    localStorage.setItem("isIncomeGrouped", isIncomeGrouped);
+  }, [isIncomeGrouped]);
+
+  useEffect(() => {
+    localStorage.setItem("isExpenseGrouped", isExpenseGrouped);
+  }, [isExpenseGrouped]);
 
   useEffect(() => {
     if (!db) return;
@@ -81,12 +122,9 @@ export default function DetailPage() {
       const da = new Date(a.date || a.createdAt);
       const db = new Date(b.date || b.createdAt);
 
-      // 1차: 날짜 오름차순
       if (da.getTime() !== db.getTime()) {
         return da - db;
       }
-
-      // 2차: 같은 날짜면 order
       return (a.order ?? 0) - (b.order ?? 0);
     });
 
@@ -95,7 +133,7 @@ export default function DetailPage() {
 
   const loadCategories = async () => {
     if (!db) return;
-    
+
     const rows = await getAll("categories");
     const list = rows.map((c) => c.name);
     setCategories(list);
@@ -110,16 +148,13 @@ export default function DetailPage() {
 
   const applyUnit = (value) => {
     const raw = unformatNumber(amount);
-    if (!raw) return;
-    setAmount(formatNumber(raw * value));
+    if (!raw && raw !== 0) return; 
+
+    const calculated = Math.round(raw * value);
+    
+    setAmount(formatNumber(calculated));
   };
 
-  /**
-   * 레코드 저장
-   * - 날짜 변경 시 챕터 자동 이동/생성
-   * - 챕터가 바뀌면 즉시 해당 챕터 상세로 navigate 해서 "바로 보이게" 처리
-   * - 챕터가 안 바뀌면 setRecords로 즉시 반영 + loadRecords로 정렬/최종 동기화
-   */
   const saveRecord = async (type) => {
     if (!title || !amount) return;
 
@@ -130,7 +165,6 @@ export default function DetailPage() {
     let targetChapterId = currentChapterId;
     let chapterChanged = false;
 
-    // 챕터 모드에서, 날짜가 바뀌어서 타겟 챕터가 달라지는 경우 처리
     if (isChapterMode && chapter) {
       if (newChapterTitle !== chapter.title) {
         const allChapters = await getAll("chapters");
@@ -156,7 +190,7 @@ export default function DetailPage() {
     }
 
     const recordDataBase = {
-      chapterId: isChapterMode ? targetChapterId : undefined, // date 모드에서는 chapterId가 없을 수도 있으나, 구조상 있으면 유지해도 무방
+      chapterId: isChapterMode ? targetChapterId : undefined,
       title,
       amount: recordAmount,
       type,
@@ -167,38 +201,26 @@ export default function DetailPage() {
       createdAt: editRecord?.createdAt || new Date(),
     };
 
-    // order 계산: 같은 챕터/같은 타입 기준으로 마지막에 추가
     const nextOrder = records.filter((r) => r.type === type).length;
 
-    // 수정
     if (isEditing && editId) {
       const updated = {
         ...recordDataBase,
         id: editId,
-        // 같은 챕터로 유지되는 수정이면 기존 order 유지, 챕터/타입이 바뀌면 마지막으로
         order:
           !chapterChanged && editRecord?.type === type
             ? editRecord?.order ?? nextOrder
             : nextOrder,
-        // 챕터 모드에서만 확실히 chapterId 강제
         ...(isChapterMode ? { chapterId: targetChapterId } : {}),
       };
 
       await put("records", updated);
-
-      // 챕터가 바뀌면 즉시 이동 (현재 화면에서는 안 보이는 게 정상이라 이동이 정답)
-      // if (isChapterMode && chapterChanged) {
-      //   cancelEdit();
-      //   navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
-      //   return;
-      // }
 
       cancelEdit();
       await loadRecords();
       return;
     }
 
-    // 신규
     const newRecord = {
       ...recordDataBase,
       order: nextOrder,
@@ -207,26 +229,13 @@ export default function DetailPage() {
 
     const newId = await add("records", newRecord);
 
-    if (
-      isChapterMode &&
-      chapter &&
-      records.length === 0
-    ) {
+    if (isChapterMode && chapter && records.length === 0) {
       setTitle("");
       setAmount("");
       navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
       return;
     }
 
-    // 신규 생성인데 챕터가 바뀌면 즉시 이동
-    // if (isChapterMode && chapterChanged) {
-    //   setTitle("");
-    //   setAmount("");
-    //   navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
-    //   return;
-    // }
-
-    // 같은 화면에서 바로 보이도록 즉시 state 반영
     setRecords((prev) => {
       const appended = [...prev, { ...newRecord, id: newId }];
       appended.sort((a, b) => {
@@ -239,14 +248,12 @@ export default function DetailPage() {
       return appended;
     });
 
-    // setRecords((prev) => {
-    //   const appended = [...prev, { ...newRecord, id: newId }];
-    //   appended.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    //   return appended;
-    // });
-
-    // 임시 챕터였고 날짜가 현재 챕터 내라면 제목 확정
-    if (isChapterMode && chapter && chapter.isTemporary && targetChapterId === currentChapterId) {
+    if (
+      isChapterMode &&
+      chapter &&
+      chapter.isTemporary &&
+      targetChapterId === currentChapterId
+    ) {
       const updatedChapter = {
         ...chapter,
         title: newChapterTitle,
@@ -280,6 +287,12 @@ export default function DetailPage() {
   };
 
   const startEdit = (record) => {
+    // 합산된 항목은 수정 불가
+    if (record.isAggregated && record.count > 1) {
+      alert("모아보기 상태에서는 개별 항목을 수정할 수 없습니다.");
+      return;
+    }
+
     setEditId(record.id);
     setEditType(record.type);
     setEditRecord(record);
@@ -303,8 +316,15 @@ export default function DetailPage() {
     )
       return;
 
+    // ★ [수정] 각 리스트별 모아보기 상태에 따라 드래그 금지
+    const isIncomeSource = source.droppableId === "incomeList";
+    const isExpenseSource = source.droppableId === "expenseList";
+
+    if (isIncomeSource && isIncomeGrouped) return;
+    if (isExpenseSource && isExpenseGrouped) return;
+
     const sourceList = records.filter(
-      (r) => r.type === (source.droppableId === "incomeList" ? "income" : "expense")
+      (r) => r.type === (isIncomeSource ? "income" : "expense")
     );
     const destList = records.filter(
       (r) => r.type === (destination.droppableId === "incomeList" ? "income" : "expense")
@@ -313,15 +333,18 @@ export default function DetailPage() {
 
     if (source.droppableId === destination.droppableId) {
       const items = reorder(sourceList, source.index, destination.index);
-      for (let i = 0; i < items.length; i++) await put("records", { ...items[i], order: i });
+      for (let i = 0; i < items.length; i++)
+        await put("records", { ...items[i], order: i });
     } else {
       const sItems = [...sourceList];
       const dItems = [...destList];
       const [removed] = sItems.splice(source.index, 1);
       const movedItem = { ...removed, type: newType };
       dItems.splice(destination.index, 0, movedItem);
-      for (let i = 0; i < sItems.length; i++) await put("records", { ...sItems[i], order: i });
-      for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i });
+      for (let i = 0; i < sItems.length; i++)
+        await put("records", { ...sItems[i], order: i });
+      for (let i = 0; i < dItems.length; i++)
+        await put("records", { ...dItems[i], order: i });
     }
     loadRecords();
   };
@@ -332,7 +355,11 @@ export default function DetailPage() {
     if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [records, isDateMode, id]);
 
-  const deleteRecord = async (rid) => {
+  const deleteRecord = async (rid, isAggregated) => {
+    if (isAggregated) {
+      alert("모아보기 상태에서는 삭제할 수 없습니다. 개별 보기로 전환해주세요.");
+      return;
+    }
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
     await deleteItem("records", rid);
     loadRecords();
@@ -344,6 +371,20 @@ export default function DetailPage() {
   const expenseSum = records
     .filter((r) => r.type === "expense")
     .reduce((a, b) => a + b.amount, 0);
+
+  // ★ [핵심] 수입 리스트 가공
+  const displayedIncomeList = useMemo(() => {
+    const list = records.filter((r) => r.type === "income");
+    if (!isIncomeGrouped) return list;
+    return groupRecordsByTitle(list);
+  }, [records, isIncomeGrouped]);
+
+  // ★ [핵심] 지출 리스트 가공
+  const displayedExpenseList = useMemo(() => {
+    const list = records.filter((r) => r.type === "expense");
+    if (!isExpenseGrouped) return list;
+    return groupRecordsByTitle(list);
+  }, [records, isExpenseGrouped]);
 
   return (
     <S.PageWrap>
@@ -363,15 +404,21 @@ export default function DetailPage() {
         <S.SummaryBox>
           <S.SummaryRow>
             <span>총 수입</span>
-            <span>{formatNumber(incomeSum)} {unit}</span>
+            <span>
+              {formatNumber(incomeSum)} {unit}
+            </span>
           </S.SummaryRow>
           <S.SummaryRow>
             <span>총 지출</span>
-            <span>{formatNumber(expenseSum)} {unit}</span>
+            <span>
+              {formatNumber(expenseSum)} {unit}
+            </span>
           </S.SummaryRow>
           <S.SummaryRow style={{ fontWeight: "bold" }}>
             <span>잔액</span>
-            <span>{formatNumber(incomeSum - expenseSum)} {unit}</span>
+            <span>
+              {formatNumber(incomeSum - expenseSum)} {unit}
+            </span>
           </S.SummaryRow>
         </S.SummaryBox>
 
@@ -383,9 +430,14 @@ export default function DetailPage() {
           onChange={(e) => setRecordDate(e.target.value)}
         />
 
-        <S.SelectBox value={category} onChange={(e) => setCategory(e.target.value)}>
+        <S.SelectBox
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
           {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </S.SelectBox>
 
@@ -416,7 +468,10 @@ export default function DetailPage() {
         <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
           {isEditing ? (
             <>
-              <S.ActionBtn $variant="confirm" onClick={() => saveRecord(editType)}>
+              <S.ActionBtn
+                $variant="confirm"
+                onClick={() => saveRecord(editType)}
+              >
                 수정 완료
               </S.ActionBtn>
 
@@ -430,11 +485,17 @@ export default function DetailPage() {
             </>
           ) : (
             <>
-              <S.ActionBtn $variant="income" onClick={() => saveRecord("income")}>
+              <S.ActionBtn
+                $variant="income"
+                onClick={() => saveRecord("income")}
+              >
                 수입
               </S.ActionBtn>
 
-              <S.ActionBtn $variant="expense" onClick={() => saveRecord("expense")}>
+              <S.ActionBtn
+                $variant="expense"
+                onClick={() => saveRecord("expense")}
+              >
                 지출
               </S.ActionBtn>
             </>
@@ -442,109 +503,157 @@ export default function DetailPage() {
         </div>
 
         <DragDropContext onDragEnd={onDragEnd}>
-          <h3>수입 목록</h3>
+          {/* ★ 수입 목록 헤더 + 토글 */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 10 }}>
+            <h3 style={{ margin: 0 }}>수입 목록</h3>
+            <S.ToggleLabel onClick={() => setIsIncomeGrouped(!isIncomeGrouped)}>
+              <span>모아보기</span>
+              <S.ToggleSwitch $isOn={isIncomeGrouped} />
+            </S.ToggleLabel>
+          </div>
+          
           <Droppable droppableId="incomeList">
             {(provided) => (
               <S.List ref={provided.innerRef} {...provided.droppableProps}>
-                {records.filter(r => r.type === "income").map((r, index) => (
-                  <Draggable key={r.id} draggableId={String(r.id)} index={index}>
-                    {(p, snapshot) => (
-                      <S.ListItem
-                        ref={p.innerRef}
-                        {...p.draggableProps}
-                        {...p.dragHandleProps}
-                        onClick={() => startEdit(r)}
-                        $isPaid={r.isPaid}
-                        as={
-                          isDateMode && Number(id) === r.id
-                            ? S.HighlightItem
-                            : r.id === editId
-                            ? S.HighlightItem
-                            : "li"
-                        }
-                        style={{
-                          ...p.draggableProps.style,
-                          opacity: snapshot.isDragging ? 0.7 : 1,
-                        }}
-                      >
-                        <S.ColTitle>
-                          <span style={{ fontSize: 12, color: "#888" }}>
-                            {r.category} [{String(r.date || r.createdAt).split("T")[0]}]
-                          </span>
-                          <span style={{ fontWeight: "bold" }}>{r.title}</span>
-                        </S.ColTitle>
+                {displayedIncomeList.map((r, index) => (
+                    <Draggable
+                      key={r.id}
+                      draggableId={String(r.id)}
+                      index={index}
+                      // 모아보기 활성화 시 or 합산된 항목일 때 드래그 금지
+                      isDragDisabled={isIncomeGrouped || (r.isAggregated && r.count > 1)}
+                    >
+                      {(p, snapshot) => (
+                        <S.ListItem
+                          ref={p.innerRef}
+                          {...p.draggableProps}
+                          {...p.dragHandleProps}
+                          onClick={() => startEdit(r)}
+                          $isPaid={r.isPaid}
+                          $isAggregated={r.isAggregated && r.count > 1}
+                          as={
+                            isDateMode && Number(id) === r.id
+                              ? S.HighlightItem
+                              : r.id === editId
+                              ? S.HighlightItem
+                              : "li"
+                          }
+                          style={{
+                            ...p.draggableProps.style,
+                            opacity: snapshot.isDragging ? 0.7 : 1,
+                          }}
+                        >
+                          <S.ColTitle>
+                            <span style={{ fontSize: 12, color: "#888" }}>
+                              {r.category}{" "}
+                              {r.isAggregated && r.count > 1 ? (
+                                <span style={{ color: "#2196F3", fontWeight: "bold" }}>
+                                  [{r.count}건 합산]
+                                </span>
+                              ) : (
+                                `[${String(r.date || r.createdAt).split("T")[0]}]`
+                              )}
+                            </span>
+                            <span style={{ fontWeight: "bold" }}>{r.title}</span>
+                          </S.ColTitle>
 
-                        <S.ColAmount>{formatNumber(r.amount)}</S.ColAmount>
-                        <S.ColUnit>{unit}</S.ColUnit>
+                          <S.ColAmount>{formatNumber(r.amount)}</S.ColAmount>
+                          <S.ColUnit>{unit}</S.ColUnit>
 
-                        <S.DeleteCell>
-                          <S.DeleteBtn
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteRecord(r.id);
-                            }}
-                          >
-                            삭제
-                          </S.DeleteBtn>
-                        </S.DeleteCell>
-                      </S.ListItem>
-                    )}
-                  </Draggable>
-                ))}
+                          <S.DeleteCell>
+                            {(!r.isAggregated || r.count === 1) && (
+                              <S.DeleteBtn
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteRecord(r.id, r.isAggregated && r.count > 1);
+                                }}
+                              >
+                                삭제
+                              </S.DeleteBtn>
+                            )}
+                          </S.DeleteCell>
+                        </S.ListItem>
+                      )}
+                    </Draggable>
+                  ))}
                 {provided.placeholder}
               </S.List>
             )}
           </Droppable>
 
-          <h3 style={{ marginTop: 20 }}>지출 목록</h3>
+          {/* ★ 지출 목록 헤더 + 토글 */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 10 }}>
+            <h3 style={{ margin: 0 }}>지출 목록</h3>
+            <S.ToggleLabel onClick={() => setIsExpenseGrouped(!isExpenseGrouped)}>
+              <span>모아보기</span>
+              <S.ToggleSwitch $isOn={isExpenseGrouped} />
+            </S.ToggleLabel>
+          </div>
+
           <Droppable droppableId="expenseList">
             {(provided) => (
               <S.List ref={provided.innerRef} {...provided.droppableProps}>
-                {records.filter(r => r.type === "expense").map((r, index) => (
-                  <Draggable key={r.id} draggableId={String(r.id)} index={index}>
-                    {(p, snapshot) => (
-                      <S.ListItem
-                        ref={p.innerRef}
-                        {...p.draggableProps}
-                        {...p.dragHandleProps}
-                        onClick={() => startEdit(r)}
-                        $isPaid={r.isPaid}
-                        as={
-                          isDateMode && Number(id) === r.id
-                            ? S.HighlightItem
-                            : r.id === editId
-                            ? S.HighlightItem
-                            : "li"
-                        }
-                        style={{
-                          ...p.draggableProps.style,
-                          opacity: snapshot.isDragging ? 0.7 : 1,
-                        }}
-                      >
-                        <S.ColTitle>
-                          <span style={{ fontSize: 12, color: "#888" }}>
-                            {r.category} [{String(r.date || r.createdAt).split("T")[0]}]
-                          </span>
-                          <span style={{ fontWeight: "bold" }}>{r.title}</span>
-                        </S.ColTitle>
+                {displayedExpenseList.map((r, index) => (
+                    <Draggable
+                      key={r.id}
+                      draggableId={String(r.id)}
+                      index={index}
+                      // 모아보기 활성화 시 or 합산된 항목일 때 드래그 금지
+                      isDragDisabled={isExpenseGrouped || (r.isAggregated && r.count > 1)}
+                    >
+                      {(p, snapshot) => (
+                        <S.ListItem
+                          ref={p.innerRef}
+                          {...p.draggableProps}
+                          {...p.dragHandleProps}
+                          onClick={() => startEdit(r)}
+                          $isPaid={r.isPaid}
+                          $isAggregated={r.isAggregated && r.count > 1}
+                          as={
+                            isDateMode && Number(id) === r.id
+                              ? S.HighlightItem
+                              : r.id === editId
+                              ? S.HighlightItem
+                              : "li"
+                          }
+                          style={{
+                            ...p.draggableProps.style,
+                            opacity: snapshot.isDragging ? 0.7 : 1,
+                          }}
+                        >
+                          <S.ColTitle>
+                            <span style={{ fontSize: 12, color: "#888" }}>
+                              {r.category}{" "}
+                              {r.isAggregated && r.count > 1 ? (
+                                <span style={{ color: "#2196F3", fontWeight: "bold" }}>
+                                  [{r.count}건 합산]
+                                </span>
+                              ) : (
+                                `[${String(r.date || r.createdAt).split("T")[0]}]`
+                              )}
+                            </span>
+                            <span style={{ fontWeight: "bold" }}>{r.title}</span>
+                          </S.ColTitle>
 
-                        <S.ColAmount>{formatNumber(r.amount)}</S.ColAmount>
-                        <S.ColUnit>{unit}</S.ColUnit>
+                          <S.ColAmount>{formatNumber(r.amount)}</S.ColAmount>
+                          <S.ColUnit>{unit}</S.ColUnit>
 
-                        <S.DeleteCell>
-                          <S.DeleteBtn
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteRecord(r.id);
-                            }}
-                          >
-                            삭제
-                          </S.DeleteBtn>
-                        </S.DeleteCell>
-                      </S.ListItem>
-                    )}
-                  </Draggable>
-                ))}
+                          <S.DeleteCell>
+                            {(!r.isAggregated || r.count === 1) && (
+                              <S.DeleteBtn
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteRecord(r.id, r.isAggregated && r.count > 1);
+                                }}
+                              >
+                                삭제
+                              </S.DeleteBtn>
+                            )}
+                          </S.DeleteCell>
+                        </S.ListItem>
+                      )}
+                    </Draggable>
+                  ))}
                 {provided.placeholder}
               </S.List>
             )}
@@ -553,6 +662,4 @@ export default function DetailPage() {
       </S.Content>
     </S.PageWrap>
   );
-
-
 }

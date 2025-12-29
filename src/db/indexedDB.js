@@ -19,7 +19,7 @@ export const initDB = async () => {
         recordStore.createIndex('chapterId', 'chapterId');
       }
 
-      // ★ categories 스토어 추가
+      // categories 스토어 추가
       if (!db.objectStoreNames.contains('categories')) {
         const categoryStore = db.createObjectStore('categories', {
           keyPath: 'id',

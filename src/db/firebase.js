@@ -10,5 +10,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// 반드시 리전 명시 (서버와 동일)
 export const functions = getFunctions(app, "asia-northeast3");

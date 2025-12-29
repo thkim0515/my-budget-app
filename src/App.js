@@ -16,7 +16,7 @@ import {
   StatsBySourcePage,
   CategorySettingsPage,
   CalendarStatsPage,
-  TextColorSettingsPage // 🔥 추가
+  TextColorSettingsPage 
 } from "./appImports";
 
 import { useNativeSync } from "./hooks/useNativeSync";

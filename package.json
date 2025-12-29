@@ -17,6 +17,7 @@
     "date-holidays": "^3.26.5",
     "firebase": "^12.7.0",
     "idb": "^8.0.3",
+    "lz-string": "^1.5.0",
     "react": "^19.2.0",
     "react-calendar": "^6.0.0",
     "react-chartjs-2": "^5.3.1",
