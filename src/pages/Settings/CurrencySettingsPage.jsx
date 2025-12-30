@@ -1,5 +1,5 @@
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
-import Header from "../../components/Header";
+import Header from "../../components/UI/Header";
 
 import * as S from './CurrencySettingsPage.styles'
 

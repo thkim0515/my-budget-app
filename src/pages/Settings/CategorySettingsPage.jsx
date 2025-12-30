@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import Header from "../../components/Header";
+import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 

@@ -1,6 +1,6 @@
 import React from "react";
+import Header from "../UI/Header";
 import styled from "styled-components";
-import Header from "./Header";
 
 const PageWrap = styled.div`
   display: flex;

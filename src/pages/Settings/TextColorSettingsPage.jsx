@@ -1,4 +1,4 @@
-import Header from "../../components/Header";
+import Header from "../../components/UI/Header";
 import * as S from "./TextColorSettingsPage.styles";
 
 export default function TextColorSettingsPage({

@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { auth } from "../../db/firebase";
-import { 
-  GoogleAuthProvider, 
-  signInWithCredential, 
-  signOut, 
-  onAuthStateChanged 
-} from "firebase/auth";
-import { GoogleAuth } from 'capacitor-google-auth'; // 설치한 플러그인
-import { Capacitor } from '@capacitor/core';
+import { auth, googleProvider } from "../../db/firebase";
+import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import styled from "styled-components";
 
 const AuthContainer = styled.div`
@@ -57,44 +50,15 @@ export default function GoogleAuth() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // 1. 앱 시작 시 플러그인 초기화
-    GoogleAuth.initialize();
-
-    // 2. Firebase 인증 상태 관찰
+    // Firebase 인증 상태 관찰
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = async () => {
-    try {
-      // 3. 네이티브 구글 로그인 실행 (시스템 계정 선택창이 뜸)
-      const googleUser = await GoogleAuth.signIn();
-      
-      // 4. 받은 idToken을 사용하여 Firebase 인증 자격 증명 생성
-      const idToken = googleUser.authentication.idToken;
-      const credential = GoogleAuthProvider.credential(idToken);
-      
-      // 5. Firebase에 이 자격 증명으로 로그인
-      await signInWithCredential(auth, credential);
-    } catch (error) {
-      console.error("로그인 에러:", error);
-      // 유저가 로그인을 취소한 경우가 아니면 알림 표시
-      if (error.message !== "User cancelled") {
-        alert("로그인에 실패했습니다.");
-      }
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await GoogleAuth.signOut(); // 네이티브 세션 로그아웃
-      await signOut(auth);        // Firebase 세션 로그아웃
-    } catch (error) {
-      console.error("로그아웃 에러:", error);
-    }
-  };
+  const handleLogin = () => signInWithPopup(auth, googleProvider).catch(() => alert("로그인 실패"));
+  const handleLogout = () => signOut(auth);
 
   if (user) {
     return (

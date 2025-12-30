@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react"; 
-import Header from "../../components/Header";
+import Header from "../../components/UI/Header";
 import { formatCompact } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
