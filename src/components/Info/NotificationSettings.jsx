@@ -27,17 +27,26 @@ export default function NotificationSettings() {
     setAutoSaveExpense(localStorage.getItem("autoSaveExpense") !== "false");
     checkAccess();
 
-    // 2. 앱 상태 변화 감지 리스너 등록 (핵심)
-    // 사용자가 설정창에 갔다가 앱으로 돌아오는 순간(isActive: true) 체크를 다시 수행합니다.
-    const nativeListener = App.addListener("appStateChange", ({ isActive }) => {
-      if (isActive) {
-        checkAccess();
-      }
-    });
+    // 리스너 핸들을 저장할 변수
+    let handler;
 
-    // 3. 언마운트 시 리스너 해제
+    // 2. 앱 상태 변화 감지 리스너 등록
+    // Capacitor 3+ 버전에서는 addListener가 Promise를 반환하므로 async로 처리합니다.
+    const setupListener = async () => {
+      handler = await App.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) {
+          checkAccess();
+        }
+      });
+    };
+
+    setupListener();
+
+    // 3. 언마운트 시 리스너 해제 (Clean-up)
     return () => {
-      nativeListener.remove();
+      if (handler) {
+        handler.remove();
+      }
     };
   }, [checkAccess]);
 
@@ -45,8 +54,7 @@ export default function NotificationSettings() {
   const openNotificationAccess = async () => {
     if (Capacitor.getPlatform() !== "android") return;
     await BudgetPlugin.openNotificationAccessSettings();
-    // 여기서 바로 checkAccess()를 호출할 필요가 없습니다. 
-    // 리스너가 돌아오는 시점을 감지하기 때문입니다.
+    // 사용자가 설정을 변경하고 돌아오는 순간 appStateChange 리스너가 작동합니다.
   };
 
   // 토글 처리
