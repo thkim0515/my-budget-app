@@ -1,10 +1,13 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+// import { useEffect } from "react";
 import Header from "../../components/UI/Header";
 import GoogleAuth from "../../components/Auth/GoogleAuth";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
+
+// 중앙 설정 컨텍스트 임포트
+import { useSettings } from "../../context/SettingsContext";
 
 import SyncAction from "../../components/Data/SyncAction";
 import BackupAction from "../../components/Data/BackupAction";
@@ -12,14 +15,12 @@ import NotificationSettings from "../../components/Info/NotificationSettings";
 
 import * as S from "./SettingsPage.styles";
 
-export default function SettingsPage({ setMode, mode }) {
+export default function SettingsPage() {
   const navigate = useNavigate();
   const { db, clear } = useBudgetDB();
-  const [useBiometric, setUseBiometric] = useState(false);
-
-  useEffect(() => {
-    setUseBiometric(localStorage.getItem("useBiometric") === "true");
-  }, []);
+  
+  // 중앙 설정 본부에서 값(settings)과 변경 함수(updateSetting)
+  const { settings, updateSetting } = useSettings();
 
   const toggleBiometric = async (e) => {
     const isChecked = e.target.checked;
@@ -29,7 +30,7 @@ export default function SettingsPage({ setMode, mode }) {
         const result = await NativeBiometric.isAvailable();
         if (!result.isAvailable) {
           alert("이 기기는 생체 인식을 지원하지 않습니다.");
-          setUseBiometric(false);
+          updateSetting("useBiometric", false);
           return;
         }
 
@@ -40,15 +41,14 @@ export default function SettingsPage({ setMode, mode }) {
           description: "설정을 변경하기 위해 인증이 필요합니다.",
         });
 
-        localStorage.setItem("useBiometric", "true");
-        setUseBiometric(true);
+        updateSetting("useBiometric", true);
         alert("지문 잠금이 활성화되었습니다.");
       } catch {
-        setUseBiometric(false);
+        updateSetting("useBiometric", false);
       }
     } else {
-      localStorage.setItem("useBiometric", "false");
-      setUseBiometric(false);
+      // 중앙 전역 설정 업데이트
+      updateSetting("useBiometric", false);
     }
   };
 
@@ -87,7 +87,8 @@ export default function SettingsPage({ setMode, mode }) {
           <S.ToggleSwitch>
             <input
               type="checkbox"
-              checked={useBiometric}
+              // 중앙 설정값 참조
+              checked={settings.useBiometric}
               onChange={toggleBiometric}
             />
             <span></span>
@@ -97,8 +98,10 @@ export default function SettingsPage({ setMode, mode }) {
         <S.Btn onClick={() => navigate("/settings/currency")}>금액 기호 설정하기</S.Btn>
         <S.Btn onClick={() => navigate("/settings/text-color")}>글자 색상 설정하기</S.Btn>
         <S.Btn onClick={() => navigate("/settings/categories")}>카테고리 관리</S.Btn>
-        <S.Btn onClick={() => setMode(mode === "light" ? "dark" : "light")}>
-          테마 변경 (현재 {mode === "light" ? "라이트" : "다크"})
+        
+        {/* props 대신 settings.mode를 사용하고 updateSetting으로 테마 교체 */}
+        <S.Btn onClick={() => updateSetting("mode", settings.mode === "light" ? "dark" : "light")}>
+          테마 변경 (현재 {settings.mode === "light" ? "라이트" : "다크"})
         </S.Btn>
 
         <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />

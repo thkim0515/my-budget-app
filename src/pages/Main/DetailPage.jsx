@@ -6,6 +6,7 @@ import Header from "../../components/UI/Header";
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
+import { useSettings } from "../../context/SettingsContext"; // 전역 설정 사용
 
 import * as S from "./DetailPage.styles";
 
@@ -60,13 +61,7 @@ export default function DetailPage() {
   const [categories, setCategories] = useState([]);
   const [chapter, setChapter] = useState(null);
 
-  // [수정] 수입/지출 각각의 모아보기 상태 관리
-  const [isIncomeGrouped, setIsIncomeGrouped] = useState(() => {
-    return localStorage.getItem("isIncomeGrouped") === "true";
-  });
-  const [isExpenseGrouped, setIsExpenseGrouped] = useState(() => {
-    return localStorage.getItem("isExpenseGrouped") === "true";
-  });
+  const { settings, updateSetting } = useSettings();
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -85,14 +80,7 @@ export default function DetailPage() {
   const contentRef = useRef(null);
   const navigate = useNavigate();
 
-  // 토글 상태 저장
-  useEffect(() => {
-    localStorage.setItem("isIncomeGrouped", isIncomeGrouped);
-  }, [isIncomeGrouped]);
-
-  useEffect(() => {
-    localStorage.setItem("isExpenseGrouped", isExpenseGrouped);
-  }, [isExpenseGrouped]);
+  // [제거] 로컬 스토리지에 직접 저장하던 useEffect 로직은 이제 SettingsContext가 대신 수행
 
   useEffect(() => {
     if (!db) return;
@@ -338,12 +326,12 @@ export default function DetailPage() {
     )
       return;
 
-    // ★ [수정] 각 리스트별 모아보기 상태에 따라 드래그 금지
+    // ★ [수정] Context 설정값을 참조하도록 변경
     const isIncomeSource = source.droppableId === "incomeList";
     const isExpenseSource = source.droppableId === "expenseList";
 
-    if (isIncomeSource && isIncomeGrouped) return;
-    if (isExpenseSource && isExpenseGrouped) return;
+    if (isIncomeSource && settings.isIncomeGrouped) return;
+    if (isExpenseSource && settings.isExpenseGrouped) return;
 
     const sourceList = records.filter(
       (r) => r.type === (isIncomeSource ? "income" : "expense")
@@ -394,19 +382,18 @@ export default function DetailPage() {
     .filter((r) => r.type === "expense")
     .reduce((a, b) => a + b.amount, 0);
 
-  // 수입 리스트 가공
+  // [수정] Context의 설정을 감시하도록 변경
   const displayedIncomeList = useMemo(() => {
     const list = records.filter((r) => r.type === "income");
-    if (!isIncomeGrouped) return list;
+    if (!settings.isIncomeGrouped) return list;
     return groupRecordsByTitle(list);
-  }, [records, isIncomeGrouped]);
+  }, [records, settings.isIncomeGrouped]);
 
-  // 지출 리스트 가공
   const displayedExpenseList = useMemo(() => {
     const list = records.filter((r) => r.type === "expense");
-    if (!isExpenseGrouped) return list;
+    if (!settings.isExpenseGrouped) return list;
     return groupRecordsByTitle(list);
-  }, [records, isExpenseGrouped]);
+  }, [records, settings.isExpenseGrouped]);
 
   return (
     <S.PageWrap>
@@ -528,9 +515,10 @@ export default function DetailPage() {
           {/* 수입 목록 헤더 + 토글 */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 10 }}>
             <h3 style={{ margin: 0 }}>수입 목록</h3>
-            <S.ToggleLabel onClick={() => setIsIncomeGrouped(!isIncomeGrouped)}>
+            {/* [수정] Context 함수 호출로 변경 */}
+            <S.ToggleLabel onClick={() => updateSetting("isIncomeGrouped", !settings.isIncomeGrouped)}>
               <span>모아보기</span>
-              <S.ToggleSwitch $isOn={isIncomeGrouped} />
+              <S.ToggleSwitch $isOn={settings.isIncomeGrouped} />
             </S.ToggleLabel>
           </div>
           
@@ -542,8 +530,8 @@ export default function DetailPage() {
                       key={r.id}
                       draggableId={String(r.id)}
                       index={index}
-                      // 모아보기 활성화 시 or 합산된 항목일 때 드래그 금지
-                      isDragDisabled={isIncomeGrouped || (r.isAggregated && r.count > 1)}
+                      // [수정] Context 설정 참조
+                      isDragDisabled={settings.isIncomeGrouped || (r.isAggregated && r.count > 1)}
                     >
                       {(p, snapshot) => (
                         <S.ListItem
@@ -606,9 +594,10 @@ export default function DetailPage() {
           {/* 지출 목록 헤더 + 토글 */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 10 }}>
             <h3 style={{ margin: 0 }}>지출 목록</h3>
-            <S.ToggleLabel onClick={() => setIsExpenseGrouped(!isExpenseGrouped)}>
+            {/* [수정] Context 함수 호출로 변경 */}
+            <S.ToggleLabel onClick={() => updateSetting("isExpenseGrouped", !settings.isExpenseGrouped)}>
               <span>모아보기</span>
-              <S.ToggleSwitch $isOn={isExpenseGrouped} />
+              <S.ToggleSwitch $isOn={settings.isExpenseGrouped} />
             </S.ToggleLabel>
           </div>
 
@@ -620,8 +609,8 @@ export default function DetailPage() {
                       key={r.id}
                       draggableId={String(r.id)}
                       index={index}
-                      // 모아보기 활성화 시 or 합산된 항목일 때 드래그 금지
-                      isDragDisabled={isExpenseGrouped || (r.isAggregated && r.count > 1)}
+                      // [수정] Context 설정 참조
+                      isDragDisabled={settings.isExpenseGrouped || (r.isAggregated && r.count > 1)}
                     >
                       {(p, snapshot) => (
                         <S.ListItem

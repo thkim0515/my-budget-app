@@ -1,6 +1,6 @@
-// hooks/useBiometricLock.js
 import { useEffect, useRef, useState, useCallback } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
+import { useSettings } from "../context/SettingsContext"; // Context 훅 임포트
 import {
   isNativePlatform,
   isBiometricAvailable,
@@ -8,10 +8,10 @@ import {
 } from "../services/biometricService";
 
 export default function useBiometricLock() {
+  const { settings } = useSettings(); // 중앙 설정값 가져오기
   const [isLocked, setIsLocked] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   
-  // 가드 역할은 ref로 관리 (무한 루프 방지 핵심)
   const isAuthenticatingRef = useRef(false);
   const lastAuthTime = useRef(0);
 
@@ -36,7 +36,7 @@ export default function useBiometricLock() {
     } finally {
       isAuthenticatingRef.current = false;
     }
-  }, []); // 의존성 배열을 비워서 함수의 참조값을 고정합니다.
+  }, []);
 
   // 앱 최초 실행 시
   useEffect(() => {
@@ -46,9 +46,7 @@ export default function useBiometricLock() {
       return;
     }
 
-    const useBiometric = localStorage.getItem("useBiometric") === "true";
-
-    if (useBiometric) {
+    if (settings.useBiometric) {
       setIsLocked(true);
       authenticate();
     } else {
@@ -56,7 +54,7 @@ export default function useBiometricLock() {
     }
 
     setIsChecking(false);
-  }, [authenticate]); // 이제 authenticate가 고정되어 있어 한 번만 실행됩니다.
+  }, [authenticate, settings.useBiometric]); // 설정이 바뀌면 재판단
 
   // 앱 상태 변경 시 (Background -> Foreground)
   useEffect(() => {
@@ -66,18 +64,16 @@ export default function useBiometricLock() {
       // 인증한지 1초 이내라면 무시 (중복 팝업 방지)
       if (Date.now() - lastAuthTime.current < 1000) return;
 
-      const useBiometric = localStorage.getItem("useBiometric") === "true";
-
       // 잠금 설정이 되어있고, 현재 잠긴 상태일 때만 인증 시도
-      if (isActive && useBiometric && isLocked) {
+      if (isActive && settings.useBiometric && isLocked) {
         authenticate();
       }
     });
 
     return () => {
-      listener.then(l => l.remove()); // Capacitor 리스너 제거 방식 대응
+      listener.then(l => l.remove());
     };
-  }, [isLocked, authenticate]);
+  }, [isLocked, authenticate, settings.useBiometric]); // 의존성 추가
 
   return {
     isLocked,
