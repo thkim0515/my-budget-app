@@ -5,42 +5,21 @@ import GoogleAuth from "../../components/Auth/GoogleAuth";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
-import { Capacitor } from "@capacitor/core";
-import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 
 import SyncAction from "../../components/Data/SyncAction";
 import BackupAction from "../../components/Data/BackupAction";
+import NotificationSettings from "../../components/Info/NotificationSettings";
 
 import * as S from "./SettingsPage.styles";
 
 export default function SettingsPage({ setMode, mode }) {
   const navigate = useNavigate();
   const { db, clear } = useBudgetDB();
-
   const [useBiometric, setUseBiometric] = useState(false);
-  const [hasNotiAccess, setHasNotiAccess] = useState(false);
-  const [autoSaveIncome, setAutoSaveIncome] = useState(true);
-  const [autoSaveExpense, setAutoSaveExpense] = useState(true);
 
   useEffect(() => {
     setUseBiometric(localStorage.getItem("useBiometric") === "true");
-    setAutoSaveIncome(localStorage.getItem("autoSaveIncome") !== "false");
-    setAutoSaveExpense(localStorage.getItem("autoSaveExpense") !== "false");
-
-    const checkAccess = async () => {
-      if (Capacitor.getPlatform() === "android") {
-        const result = await BudgetPlugin.hasNotificationAccess();
-        setHasNotiAccess(!!result.granted);
-      }
-    };
-    checkAccess();
   }, []);
-
-  const toggleAutoSave = (key, currentVal, setter) => {
-    const newVal = !currentVal;
-    localStorage.setItem(key, String(newVal));
-    setter(newVal);
-  };
 
   const toggleBiometric = async (e) => {
     const isChecked = e.target.checked;
@@ -89,17 +68,9 @@ export default function SettingsPage({ setMode, mode }) {
         isDeleted: false 
       });
     });
-    // DEFAULT_CATEGORIES.forEach((name) => {
-    //   tx.objectStore("categories").add({ name });
-    // });
     await tx.done;
 
     alert("전체 초기화 완료되었습니다.");
-  };
-
-  const openNotificationAccess = async () => {
-    if (Capacitor.getPlatform() !== "android") return;
-    await BudgetPlugin.openNotificationAccessSettings();
   };
 
   return (
@@ -123,75 +94,21 @@ export default function SettingsPage({ setMode, mode }) {
           </S.ToggleSwitch>
         </S.ToggleRow>
 
-        <S.Btn onClick={() => navigate("/settings/currency")}>
-          금액 기호 설정하기
-        </S.Btn>
-        <S.Btn onClick={() => navigate("/settings/text-color")}>
-          글자 색상 설정하기
-        </S.Btn>
-        <S.Btn onClick={() => navigate("/settings/categories")}>
-          카테고리 관리
-        </S.Btn>
+        <S.Btn onClick={() => navigate("/settings/currency")}>금액 기호 설정하기</S.Btn>
+        <S.Btn onClick={() => navigate("/settings/text-color")}>글자 색상 설정하기</S.Btn>
+        <S.Btn onClick={() => navigate("/settings/categories")}>카테고리 관리</S.Btn>
         <S.Btn onClick={() => setMode(mode === "light" ? "dark" : "light")}>
           테마 변경 (현재 {mode === "light" ? "라이트" : "다크"})
         </S.Btn>
 
         <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
 
-        <S.SectionTitle>자동 기록 설정</S.SectionTitle>
-
-        <S.Btn onClick={openNotificationAccess}>
-          알림 접근 권한 설정
-        </S.Btn>
-
-        <S.ToggleRow style={{ opacity: hasNotiAccess ? 1 : 0.5 }}>
-          <span>입금 자동 저장</span>
-          <S.ToggleSwitch>
-            <input
-              type="checkbox"
-              disabled={!hasNotiAccess}
-              checked={autoSaveIncome}
-              onChange={() =>
-                toggleAutoSave(
-                  "autoSaveIncome",
-                  autoSaveIncome,
-                  setAutoSaveIncome
-                )
-              }
-            />
-            <span></span>
-          </S.ToggleSwitch>
-        </S.ToggleRow>
-
-        <S.ToggleRow style={{ opacity: hasNotiAccess ? 1 : 0.5 }}>
-          <span>지출 자동 저장</span>
-          <S.ToggleSwitch>
-            <input
-              type="checkbox"
-              disabled={!hasNotiAccess}
-              checked={autoSaveExpense}
-              onChange={() =>
-                toggleAutoSave(
-                  "autoSaveExpense",
-                  autoSaveExpense,
-                  setAutoSaveExpense
-                )
-              }
-            />
-            <span></span>
-          </S.ToggleSwitch>
-        </S.ToggleRow>
-
-        {!hasNotiAccess && (
-          <p style={{ color: "#d9534f", fontSize: "12px", marginBottom: "10px" }}>
-            * 알림 접근 권한이 꺼져 있어 자동 저장을 사용할 수 없습니다.
-          </p>
-        )}
+        <NotificationSettings />
 
         <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
 
         <S.SectionTitle>데이터 관리</S.SectionTitle>
-        <GoogleAuth /> {/* 구글 로그인 UI */}
+        <GoogleAuth />
         <SyncAction />
         <BackupAction />
 
