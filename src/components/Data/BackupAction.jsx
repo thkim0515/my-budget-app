@@ -129,7 +129,7 @@ export default function BackupAction() {
           onClick={() => fileInputRef.current.click()}
           style={{ background: "#6C757D" }}
         >
-          데이터 복구 파일 불러오기
+          데이터 파일 불러오기
         </S.Btn>
       </S.Row50>
 

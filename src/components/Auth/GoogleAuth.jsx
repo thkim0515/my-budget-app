@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { auth, googleProvider } from "../../db/firebase";
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../db/firebase";
+import { 
+  GoogleAuthProvider, 
+  signInWithCredential, 
+  signOut, 
+  onAuthStateChanged 
+} from "firebase/auth";
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+import { Capacitor } from '@capacitor/core';
 import styled from "styled-components";
 
 const AuthContainer = styled.div`
@@ -50,15 +57,46 @@ export default function GoogleAuth() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Firebase 인증 상태 관찰
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = () => signInWithPopup(auth, googleProvider).catch(() => alert("로그인 실패"));
-  const handleLogout = () => signOut(auth);
+  const handleLogin = async () => {
+    try {
+      // 1. 구글 로그인 실행
+      const result = await FirebaseAuthentication.signInWithGoogle();
+      
+      // 2. 네이티브(Android/iOS) 환경일 때만 수동으로 Firebase JS SDK와 동기화
+      if (Capacitor.isNativePlatform() && result.idToken) {
+        const credential = GoogleAuthProvider.credential(result.idToken);
+        await signInWithCredential(auth, credential);
+      }
+      
+    } catch (error) {
+      console.error("로그인 에러 상세:", error);
+      
+      if (error.code !== 'auth/user-cancelled' && error.message !== 'User cancelled') {
+        alert(`로그인 실패: ${error.message || "알 수 없는 에러"}`);
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    // 로그아웃 확인창 띄우기
+    const isConfirmed = window.confirm("로그아웃 하시겠습니까?");
+    
+    if (isConfirmed) {
+      try {
+        await FirebaseAuthentication.signOut();
+        await signOut(auth);
+      } catch (error) {
+        console.error("로그아웃 에러:", error);
+        alert("로그아웃 처리 중 에러가 발생했습니다.");
+      }
+    }
+  };
 
   if (user) {
     return (

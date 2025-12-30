@@ -1,18 +1,17 @@
-const dotenv = require('dotenv');
-dotenv.config(); 
+// capacitor.config.js
+require('dotenv').config();
 
 const config = {
   appId: 'com.user.budgetapp',
   appName: '가계부',
   webDir: 'build',
-  bundledWebRuntime: false,
   plugins: {
-    GoogleAuth: {
-      scopes: ['profile', 'email'],
-      serverClientId: process.env.GOOGLE_AUTH_SERVER_CLIENT_ID, 
-      forceCodeForRefreshToken: true,
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ["google.com"],
+      googleId: process.env.GOOGLE_AUTH_SERVER_CLIENT_ID, 
     },
   },
 };
 
-module.exports = config; //
+module.exports = config;
