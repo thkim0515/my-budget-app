@@ -54,10 +54,10 @@ export const syncParsingRules = () => {
       const data = docSnap.data();
       if (data.CATEGORY_RULES) CATEGORY_RULES = data.CATEGORY_RULES;
       if (data.bankMap) bankMap = data.bankMap;
-      console.log("파싱 규칙 실시간 동기화 완료");
+      // console.log("파싱 규칙 실시간 동기화 완료");
     }
   }, (error) => {
-    console.warn("규칙 동기화 실패 (기본값 사용):", error);
+    // console.warn("규칙 동기화 실패 (기본값 사용):", error);
   });
 };
 
