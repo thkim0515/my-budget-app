@@ -3,9 +3,9 @@ export { default as useBiometricLock } from "./hooks/useBiometricLock";
 export { default as useAndroidBackHandler } from "./hooks/useAndroidBackHandler";
 
 // components
-export { default as LockScreen } from "./components/LockScreen";
+export { default as LockScreen } from "./components/Auth/LockScreen";
 export { default as BottomTabBar } from "./components/BottomTabBar";
-export { default as PrivacyPolicyPage } from "./components/PrivacyPolicyPage";
+export { default as PrivacyPolicyPage } from "./components/Info/PrivacyPolicyPage";
 
 // pages
 export { default as MainPage } from "./pages/Main/MainPage";

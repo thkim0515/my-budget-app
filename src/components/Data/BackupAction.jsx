@@ -1,8 +1,8 @@
 import { useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
-import { useBudgetDB } from "../hooks/useBudgetDB";
-import * as S from "../pages/Settings/SettingsPage.styles";
+import { useBudgetDB } from "../../hooks/useBudgetDB";
+import * as S from "../../pages/Settings/SettingsPage.styles";
 
 export default function BackupAction() {
   const fileInputRef = useRef(null);

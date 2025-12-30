@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useSync } from "../hooks/useSync";
-import { auth } from "../db/firebase";
+import { useSync } from "../../hooks/useSync";
+import { auth } from "../../db/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import styled, { keyframes } from "styled-components"; // keyframes 추가
 import { useNavigate } from "react-router-dom";

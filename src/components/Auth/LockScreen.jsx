@@ -1,6 +1,6 @@
 // src/components/LockScreen.jsx
 import { ThemeProvider } from "styled-components";
-import { getLightTheme, getDarkTheme } from "../theme"; // 🔥 수정됨
+import { getLightTheme, getDarkTheme } from "../../theme"; // 수정됨
 
 export default function LockScreen({ mode, onAuthenticate }) {
   // 사용자가 설정한 색상을 반영하기 위해 localStorage 확인

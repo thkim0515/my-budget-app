@@ -1,15 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import Header from "../../components/Header";
-import GoogleAuth from "../../components/GoogleAuth";
+import Header from "../../components/UI/Header";
+import GoogleAuth from "../../components/Auth/GoogleAuth";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
 import { Capacitor } from "@capacitor/core";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 
-import SyncAction from "../../components/SyncAction";
-import BackupAction from "../../components/BackupAction";
+import SyncAction from "../../components/Data/SyncAction";
+import BackupAction from "../../components/Data/BackupAction";
 
 import * as S from "./SettingsPage.styles";
 
