@@ -1,45 +1,21 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef, useMemo } from "react";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import Header from "../../components/UI/Header";
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
-import { useSettings } from "../../context/SettingsContext"; // 전역 설정 사용
+import { useSettings } from "../../context/SettingsContext";
+
+import RecordForm from "../../components/RecordForm";
+import RecordList from "../../components/RecordList";
 
 import * as S from "./DetailPage.styles";
-
-import { FiTrash2 } from "react-icons/fi";
-
-import {
-  FiCoffee,     // 식비
-  FiTruck,      // 교통
-  FiPhone,      // 통신
-  FiShoppingBag,// 쇼핑
-  FiMusic,      // 문화
-  FiCreditCard, // 금융/카드
-  FiGrid,       // 기타
-} from "react-icons/fi";
-
-const categoryIconMap = {
-  식비: FiCoffee,
-  교통: FiTruck,
-  통신: FiPhone,
-  쇼핑: FiShoppingBag,
-  문화: FiMusic,
-  금융: FiCreditCard,
-  카드: FiCreditCard,
-  기타: FiGrid,
-};
-
 
 /* 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 */
 const formatChapterTitle = (dateString) => {
   const d = new Date(dateString);
-  const year = d.getFullYear();
-  const month = d.getMonth() + 1;
-  return `${year}년 ${month}월`;
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
 };
 
 /* 드래그 정렬을 위한 배열 재배치 함수 */
@@ -54,14 +30,13 @@ const reorder = (list, startIndex, endIndex) => {
 const groupRecordsByTitle = (list) => {
   const grouped = {};
   list.forEach((r) => {
-    // 키 생성: 같은 제목이면 묶음
     const key = r.title;
     if (!grouped[key]) {
       grouped[key] = {
         ...r,
         count: 1,
         isAggregated: true,
-        id: `grouped-${r.id}`, // 가상 ID
+        id: `grouped-${r.id}`,
         originalId: r.id,
       };
     } else {
@@ -70,22 +45,24 @@ const groupRecordsByTitle = (list) => {
       grouped[key].originalId = null;
     }
   });
-  // 금액 내림차순 정렬
   return Object.values(grouped).sort((a, b) => b.amount - a.amount);
 };
 
-/* 상세 페이지 컴포넌트 시작 */
 export default function DetailPage() {
-  const { chapterId, date, id } = useParams();
+  const { chapterId, date, id: paramId } = useParams();
+  const navigate = useNavigate();
+  const contentRef = useRef(null);
 
   const isChapterMode = !!chapterId;
   const isDateMode = !!date;
 
+  const { unit } = useCurrencyUnit();
+  const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
+  const { settings, updateSetting } = useSettings();
+
   const [records, setRecords] = useState([]);
   const [categories, setCategories] = useState([]);
   const [chapter, setChapter] = useState(null);
-
-  const { settings, updateSetting } = useSettings();
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -99,40 +76,48 @@ export default function DetailPage() {
   const [editType, setEditType] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
 
-  const { unit } = useCurrencyUnit();
-  const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
-  const contentRef = useRef(null);
-  const navigate = useNavigate();
+  const loadRecords = async () => {
+    if (!db) return;
+    let list = [];
+    if (isChapterMode) {
+      list = await getAllFromIndex("records", "chapterId", Number(chapterId));
+    } else if (isDateMode) {
+      const all = await getAll("records");
+      list = all.filter((r) => String(r.date || r.createdAt).split("T")[0] === date);
+    }
+    list.sort((a, b) => {
+      const da = new Date(a.date || a.createdAt);
+      const dbDate = new Date(b.date || b.createdAt);
+      if (da.getTime() !== dbDate.getTime()) return da - dbDate;
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+    setRecords(list);
+  };
 
-  // [제거] 로컬 스토리지에 직접 저장하던 useEffect 로직은 이제 SettingsContext가 대신 수행
+  const loadCategories = async () => {
+    if (!db) return;
+    const rows = await getAll("categories");
+    const list = rows.map((c) => c.name);
+    setCategories(list);
+    if (!category && list.length > 0) setCategory(list[0]);
+  };
 
   useEffect(() => {
     if (!db) return;
-
     loadRecords();
     loadCategories();
 
     if (isChapterMode) {
       db.get("chapters", Number(chapterId)).then((data) => {
         setChapter(data);
-        
-        // 챕터 모드일 때 해당 챕터의 월에 맞춰 날짜 자동 설정
         if (data && !isDateMode && !isEditing) {
           const chapterDate = new Date(data.createdAt);
           const today = new Date();
-          
-          const cYear = chapterDate.getFullYear();
-          const cMonth = chapterDate.getMonth();
-          const tYear = today.getFullYear();
-          const tMonth = today.getMonth();
-
-          // 만약 챕터의 년/월이 현재와 같다면 '오늘' 날짜로, 
-          // 아니라면 해당 월의 '1일'로 설정
-          if (cYear === tYear && cMonth === tMonth) {
+          if (chapterDate.getFullYear() === today.getFullYear() && chapterDate.getMonth() === today.getMonth()) {
             setRecordDate(today.toISOString().split("T")[0]);
           } else {
-            const yyyy = cYear;
-            const mm = String(cMonth + 1).padStart(2, "0");
+            const yyyy = chapterDate.getFullYear();
+            const mm = String(chapterDate.getMonth() + 1).padStart(2, "0");
             setRecordDate(`${yyyy}-${mm}-01`);
           }
         }
@@ -140,73 +125,40 @@ export default function DetailPage() {
     }
   }, [db, chapterId, date]);
 
-  const loadRecords = async () => {
-    if (!db) return;
+  // 특정 항목으로 스크롤 (DateMode 진입 시)
+  useEffect(() => {
+    if (!isDateMode || records.length === 0) return;
+    const target = document.getElementById(`record-${paramId}`);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [records, isDateMode, paramId]);
 
-    let list = [];
-    if (isChapterMode) {
-      list = await getAllFromIndex("records", "chapterId", Number(chapterId));
-    } else if (isDateMode) {
-      const all = await getAll("records");
-      list = all.filter(
-        (r) => String(r.date || r.createdAt).split("T")[0] === date
-      );
-    }
-    list.sort((a, b) => {
-      const da = new Date(a.date || a.createdAt);
-      const db = new Date(b.date || b.createdAt);
+  const incomeSum = records.filter((r) => r.type === "income").reduce((a, b) => a + b.amount, 0);
+  const expenseSum = records.filter((r) => r.type === "expense").reduce((a, b) => a + b.amount, 0);
 
-      if (da.getTime() !== db.getTime()) {
-        return da - db;
-      }
-      return (a.order ?? 0) - (b.order ?? 0);
-    });
+  const displayedIncomeList = useMemo(() => {
+    const list = records.filter((r) => r.type === "income");
+    return settings.isIncomeGrouped ? groupRecordsByTitle(list) : list;
+  }, [records, settings.isIncomeGrouped]);
 
-    setRecords(list);
-  };
-
-  const loadCategories = async () => {
-    if (!db) return;
-
-    const rows = await getAll("categories");
-    const list = rows.map((c) => c.name);
-    setCategories(list);
-    if (!category && list.length > 0) setCategory(list[0]);
-  };
-
-  const handleAmountChange = (e) => {
-    const v = e.target.value.replace(/[^0-9.]/g, "");
-    const fixed = v.replace(/(\..*)\./g, "$1");
-    setAmount(fixed);
-  };
-
-  const applyUnit = (value) => {
-    const raw = unformatNumber(amount);
-    if (!raw && raw !== 0) return; 
-
-    const calculated = Math.round(raw * value);
-    
-    setAmount(formatNumber(calculated));
-  };
+  const displayedExpenseList = useMemo(() => {
+    const list = records.filter((r) => r.type === "expense");
+    return settings.isExpenseGrouped ? groupRecordsByTitle(list) : list;
+  }, [records, settings.isExpenseGrouped]);
 
   const saveRecord = async (type) => {
     if (!title || !amount) return;
 
     const recordAmount = unformatNumber(amount);
     const newChapterTitle = formatChapterTitle(recordDate);
-
     const currentChapterId = isChapterMode ? Number(chapterId) : null;
     let targetChapterId = currentChapterId;
     let chapterChanged = false;
 
-
+    // 챕터 이름 자동 관리 로직
     if (isChapterMode && chapter) {
       if (newChapterTitle !== chapter.title) {
         const allChapters = await getAll("chapters");
-        const existingChapter = allChapters.find(
-          (c) => c.title === newChapterTitle
-        );
-
+        const existingChapter = allChapters.find((c) => c.title === newChapterTitle);
         if (existingChapter) {
           targetChapterId = existingChapter.chapterId;
         } else {
@@ -217,7 +169,6 @@ export default function DetailPage() {
             isTemporary: false,
           });
         }
-
         chapterChanged = targetChapterId !== currentChapterId;
       }
     }
@@ -234,72 +185,54 @@ export default function DetailPage() {
       createdAt: editRecord?.createdAt || new Date(),
     };
 
-    const nextOrder = records.filter((r) => r.type === type).length;
-
-    
     if (isEditing && editId) {
       const updated = {
         ...recordDataBase,
         id: editId,
-        order:
-          !chapterChanged && editRecord?.type === type
-            ? editRecord.order ?? nextOrder
-            : nextOrder,
-        ...(isChapterMode ? { chapterId: targetChapterId } : {}),
+        order: !chapterChanged && editRecord?.type === type ? (editRecord.order ?? 0) : records.filter(r => r.type === type).length,
       };
-
       await put("records", updated);
       cancelEdit();
       await loadRecords();
       return;
     }
 
+    const nextOrder = records.filter((r) => r.type === type).length;
+    await add("records", { ...recordDataBase, order: nextOrder });
     
-    const newRecord = {
-      ...recordDataBase,
-      order: nextOrder,
-      ...(isChapterMode ? { chapterId: targetChapterId } : {}),
-    };
-
-    const wasEmpty = records.length === 0;
-    const newId = await add("records", newRecord);
-
-
-    setRecords((prev) => {
-      const appended = [...prev, { ...newRecord, id: newId }];
-      appended.sort((a, b) => {
-        const da = new Date(a.date || a.createdAt);
-        const db = new Date(b.date || b.createdAt);
-        if (da.getTime() !== db.getTime()) return da - db;
-        return (a.order ?? 0) - (b.order ?? 0);
-      });
-      return appended;
-    });
-
-    setTitle("");
-    setAmount("");
-
-    if (
-      isChapterMode &&
-      chapter &&
-      chapter.isTemporary &&
-      targetChapterId === currentChapterId
-    ) {
-      const updatedChapter = {
-        ...chapter,
-        title: newChapterTitle,
-        isTemporary: false,
-      };
+    // 임시 챕터를 정식 챕터로 전환
+    if (isChapterMode && chapter?.isTemporary && targetChapterId === currentChapterId) {
+      const updatedChapter = { ...chapter, title: newChapterTitle, isTemporary: false };
       await put("chapters", updatedChapter);
       setChapter(updatedChapter);
     }
 
+    setTitle("");
+    setAmount("");
+    await loadRecords();
 
-    if (isChapterMode && chapter && wasEmpty) {
+    if (isChapterMode && records.length === 0) {
       navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
     }
   };
 
+  const startEdit = (record) => {
+    if (record.isAggregated && record.count > 1) {
+      alert("모아보기 상태에서는 개별 항목을 수정할 수 없습니다.");
+      return;
+    }
+    setEditId(record.id);
+    setEditType(record.type);
+    setEditRecord(record);
+    setTitle(record.title);
+    setAmount(formatNumber(record.amount));
+    setCategory(record.category || categories[0] || "");
+    setRecordDate(String(record.date || record.createdAt).split("T")[0]);
+    setIsEditing(true);
+    setTimeout(() => {
+      contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }, 0);
+  };
 
   const cancelEdit = () => {
     setIsEditing(false);
@@ -319,78 +252,9 @@ export default function DetailPage() {
     loadRecords();
   };
 
-  const startEdit = (record) => {
-    // 합산된 항목은 수정 불가
-    if (record.isAggregated && record.count > 1) {
-      alert("모아보기 상태에서는 개별 항목을 수정할 수 없습니다.");
-      return;
-    }
-
-    setEditId(record.id);
-    setEditType(record.type);
-    setEditRecord(record);
-    setTitle(record.title);
-    setAmount(formatNumber(record.amount));
-    setCategory(record.category || categories[0] || "");
-    setRecordDate(String(record.date || record.createdAt).split("T")[0]);
-    setIsEditing(true);
-    setTimeout(() => {
-      if (contentRef.current)
-        contentRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }, 0);
-  };
-
-  const onDragEnd = async (result) => {
-    const { source, destination } = result;
-    if (!destination) return;
-    if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
-    )
-      return;
-
-    // ★ [수정] Context 설정값을 참조하도록 변경
-    const isIncomeSource = source.droppableId === "incomeList";
-    const isExpenseSource = source.droppableId === "expenseList";
-
-    if (isIncomeSource && settings.isIncomeGrouped) return;
-    if (isExpenseSource && settings.isExpenseGrouped) return;
-
-    const sourceList = records.filter(
-      (r) => r.type === (isIncomeSource ? "income" : "expense")
-    );
-    const destList = records.filter(
-      (r) => r.type === (destination.droppableId === "incomeList" ? "income" : "expense")
-    );
-    const newType = destination.droppableId === "incomeList" ? "income" : "expense";
-
-    if (source.droppableId === destination.droppableId) {
-      const items = reorder(sourceList, source.index, destination.index);
-      for (let i = 0; i < items.length; i++)
-        await put("records", { ...items[i], order: i });
-    } else {
-      const sItems = [...sourceList];
-      const dItems = [...destList];
-      const [removed] = sItems.splice(source.index, 1);
-      const movedItem = { ...removed, type: newType };
-      dItems.splice(destination.index, 0, movedItem);
-      for (let i = 0; i < sItems.length; i++)
-        await put("records", { ...sItems[i], order: i });
-      for (let i = 0; i < dItems.length; i++)
-        await put("records", { ...dItems[i], order: i });
-    }
-    loadRecords();
-  };
-
-  useEffect(() => {
-    if (!isDateMode || records.length === 0) return;
-    const target = document.getElementById(`record-${id}`);
-    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [records, isDateMode, id]);
-
   const deleteRecord = async (rid, isAggregated) => {
     if (isAggregated) {
-      alert("모아보기 상태에서는 삭제할 수 없습니다. 개별 보기로 전환해주세요.");
+      alert("모아보기 상태에서는 삭제할 수 없습니다.");
       return;
     }
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
@@ -398,320 +262,86 @@ export default function DetailPage() {
     loadRecords();
   };
 
-  const incomeSum = records
-    .filter((r) => r.type === "income")
-    .reduce((a, b) => a + b.amount, 0);
-  const expenseSum = records
-    .filter((r) => r.type === "expense")
-    .reduce((a, b) => a + b.amount, 0);
+  const onDragEnd = async (result) => {
+    const { source, destination } = result;
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-  // [수정] Context의 설정을 감시하도록 변경
-  const displayedIncomeList = useMemo(() => {
-    const list = records.filter((r) => r.type === "income");
-    if (!settings.isIncomeGrouped) return list;
-    return groupRecordsByTitle(list);
-  }, [records, settings.isIncomeGrouped]);
+    const isIncomeSource = source.droppableId === "incomeList";
+    if (isIncomeSource && settings.isIncomeGrouped) return;
+    if (!isIncomeSource && settings.isExpenseGrouped) return;
 
-  const displayedExpenseList = useMemo(() => {
-    const list = records.filter((r) => r.type === "expense");
-    if (!settings.isExpenseGrouped) return list;
-    return groupRecordsByTitle(list);
-  }, [records, settings.isExpenseGrouped]);
+    const sourceList = records.filter(r => r.type === (isIncomeSource ? "income" : "expense"));
+    const destList = records.filter(r => r.type === (destination.droppableId === "incomeList" ? "income" : "expense"));
+    const newType = destination.droppableId === "incomeList" ? "income" : "expense";
+
+    if (source.droppableId === destination.droppableId) {
+      const items = reorder(sourceList, source.index, destination.index);
+      for (let i = 0; i < items.length; i++) await put("records", { ...items[i], order: i });
+    } else {
+      const sItems = [...sourceList];
+      const dItems = [...destList];
+      const [removed] = sItems.splice(source.index, 1);
+      const movedItem = { ...removed, type: newType };
+      dItems.splice(destination.index, 0, movedItem);
+      for (let i = 0; i < sItems.length; i++) await put("records", { ...sItems[i], order: i });
+      for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i });
+    }
+    loadRecords();
+  };
 
   return (
     <S.PageWrap>
       <S.HeaderFix>
-        <Header
-          title={
-            isChapterMode
-              ? chapter?.isTemporary
-                ? "내역 입력"
-                : chapter?.title
-              : `${date} 상세 내역`
-          }
-        />
+        <Header title={isChapterMode ? (chapter?.isTemporary ? "내역 입력" : chapter?.title) : `${date} 상세 내역`} />
       </S.HeaderFix>
 
       <S.Content ref={contentRef}>
         <S.SummaryBox>
           <S.SummaryRow>
             <span>총 수입</span>
-            <span>
-              {formatNumber(incomeSum)} {unit}
-            </span>
+            <span>{formatNumber(incomeSum)} {unit}</span>
           </S.SummaryRow>
           <S.SummaryRow>
             <span>총 지출</span>
-            <span>
-              {formatNumber(expenseSum)} {unit}
-            </span>
+            <span>{formatNumber(expenseSum)} {unit}</span>
           </S.SummaryRow>
           <S.SummaryRow style={{ fontWeight: "bold" }}>
             <span>잔액</span>
-            <span>
-              {formatNumber(incomeSum - expenseSum)} {unit}
-            </span>
+            <span>{formatNumber(incomeSum - expenseSum)} {unit}</span>
           </S.SummaryRow>
         </S.SummaryBox>
 
-        <h2 style={{ margin: "20px 0" }}>{isEditing ? "내역 수정" : "입력"}</h2>
-
-        <S.InputBox
-          type="date"
-          value={recordDate}
-          onChange={(e) => setRecordDate(e.target.value)}
+        <RecordForm
+          isEditing={isEditing}
+          editRecord={editRecord}
+          editType={editType}
+          title={title}
+          amount={amount}
+          category={category}
+          categories={categories}
+          recordDate={recordDate}
+          setTitle={setTitle}
+          setAmount={setAmount}
+          setCategory={setCategory}
+          setRecordDate={setRecordDate}
+          onSave={saveRecord}
+          onCancel={cancelEdit}
+          onTogglePaid={togglePaymentStatus}
         />
 
-        <S.SelectBox
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </S.SelectBox>
-
-        <S.InputBox
-          placeholder="항목명"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+        <RecordList
+          incomeList={displayedIncomeList}
+          expenseList={displayedExpenseList}
+          settings={settings}
+          editId={editId}
+          unit={unit}
+          onToggleIncomeGroup={() => updateSetting("isIncomeGrouped", !settings.isIncomeGrouped)}
+          onToggleExpenseGroup={() => updateSetting("isExpenseGrouped", !settings.isExpenseGrouped)}
+          onDragEnd={onDragEnd}
+          onEdit={startEdit}
+          onDelete={deleteRecord}
         />
-
-        <S.AmountInputWrap>
-          <S.InputBox
-            placeholder="금액"
-            value={amount}
-            onChange={handleAmountChange}
-            style={{ paddingRight: "40px" }}
-          />
-          {unformatNumber(amount) > 0 && (
-            <S.ClearBtn onClick={() => setAmount("")}>×</S.ClearBtn>
-          )}
-        </S.AmountInputWrap>
-
-        <S.UnitBtnRow>
-          <S.UnitBtn onClick={() => applyUnit(10000)}>만</S.UnitBtn>
-          <S.UnitBtn onClick={() => applyUnit(100000)}>십만</S.UnitBtn>
-          <S.UnitBtn onClick={() => applyUnit(1000000)}>백만</S.UnitBtn>
-        </S.UnitBtnRow>
-
-        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-          {isEditing ? (
-            <>
-              <S.ActionBtn
-                $variant="confirm"
-                onClick={() => saveRecord(editType)}
-              >
-                수정 완료
-              </S.ActionBtn>
-
-              <S.ActionBtn $variant="toggle" onClick={togglePaymentStatus}>
-                {editRecord?.isPaid ? "납부 취소" : "납부 완료"}
-              </S.ActionBtn>
-
-              <S.ActionBtn $variant="cancel" $flex={0.5} onClick={cancelEdit}>
-                취소
-              </S.ActionBtn>
-            </>
-          ) : (
-            <>
-              <S.ActionBtn
-                $variant="income"
-                onClick={() => saveRecord("income")}
-              >
-                수입
-              </S.ActionBtn>
-
-              <S.ActionBtn
-                $variant="expense"
-                onClick={() => saveRecord("expense")}
-              >
-                지출
-              </S.ActionBtn>
-            </>
-          )}
-        </div>
-
-        <DragDropContext onDragEnd={onDragEnd}>
-          {/* 수입 목록 헤더 + 토글 */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 10 }}>
-            <h3 style={{ margin: 0 }}>수입 목록</h3>
-            {/* [수정] Context 함수 호출로 변경 */}
-            <S.ToggleLabel onClick={() => updateSetting("isIncomeGrouped", !settings.isIncomeGrouped)}>
-              <span>모아보기</span>
-              <S.ToggleSwitch $isOn={settings.isIncomeGrouped} />
-            </S.ToggleLabel>
-          </div>
-          
-          <Droppable droppableId="incomeList">
-            {(provided) => (
-              <S.List ref={provided.innerRef} {...provided.droppableProps}>
-                {displayedIncomeList.map((r, index) => {
-                  const CategoryIcon = categoryIconMap[r.category] || FiGrid;
-
-                  return (
-                    <Draggable
-                      key={r.id}
-                      draggableId={String(r.id)}
-                      index={index}
-                      isDragDisabled={settings.isIncomeGrouped || (r.isAggregated && r.count > 1)}
-                    >
-                      {(p, snapshot) => (
-                        <S.ListItem
-                          ref={p.innerRef}
-                          {...p.draggableProps}
-                          {...p.dragHandleProps}
-                          onClick={() => startEdit(r)}
-                          $isEditing={r.id === editId}
-                          style={{
-                            ...p.draggableProps.style,
-                            opacity: snapshot.isDragging ? 0.7 : 1,
-                          }}
-                        >
-                          {/* 좌측 정보 */}
-                          <S.CardInfo>
-                            <S.CardMetaRow>
-                              <S.CategoryIconWrap>
-                                <CategoryIcon />
-                              </S.CategoryIconWrap>
-
-                              <span>
-                                {r.category} · {String(r.date || r.createdAt).split("T")[0]}
-                              </span>
-
-                              {r.isAggregated && r.count > 1 && (
-                                <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>
-                                  [{r.count}건 합산]
-                                </span>
-                              )}
-                            </S.CardMetaRow>
-
-                            <S.CardTitle title={r.title}>
-                              {r.title}
-                            </S.CardTitle>
-                          </S.CardInfo>
-
-                          {/* 우측 금액 + 액션 */}
-                          <S.CardRight>
-                            <S.CardAmount>
-                              {formatNumber(r.amount)}원
-                            </S.CardAmount>
-
-                            {(!r.isAggregated || r.count === 1) && (
-                              <S.CardAction
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteRecord(r.id);
-                                }}
-                                aria-label="삭제"
-                              >
-                                <FiTrash2 />
-                              </S.CardAction>
-                            )}
-                          </S.CardRight>
-                        </S.ListItem>
-                      )}
-                    </Draggable>
-                  );
-                })}
-
-
-                {provided.placeholder}
-              </S.List>
-            )}
-          </Droppable>
-
-          {/* 지출 목록 헤더 + 토글 */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 10 }}>
-            <h3 style={{ margin: 0 }}>지출 목록</h3>
-            {/* [수정] Context 함수 호출로 변경 */}
-            <S.ToggleLabel onClick={() => updateSetting("isExpenseGrouped", !settings.isExpenseGrouped)}>
-              <span>모아보기</span>
-              <S.ToggleSwitch $isOn={settings.isExpenseGrouped} />
-            </S.ToggleLabel>
-          </div>
-
-          <Droppable droppableId="expenseList">
-            {(provided) => (
-              <S.List ref={provided.innerRef} {...provided.droppableProps}>
-                {displayedExpenseList.map((r, index) => {
-                  const CategoryIcon = categoryIconMap[r.category] || FiGrid;
-
-                  return (
-                    <Draggable
-                      key={r.id}
-                      draggableId={String(r.id)}
-                      index={index}
-                      isDragDisabled={settings.isExpenseGrouped || (r.isAggregated && r.count > 1)}
-                    >
-                      {(p, snapshot) => (
-                        <S.ListItem
-                          ref={p.innerRef}
-                          {...p.draggableProps}
-                          {...p.dragHandleProps}
-                          onClick={() => startEdit(r)}
-                          $isEditing={r.id === editId}
-                          $isPaid={r.isPaid}
-                          $isAggregated={r.isAggregated && r.count > 1}
-                          style={{
-                            ...p.draggableProps.style,
-                            opacity: snapshot.isDragging ? 0.7 : 1,
-                          }}
-                        >
-                          {/* 좌측 정보 영역 */}
-                          <S.CardInfo>
-                            <S.CardMetaRow>
-                              <S.CategoryIconWrap>
-                                <CategoryIcon />
-                              </S.CategoryIconWrap>
-
-                              <span>
-                                {r.category} · {String(r.date || r.createdAt).split("T")[0]}
-                              </span>
-
-                              {r.isAggregated && r.count > 1 && (
-                                <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>
-                                  [{r.count}건 합산]
-                                </span>
-                              )}
-                            </S.CardMetaRow>
-
-                            <S.CardTitle title={r.title}>
-                              {r.title}
-                            </S.CardTitle>
-                          </S.CardInfo>
-
-                          {/* 우측 금액 + 액션 */}
-                          <S.CardRight>
-                            <S.CardAmount>
-                              {formatNumber(r.amount)}{unit}
-                            </S.CardAmount>
-
-                            {(!r.isAggregated || r.count === 1) && (
-                              <S.CardAction
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteRecord(r.id);
-                                }}
-                                aria-label="삭제"
-                              >
-                                <FiTrash2 />
-                              </S.CardAction>
-                            )}
-                          </S.CardRight>
-                        </S.ListItem>
-                      )}
-                    </Draggable>
-                  );
-                })}
-
-                {provided.placeholder}
-              </S.List>
-            )}
-          </Droppable>
-        </DragDropContext>
       </S.Content>
     </S.PageWrap>
   );
