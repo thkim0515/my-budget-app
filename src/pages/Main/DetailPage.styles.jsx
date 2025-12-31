@@ -132,83 +132,110 @@ export const List = styled.ul`
 /* 리스트 아이템 컨테이너 - [수정됨] 합산 모드($isAggregated) 스타일 추가 */
 export const ListItem = styled.li`
   display: flex;
-  /* 배경 우선순위: 합산모드 > 납부완료 > 기본 */
-  background: ${({ theme, $isPaid, $isAggregated }) => {
-    if ($isAggregated) return "#e3f2fd"; // 합산시 연한 파랑 (라이트모드 기준)
-    if ($isPaid) return "#e0e0e0";
-    return theme.card;
-  }};
-  
-  /* 합산 모드일 때 글자색 조정 (다크모드 대응 등 필요시 수정 가능) */
-  color: ${({ $isPaid, $isAggregated }) => 
-    ($isAggregated ? "#1565c0" : $isPaid ? "#333" : "inherit")};
+  justify-content: space-between;
+  align-items: center;
 
-  padding: 0;
-  border-radius: 10px;
-  margin-bottom: 10px;
-  overflow: hidden;
-  
-  /* 테두리 및 왼쪽 띠 설정 */
-  border: 1px solid ${({ theme, $isAggregated }) => 
-    $isAggregated ? "#90caf9" : theme.border};
-  border-left: ${({ theme, $isAggregated }) =>
-  $isAggregated
-    ? "5px solid #2196F3"
-    : `1px solid ${theme.border}`};
+  padding: 14px 16px;
+  margin-bottom: 12px;
 
-  transition: all 0.2s ease;
-  
-  /* 합산 항목은 클릭해도 수정 불가능하므로 커서 기본값 */
-  cursor: ${({ $isAggregated }) => ($isAggregated ? "default" : "pointer")};
+  background: ${({ theme, $isEditing }) =>
+    $isEditing ? "rgba(255, 215, 0, 0.18)" : theme.card};
+
+  border-radius: 14px;
+
+  box-shadow: ${({ $isEditing }) =>
+    $isEditing
+      ? "0 0 0 2px #f1c40f"
+      : "0 4px 12px rgba(0,0,0,0.08)"};
+
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+
+  cursor: pointer;
 `;
 
-/* 셀 스타일 */
-export const Cell = styled.div`
-  padding: 12px;
+
+export const CardInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+`;
+
+export const CardMeta = styled.div`
+  font-size: 12px;
+  opacity: 0.6;
+`;
+
+export const CardTitle = styled.div`
+  font-size: 15px;
+  font-weight: 600;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+export const CardRight = styled.div`
   display: flex;
   align-items: center;
-  border-right: 1px dashed ${({ theme }) => theme.border};
-  &:last-child {
-    border-right: none;
+  gap: 10px;
+  flex-shrink: 0;
+`;
+
+export const CardAmount = styled.div`
+  font-size: 15px;
+  font-weight: bold;
+  white-space: nowrap;
+`;
+
+export const CardAction = styled.button`
+  background: transparent;
+  border: none;
+  color: #ff0000ff;      /* 더 진한 레드 */
+  font-size: 22px;     /* 살짝 키움 */
+  opacity: 0.9;        /* 흐림 제거 */
+  cursor: pointer;
+
+  &:hover {
+    opacity: 1;
+    transform: scale(1.1);
   }
 `;
 
-/* 항목 제목 칼럼 */
-export const ColTitle = styled(Cell)`
-  flex: 5;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-`;
 
-/* 금액 칼럼 */
-export const ColAmount = styled(Cell)`
-  flex: 2;
-  justify-content: flex-end;
-`;
+// export const ListItem = styled.li`
+//   display: flex;
+//   /* 배경 우선순위: 합산모드 > 납부완료 > 기본 */
+//   background: ${({ theme, $isPaid, $isAggregated }) => {
+//     if ($isAggregated) return "#e3f2fd"; // 합산시 연한 파랑 (라이트모드 기준)
+//     if ($isPaid) return "#e0e0e0";
+//     return theme.card;
+//   }};
+  
+//   /* 합산 모드일 때 글자색 조정 (다크모드 대응 등 필요시 수정 가능) */
+//   color: ${({ $isPaid, $isAggregated }) => 
+//     ($isAggregated ? "#1565c0" : $isPaid ? "#333" : "inherit")};
 
-/* 단위 칼럼 */
-export const ColUnit = styled(Cell)`
-  flex: 1;
-  justify-content: center;
-`;
+//   padding: 0;
+//   border-radius: 10px;
+//   margin-bottom: 10px;
+//   overflow: hidden;
+  
+//   /* 테두리 및 왼쪽 띠 설정 */
+//   border: 1px solid ${({ theme, $isAggregated }) => 
+//     $isAggregated ? "#90caf9" : theme.border};
+//   border-left: ${({ theme, $isAggregated }) =>
+//   $isAggregated
+//     ? "5px solid #2196F3"
+//     : `1px solid ${theme.border}`};
 
-/* 삭제 버튼 칼럼 */
-export const DeleteCell = styled(Cell)`
-  width: 60px;
-  padding: 0;
-  justify-content: center;
-`;
+//   transition: all 0.2s ease;
+  
+//   /* 합산 항목은 클릭해도 수정 불가능하므로 커서 기본값 */
+//   cursor: ${({ $isAggregated }) => ($isAggregated ? "default" : "pointer")};
+// `;
 
-/* 삭제 버튼 */
-export const DeleteBtn = styled.button`
-  width: 100%;
-  height: 100%;
-  background: #d9534f;
-  border: none;
-  color: white;
-  cursor: pointer;
-`;
+
 
 /* 금액 입력창의 클리어 버튼 래퍼 */
 export const AmountInputWrap = styled.div`

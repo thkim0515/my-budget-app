@@ -539,50 +539,47 @@ export default function DetailPage() {
                           {...p.draggableProps}
                           {...p.dragHandleProps}
                           onClick={() => startEdit(r)}
-                          $isPaid={r.isPaid}
-                          $isAggregated={r.isAggregated && r.count > 1}
-                          as={
-                            isDateMode && Number(id) === r.id
-                              ? S.HighlightItem
-                              : r.id === editId
-                              ? S.HighlightItem
-                              : "li"
-                          }
+                          $isEditing={r.id === editId}
                           style={{
                             ...p.draggableProps.style,
                             opacity: snapshot.isDragging ? 0.7 : 1,
                           }}
                         >
-                          <S.ColTitle>
-                            <span style={{ fontSize: 12, color: "#888" }}>
-                              {r.category}{" "}
-                              {r.isAggregated && r.count > 1 ? (
-                                <span style={{ color: "#2196F3", fontWeight: "bold" }}>
+                          {/* 좌측 정보 */}
+                          <S.CardInfo>
+                            <S.CardMeta>
+                              {r.category} · {String(r.date || r.createdAt).split("T")[0]}
+                              {r.isAggregated && r.count > 1 && (
+                                <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>
                                   [{r.count}건 합산]
                                 </span>
-                              ) : (
-                                `[${String(r.date || r.createdAt).split("T")[0]}]`
                               )}
-                            </span>
-                            <span style={{ fontWeight: "bold" }}>{r.title}</span>
-                          </S.ColTitle>
+                            </S.CardMeta>
 
-                          <S.ColAmount>{formatNumber(r.amount)}</S.ColAmount>
-                          <S.ColUnit>{unit}</S.ColUnit>
+                            <S.CardTitle title={r.title}>
+                              {r.title}
+                            </S.CardTitle>
+                          </S.CardInfo>
 
-                          <S.DeleteCell>
-                            {(!r.isAggregated || r.count === 1) && (
-                              <S.DeleteBtn
+                          {/* 우측 금액 + 액션 */}
+                          <S.CardRight>
+                            <S.CardAmount>
+                              {formatNumber(r.amount)}원
+                            </S.CardAmount>
+
+                            {!r.isAggregated && (
+                              <S.CardAction
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  deleteRecord(r.id, r.isAggregated && r.count > 1);
+                                  deleteRecord(r.id);
                                 }}
                               >
-                                삭제
-                              </S.DeleteBtn>
+                                🗑
+                              </S.CardAction>
                             )}
-                          </S.DeleteCell>
+                          </S.CardRight>
                         </S.ListItem>
+
                       )}
                     </Draggable>
                   ))}
@@ -609,7 +606,7 @@ export default function DetailPage() {
                       key={r.id}
                       draggableId={String(r.id)}
                       index={index}
-                      // [수정] Context 설정 참조
+                      // Context 설정 참조
                       isDragDisabled={settings.isExpenseGrouped || (r.isAggregated && r.count > 1)}
                     >
                       {(p, snapshot) => (
@@ -618,50 +615,54 @@ export default function DetailPage() {
                           {...p.draggableProps}
                           {...p.dragHandleProps}
                           onClick={() => startEdit(r)}
+                          $isEditing={r.id === editId}
                           $isPaid={r.isPaid}
                           $isAggregated={r.isAggregated && r.count > 1}
-                          as={
-                            isDateMode && Number(id) === r.id
-                              ? S.HighlightItem
-                              : r.id === editId
-                              ? S.HighlightItem
-                              : "li"
-                          }
                           style={{
                             ...p.draggableProps.style,
                             opacity: snapshot.isDragging ? 0.7 : 1,
                           }}
                         >
-                          <S.ColTitle>
-                            <span style={{ fontSize: 12, color: "#888" }}>
-                              {r.category}{" "}
-                              {r.isAggregated && r.count > 1 ? (
-                                <span style={{ color: "#2196F3", fontWeight: "bold" }}>
+
+                          {/* 좌측 정보 영역 */}
+                          <S.CardInfo>
+                            <S.CardMeta>
+                              {r.category} · {String(r.date || r.createdAt).split("T")[0]}
+                              {r.isAggregated && r.count > 1 && (
+                                <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>
                                   [{r.count}건 합산]
                                 </span>
-                              ) : (
-                                `[${String(r.date || r.createdAt).split("T")[0]}]`
                               )}
-                            </span>
-                            <span style={{ fontWeight: "bold" }}>{r.title}</span>
-                          </S.ColTitle>
+                            </S.CardMeta>
 
-                          <S.ColAmount>{formatNumber(r.amount)}</S.ColAmount>
-                          <S.ColUnit>{unit}</S.ColUnit>
+                            <S.CardTitle title={r.title}>
+                              {r.title}
+                            </S.CardTitle>
+                          </S.CardInfo>
 
-                          <S.DeleteCell>
+                          {/* 우측 금액 + 액션 */}
+                          <S.CardRight>
+                            <S.CardAmount>
+                              {formatNumber(r.amount)}{unit}
+                            </S.CardAmount>
+
                             {(!r.isAggregated || r.count === 1) && (
-                              <S.DeleteBtn
+                              <S.CardAction
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   deleteRecord(r.id, r.isAggregated && r.count > 1);
                                 }}
+                                aria-label="삭제"
                               >
-                                삭제
-                              </S.DeleteBtn>
+                                🗑
+                              </S.CardAction>
                             )}
-                          </S.DeleteCell>
+                          </S.CardRight>
                         </S.ListItem>
+
+
+
+
                       )}
                     </Draggable>
                   ))}
