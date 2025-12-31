@@ -12,6 +12,8 @@ import styled from "styled-components";
 
 const AuthContainer = styled.div`
   background: ${({ theme }) => theme.cardBg || "rgba(0,0,0,0.03)"};
+  /* ▼ 여기에 테마 글자색 적용 */
+  color: ${({ theme }) => theme.text || "#000"}; 
   padding: 16px;
   border-radius: 12px;
   margin-bottom: 20px;
@@ -32,9 +34,26 @@ const Profile = styled.div`
   .info {
     display: flex;
     flex-direction: column;
-    span { font-size: 14px; font-weight: bold; }
-    small { font-size: 12px; opacity: 0.7; }
+    span { 
+      font-size: 14px; 
+      font-weight: bold;
+      color: ${({ theme }) => theme.text}; /* 이름 색상 */
+    }
+    small { 
+      font-size: 12px; 
+      opacity: 0.7; 
+      color: ${({ theme }) => theme.text}; /* 이메일 색상 */
+    }
   }
+`;
+
+/* ▼ 설명 문구 스타일 컴포넌트 분리 */
+const Description = styled.div`
+  margin-bottom: 12px;
+  font-size: 14px;
+  opacity: 0.8;
+  color: ${({ theme }) => theme.text}; /* 설명 글자색 */
+  line-height: 1.4;
 `;
 
 const GoogleButton = styled.button`
@@ -42,8 +61,8 @@ const GoogleButton = styled.button`
   padding: 12px;
   border: 1px solid #ddd;
   border-radius: 8px;
-  background: white;
-  color: #444;
+  background: white; /* 구글 버튼은 다크모드여도 흰색 유지 */
+  color: #444;       /* 버튼 글씨는 어두운 색 유지 */
   font-weight: bold;
   cursor: pointer;
   display: flex;
@@ -65,10 +84,8 @@ export default function GoogleAuth() {
 
   const handleLogin = async () => {
     try {
-      // 1. 구글 로그인 실행
       const result = await FirebaseAuthentication.signInWithGoogle();
       
-      // 2. 네이티브(Android/iOS) 환경일 때만 수동으로 Firebase JS SDK와 동기화
       if (Capacitor.isNativePlatform() && result.idToken) {
         const credential = GoogleAuthProvider.credential(result.idToken);
         await signInWithCredential(auth, credential);
@@ -84,7 +101,6 @@ export default function GoogleAuth() {
   };
 
   const handleLogout = async () => {
-    // 로그아웃 확인창 띄우기
     const isConfirmed = window.confirm("로그아웃 하시겠습니까?");
     
     if (isConfirmed) {
@@ -117,9 +133,10 @@ export default function GoogleAuth() {
 
   return (
     <AuthContainer>
-      <div style={{ marginBottom: "12px", fontSize: "14px", opacity: 0.8 }}>
+      {/* ▼ 스타일 컴포넌트로 교체 */}
+      <Description>
         로그인하면 여러 기기에서 자동으로 데이터를 동기화할 수 있습니다.
-      </div>
+      </Description>
       <GoogleButton onClick={handleLogin}>
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="G" />
         구글로 계속하기
