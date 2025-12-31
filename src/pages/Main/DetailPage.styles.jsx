@@ -191,16 +191,23 @@ export const CardAmount = styled.div`
 export const CardAction = styled.button`
   background: transparent;
   border: none;
-  color: #ff0000ff;      /* 더 진한 레드 */
-  font-size: 22px;     /* 살짝 키움 */
-  opacity: 0.9;        /* 흐림 제거 */
+  color: #ff0000ff;
+  font-size: 18px;
+  opacity: 0.9;
   cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transform: translateY(1px); 
 
   &:hover {
     opacity: 1;
-    transform: scale(1.1);
+    transform: translateY(1px) scale(1.1);
   }
 `;
+
 
 
 // export const ListItem = styled.li`
@@ -235,6 +242,19 @@ export const CardAction = styled.button`
 //   cursor: ${({ $isAggregated }) => ($isAggregated ? "default" : "pointer")};
 // `;
 
+export const CardMetaRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.6;
+`;
+
+export const CategoryIconWrap = styled.div`
+  font-size: 14px;
+  opacity: 0.7;
+  flex-shrink: 0;
+`;
 
 
 /* 금액 입력창의 클리어 버튼 래퍼 */

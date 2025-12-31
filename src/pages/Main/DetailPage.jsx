@@ -10,6 +10,30 @@ import { useSettings } from "../../context/SettingsContext"; // 전역 설정 �
 
 import * as S from "./DetailPage.styles";
 
+import { FiTrash2 } from "react-icons/fi";
+
+import {
+  FiCoffee,     // 식비
+  FiTruck,      // 교통
+  FiPhone,      // 통신
+  FiShoppingBag,// 쇼핑
+  FiMusic,      // 문화
+  FiCreditCard, // 금융/카드
+  FiGrid,       // 기타
+} from "react-icons/fi";
+
+const categoryIconMap = {
+  식비: FiCoffee,
+  교통: FiTruck,
+  통신: FiPhone,
+  쇼핑: FiShoppingBag,
+  문화: FiMusic,
+  금융: FiCreditCard,
+  카드: FiCreditCard,
+  기타: FiGrid,
+};
+
+
 /* 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 */
 const formatChapterTitle = (dateString) => {
   const d = new Date(dateString);
@@ -175,6 +199,7 @@ export default function DetailPage() {
     let targetChapterId = currentChapterId;
     let chapterChanged = false;
 
+
     if (isChapterMode && chapter) {
       if (newChapterTitle !== chapter.title) {
         const allChapters = await getAll("chapters");
@@ -194,8 +219,6 @@ export default function DetailPage() {
         }
 
         chapterChanged = targetChapterId !== currentChapterId;
-      } else {
-        targetChapterId = currentChapterId;
       }
     }
 
@@ -213,50 +236,48 @@ export default function DetailPage() {
 
     const nextOrder = records.filter((r) => r.type === type).length;
 
+    
     if (isEditing && editId) {
       const updated = {
         ...recordDataBase,
         id: editId,
         order:
           !chapterChanged && editRecord?.type === type
-            ? editRecord?.order ?? nextOrder
+            ? editRecord.order ?? nextOrder
             : nextOrder,
         ...(isChapterMode ? { chapterId: targetChapterId } : {}),
       };
 
       await put("records", updated);
-
       cancelEdit();
       await loadRecords();
       return;
     }
 
+    
     const newRecord = {
       ...recordDataBase,
       order: nextOrder,
       ...(isChapterMode ? { chapterId: targetChapterId } : {}),
     };
 
+    const wasEmpty = records.length === 0;
     const newId = await add("records", newRecord);
 
-    if (isChapterMode && chapter && records.length === 0) {
-      setTitle("");
-      setAmount("");
-      navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
-      return;
-    }
 
     setRecords((prev) => {
       const appended = [...prev, { ...newRecord, id: newId }];
       appended.sort((a, b) => {
         const da = new Date(a.date || a.createdAt);
         const db = new Date(b.date || b.createdAt);
-
         if (da.getTime() !== db.getTime()) return da - db;
         return (a.order ?? 0) - (b.order ?? 0);
       });
       return appended;
     });
+
+    setTitle("");
+    setAmount("");
 
     if (
       isChapterMode &&
@@ -273,10 +294,12 @@ export default function DetailPage() {
       setChapter(updatedChapter);
     }
 
-    setTitle("");
-    setAmount("");
-    await loadRecords();
+
+    if (isChapterMode && chapter && wasEmpty) {
+      navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
+    }
   };
+
 
   const cancelEdit = () => {
     setIsEditing(false);
@@ -525,12 +548,14 @@ export default function DetailPage() {
           <Droppable droppableId="incomeList">
             {(provided) => (
               <S.List ref={provided.innerRef} {...provided.droppableProps}>
-                {displayedIncomeList.map((r, index) => (
+                {displayedIncomeList.map((r, index) => {
+                  const CategoryIcon = categoryIconMap[r.category] || FiGrid;
+
+                  return (
                     <Draggable
                       key={r.id}
                       draggableId={String(r.id)}
                       index={index}
-                      // [수정] Context 설정 참조
                       isDragDisabled={settings.isIncomeGrouped || (r.isAggregated && r.count > 1)}
                     >
                       {(p, snapshot) => (
@@ -547,14 +572,21 @@ export default function DetailPage() {
                         >
                           {/* 좌측 정보 */}
                           <S.CardInfo>
-                            <S.CardMeta>
-                              {r.category} · {String(r.date || r.createdAt).split("T")[0]}
+                            <S.CardMetaRow>
+                              <S.CategoryIconWrap>
+                                <CategoryIcon />
+                              </S.CategoryIconWrap>
+
+                              <span>
+                                {r.category} · {String(r.date || r.createdAt).split("T")[0]}
+                              </span>
+
                               {r.isAggregated && r.count > 1 && (
                                 <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>
                                   [{r.count}건 합산]
                                 </span>
                               )}
-                            </S.CardMeta>
+                            </S.CardMetaRow>
 
                             <S.CardTitle title={r.title}>
                               {r.title}
@@ -567,22 +599,25 @@ export default function DetailPage() {
                               {formatNumber(r.amount)}원
                             </S.CardAmount>
 
-                            {!r.isAggregated && (
+                            {(!r.isAggregated || r.count === 1) && (
                               <S.CardAction
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   deleteRecord(r.id);
                                 }}
+                                aria-label="삭제"
                               >
-                                🗑
+                                <FiTrash2 />
                               </S.CardAction>
                             )}
                           </S.CardRight>
                         </S.ListItem>
-
                       )}
                     </Draggable>
-                  ))}
+                  );
+                })}
+
+
                 {provided.placeholder}
               </S.List>
             )}
@@ -601,12 +636,14 @@ export default function DetailPage() {
           <Droppable droppableId="expenseList">
             {(provided) => (
               <S.List ref={provided.innerRef} {...provided.droppableProps}>
-                {displayedExpenseList.map((r, index) => (
+                {displayedExpenseList.map((r, index) => {
+                  const CategoryIcon = categoryIconMap[r.category] || FiGrid;
+
+                  return (
                     <Draggable
                       key={r.id}
                       draggableId={String(r.id)}
                       index={index}
-                      // Context 설정 참조
                       isDragDisabled={settings.isExpenseGrouped || (r.isAggregated && r.count > 1)}
                     >
                       {(p, snapshot) => (
@@ -623,17 +660,23 @@ export default function DetailPage() {
                             opacity: snapshot.isDragging ? 0.7 : 1,
                           }}
                         >
-
                           {/* 좌측 정보 영역 */}
                           <S.CardInfo>
-                            <S.CardMeta>
-                              {r.category} · {String(r.date || r.createdAt).split("T")[0]}
+                            <S.CardMetaRow>
+                              <S.CategoryIconWrap>
+                                <CategoryIcon />
+                              </S.CategoryIconWrap>
+
+                              <span>
+                                {r.category} · {String(r.date || r.createdAt).split("T")[0]}
+                              </span>
+
                               {r.isAggregated && r.count > 1 && (
                                 <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>
                                   [{r.count}건 합산]
                                 </span>
                               )}
-                            </S.CardMeta>
+                            </S.CardMetaRow>
 
                             <S.CardTitle title={r.title}>
                               {r.title}
@@ -650,22 +693,20 @@ export default function DetailPage() {
                               <S.CardAction
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  deleteRecord(r.id, r.isAggregated && r.count > 1);
+                                  deleteRecord(r.id);
                                 }}
                                 aria-label="삭제"
                               >
-                                🗑
+                                <FiTrash2 />
                               </S.CardAction>
                             )}
                           </S.CardRight>
                         </S.ListItem>
-
-
-
-
                       )}
                     </Draggable>
-                  ))}
+                  );
+                })}
+
                 {provided.placeholder}
               </S.List>
             )}
