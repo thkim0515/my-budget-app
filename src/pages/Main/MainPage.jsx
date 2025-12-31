@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
@@ -17,39 +17,40 @@ export default function MainPage() {
   const [pressedId, setPressedId] = useState(null);
   const pressTimerRef = useRef(null);
   const navigate = useNavigate();
+  const { db, getAll, getAllFromIndex, add, deleteItem, put } = useBudgetDB();
 
-  // ★ subscribe 추가 (loadChapters는 이제 필요 없음)
-  const { db, subscribe, getAllFromIndex, add, deleteItem, put } = useBudgetDB();
-
-  // ★ 실시간 구독 (데이터가 바뀌면 알아서 실행됨)
-  useEffect(() => {
-    // 'chapters' 컬렉션을 구독
-    const unsubscribe = subscribe("chapters", (list) => {
-      // 받아온 리스트 정렬
-      const sortedList = list.sort((a, b) => {
-        if (a.order !== b.order) {
-          return (a.order ?? 999) - (b.order ?? 999);
-        }
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      });
-      setChapters(sortedList);
+  const loadChapters = useCallback(async () => {
+    if (!db) return; // DB 객체가 있을 때만 실행
+    const list = await getAll("chapters");
+    list.sort((a, b) => {
+      if (a.order !== b.order) {
+        return (a.order ?? 999) - (b.order ?? 999);
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt);
     });
+    setChapters(list);
+  }, [db, getAll]);
 
-    // 컴포넌트가 꺼질 때 구독 취소
-    return () => unsubscribe && unsubscribe();
-  }, [subscribe]);
+  useEffect(() => {
+    loadChapters();
+
+    // 네이티브 동기화 완료 신호를 받으면 리스트를 새로고침합니다.
+    const handleSyncUpdate = () => {
+      console.log("[MainPage] 네이티브 동기화 완료 감지 - 리스트 갱신");
+      loadChapters();
+    };
+
+    window.addEventListener("budget-db-updated", handleSyncUpdate);
+    return () => window.removeEventListener("budget-db-updated", handleSyncUpdate);
+  }, [db, loadChapters]);
 
   const displayedChapters = useMemo(() => chapters.filter((c) => !c.isTemporary), [chapters]);
 
   const onDragEnd = async (result) => {
     if (!result.destination) return;
-
-    // UI 먼저 업데이트 (Optimistic UI)
     const reorderedList = reorder(displayedChapters, result.source.index, result.destination.index);
     const temps = chapters.filter((c) => c.isTemporary);
     setChapters([...reorderedList, ...temps]);
-
-    // DB에 순서 저장
     for (let i = 0; i < reorderedList.length; i++) {
       await put("chapters", { ...reorderedList[i], order: i });
     }
@@ -64,7 +65,7 @@ export default function MainPage() {
       isTemporary: true,
       isCompleted: false,
     });
-    // await loadChapters(); <--- 이거 필요 없음! subscribe가 알아서 함
+    await loadChapters();
     navigate(`/detail/chapter/${id}`);
   };
 
@@ -74,13 +75,15 @@ export default function MainPage() {
     // 1. 챕터 삭제 (Soft Delete)
     await deleteItem("chapters", chapterId);
 
-    // 2. 하위 레코드들 삭제
+    // 2. [개선] 인덱스를 사용하여 해당 챕터의 기록들만 가져와 삭제
+    // getAll 대신 getAllFromIndex를 사용하면 전체 데이터를 뒤지지 않아도 됩니다.
     const recordsInChapter = await getAllFromIndex("records", "chapterId", Number(chapterId));
 
     for (let r of recordsInChapter) {
       await deleteItem("records", r.id);
     }
-    // loadChapters(); <--- 필요 없음!
+
+    loadChapters();
   };
 
   const handlePressStart = (chapterId) => {
@@ -92,7 +95,7 @@ export default function MainPage() {
   const toggleComplete = async (chapter) => {
     await put("chapters", { ...chapter, isCompleted: !chapter.isCompleted });
     setPressedId(null);
-    // loadChapters(); <--- 필요 없음!
+    loadChapters();
   };
 
   return (
