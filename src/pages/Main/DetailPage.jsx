@@ -123,6 +123,7 @@ export default function DetailPage() {
         }
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db, chapterId, date]);
 
   // 특정 항목으로 스크롤 (DateMode 진입 시)
