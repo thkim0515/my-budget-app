@@ -4,22 +4,17 @@ import * as S from "../pages/Main/DetailPage.styles";
 import { formatNumber } from "../utils/numberFormat";
 
 const categoryIconMap = {
-  식비: FiCoffee, 교통: FiTruck, 통신: FiPhone, 쇼핑: FiShoppingBag,
-  문화: FiMusic, 금융: FiCreditCard, 카드: FiCreditCard, 기타: FiGrid,
+  식비: FiCoffee,
+  교통: FiTruck,
+  통신: FiPhone,
+  쇼핑: FiShoppingBag,
+  문화: FiMusic,
+  금융: FiCreditCard,
+  카드: FiCreditCard,
+  기타: FiGrid,
 };
 
-export default function RecordList({
-  incomeList,
-  expenseList,
-  settings,
-  editId,
-  unit,
-  onToggleIncomeGroup,
-  onToggleExpenseGroup,
-  onDragEnd,
-  onEdit,
-  onDelete,
-}) {
+export default function RecordList({ incomeList, expenseList, settings, editId, unit, onToggleIncomeGroup, onToggleExpenseGroup, onDragEnd, onEdit, onDelete }) {
   const renderItems = (list, droppableId, isGrouped) => (
     <Droppable droppableId={droppableId}>
       {(provided) => (
@@ -27,12 +22,7 @@ export default function RecordList({
           {list.map((r, index) => {
             const CategoryIcon = categoryIconMap[r.category] || FiGrid;
             return (
-              <Draggable
-                key={r.id}
-                draggableId={String(r.id)}
-                index={index}
-                isDragDisabled={isGrouped || (r.isAggregated && r.count > 1)}
-              >
+              <Draggable key={r.id} draggableId={String(r.id)} index={index} isDragDisabled={isGrouped || (r.isAggregated && r.count > 1)}>
                 {(p, snapshot) => (
                   <S.ListItem
                     ref={p.innerRef}
@@ -50,18 +40,21 @@ export default function RecordList({
                   >
                     <S.CardInfo>
                       <S.CardMetaRow>
-                        <S.CategoryIconWrap><CategoryIcon /></S.CategoryIconWrap>
-                        <span>{r.category} · {String(r.date || r.createdAt).split("T")[0]}</span>
-                        {r.isAggregated && r.count > 1 && (
-                          <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>
-                            [{r.count}건 합산]
-                          </span>
-                        )}
+                        <S.CategoryIconWrap>
+                          <CategoryIcon />
+                        </S.CategoryIconWrap>
+                        <span>
+                          {r.category} · {String(r.date || r.createdAt).split("T")[0]}
+                        </span>
+                        {r.isAggregated && r.count > 1 && <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>[{r.count}건 합산]</span>}
                       </S.CardMetaRow>
                       <S.CardTitle title={r.title}>{r.title}</S.CardTitle>
                     </S.CardInfo>
                     <S.CardRight>
-                      <S.CardAmount>{formatNumber(r.amount)}{unit}</S.CardAmount>
+                      <S.CardAmount>
+                        {formatNumber(r.amount)}
+                        {unit}
+                      </S.CardAmount>
                       {(!r.isAggregated || r.count === 1) && (
                         <S.CardAction
                           onClick={(e) => {

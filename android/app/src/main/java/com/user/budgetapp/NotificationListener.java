@@ -17,9 +17,17 @@ public final class NotificationListener extends NotificationListenerService {
 
     private static final String TAG = "NotificationListener";
     private static final String PREF_NAME = "BudgetData";
+    
     private static final String KEY_PENDING = "pending_notis";
-    private static final String KEY_HASHES = "recent_hashes";
-    private static final int MAX_HASH_SIZE = 100;
+    
+    // [변경 1] 처리된 알림의 고유 ID(Key)를 저장하는 키
+    private static final String KEY_PROCESSED_IDS = "processed_ids"; 
+    
+    // [변경 2] 최근 내용(중복 방지용)을 저장하는 키
+    private static final String KEY_RECENT_CONTENTS = "recent_contents";
+    
+    private static final int MAX_HISTORY_SIZE = 100;
+    private static final long DUPLICATE_WINDOW_MS = 3000; // 3초 내 타 앱 중복 알림 방어
 
     @Override
     public void onListenerConnected() {
@@ -37,15 +45,12 @@ public final class NotificationListener extends NotificationListenerService {
 
             // 1. 패키지명 가져오기
             String pkg = sbn.getPackageName();
-            
-            // 내 앱이 띄운 알림은 가로채지 않음 (무한 루프 방지)
-            if (pkg.equals(getPackageName())) return;
+            if (pkg.equals(getPackageName())) return; // 내 앱 알림 무시
 
-            // 2. 제목 추출 (null 방어)
+            // 2. 제목 및 본문 추출
             String title = extras.getString(Notification.EXTRA_TITLE);
             if (title == null) title = "알림";
 
-            // 3. 본문 추출 (여러 형태의 텍스트 대응)
             CharSequence textChar = extras.getCharSequence(Notification.EXTRA_TEXT);
             if (textChar == null) {
                 textChar = extras.getCharSequence(Notification.EXTRA_BIG_TEXT);
@@ -60,55 +65,106 @@ public final class NotificationListener extends NotificationListenerService {
                     textChar = sb.toString();
                 }
             }
-            
-            // 본문이 아예 없으면 "내용 없음"으로 처리하여 통과
             String text = (textChar != null) ? textChar.toString() : "내용 없음";
 
-            Log.d(TAG, "📩 가로챈 알림: [" + pkg + "] " + title + " : " + text);
-
-            // 4. 중복 체크 (SHA-256)
-            String hash = sha256(title + text + pkg);
-            if (hash == null) return;
-
+            // [핵심 1] 시스템 고유 키(Key) 사용 - 물리적 중복 방지
+            // sbn.getKey()는 알림마다 부여되는 고유값입니다. 앱을 껐다 켜도 유지됩니다.
+            String uniqueKey = sbn.getKey(); 
+            
             SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-            JSONArray hashes = new JSONArray(prefs.getString(KEY_HASHES, "[]"));
-
-            for (int i = 0; i < hashes.length(); i++) {
-                if (hash.equals(hashes.getString(i))) {
-                    Log.d(TAG, "🚫 중복된 알림이라 저장하지 않습니다.");
+            
+            // A. 이미 처리한 알림 객체인지 확인 (ID 기반)
+            JSONArray processedIds = new JSONArray(prefs.getString(KEY_PROCESSED_IDS, "[]"));
+            for (int i = 0; i < processedIds.length(); i++) {
+                if (uniqueKey.equals(processedIds.getString(i))) {
+                    // Log.d(TAG, "🚫 이미 처리된 알림 ID입니다. (시스템 중복)");
                     return;
                 }
             }
 
-            // 5. 장부에 기록
-            hashes.put(hash);
-            if (hashes.length() > MAX_HASH_SIZE) {
-                JSONArray trimmed = new JSONArray();
-                for (int i = hashes.length() - MAX_HASH_SIZE; i < hashes.length(); i++) {
-                    trimmed.put(hashes.get(i));
+            // [핵심 3] 교차 알림(카뱅+카톡) 방어 로직
+            // 패키지명을 제외하고 내용만으로 해시를 생성
+            String contentHash = sha256(title + text);
+            long now = System.currentTimeMillis();
+            
+            JSONArray recentContents = new JSONArray(prefs.getString(KEY_RECENT_CONTENTS, "[]"));
+            
+            for (int i = 0; i < recentContents.length(); i++) {
+                JSONObject history = recentContents.getJSONObject(i);
+                String hHash = history.getString("hash");
+                long hTime = history.getLong("time");
+                String hPkg = history.getString("pkg");
+
+                // 내용이 같고, 3초 이내에 발생한 경우
+                if (contentHash.equals(hHash) && (now - hTime) < DUPLICATE_WINDOW_MS) {
+                    if (pkg.equals(hPkg)) {
+                        // 같은 앱(패키지)이면 -> 연속 결제(Valid) -> 통과
+                        Log.d(TAG, "⚠️ 같은 앱의 연속 알림(봉봉스테이션 등) 감지 - 저장 허용");
+                    } else {
+                        // 다른 앱(패키지)이면 -> 중복 알림(Duplicate) -> 차단
+                        Log.d(TAG, "🚫 타 앱 중복 알림 차단 (" + hPkg + " vs " + pkg + ")");
+                        
+                        // ID는 처리된 것으로 기록해두어야 다음에 또 검사 안함
+                        saveProcessedId(prefs, processedIds, uniqueKey);
+                        return;
+                    }
                 }
-                hashes = trimmed;
             }
 
+            // [통과] 저장 로직 실행
+            Log.d(TAG, "📩 새 알림 저장: [" + pkg + "] " + text);
+
+            // 1. 처리된 ID 저장 (재부팅 시 중복 방지)
+            saveProcessedId(prefs, processedIds, uniqueKey);
+
+            // 2. 최근 내용 기록 (타 앱 중복 방지용)
+            JSONObject historyObj = new JSONObject();
+            historyObj.put("hash", contentHash);
+            historyObj.put("time", now);
+            historyObj.put("pkg", pkg);
+            
+            recentContents.put(historyObj);
+            // 리스트 크기 관리
+            if (recentContents.length() > MAX_HISTORY_SIZE) {
+                JSONArray trimmed = new JSONArray();
+                for (int i = 1; i < recentContents.length(); i++) { // 앞에서부터 삭제
+                    trimmed.put(recentContents.get(i));
+                }
+                recentContents = trimmed;
+            }
+
+            // 3. 실제 데이터 저장 (JS 전달용)
             JSONArray list = new JSONArray(prefs.getString(KEY_PENDING, "[]"));
             JSONObject obj = new JSONObject();
             obj.put("title", title);
             obj.put("text", text);
             obj.put("package", pkg);
-            obj.put("time", System.currentTimeMillis());
-
+            // [변경] 알림이 실제 발생한 정확한 시간(postTime) 사용
+            obj.put("time", sbn.getPostTime()); 
+            
             list.put(obj);
 
             prefs.edit()
                     .putString(KEY_PENDING, list.toString())
-                    .putString(KEY_HASHES, hashes.toString())
+                    .putString(KEY_RECENT_CONTENTS, recentContents.toString())
                     .apply();
-
-            Log.d(TAG, "✅ 장부에 알림 저장 완료! (현재 대기 건수: " + list.length() + ")");
 
         } catch (Exception e) {
             Log.e(TAG, "❌ 알림 처리 중 에러 발생", e);
         }
+    }
+
+    // 처리된 ID 저장 헬퍼 함수
+    private void saveProcessedId(SharedPreferences prefs, JSONArray processedIds, String uniqueKey) {
+        processedIds.put(uniqueKey);
+        if (processedIds.length() > MAX_HISTORY_SIZE) {
+            JSONArray trimmed = new JSONArray();
+            for (int i = processedIds.length() - MAX_HISTORY_SIZE; i < processedIds.length(); i++) {
+                trimmed.put(processedIds.opt(i));
+            }
+            processedIds = trimmed;
+        }
+        prefs.edit().putString(KEY_PROCESSED_IDS, processedIds.toString()).apply();
     }
 
     private String sha256(String input) {

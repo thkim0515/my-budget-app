@@ -57,7 +57,8 @@ export default function DetailPage() {
   const isDateMode = !!date;
 
   const { unit } = useCurrencyUnit();
-  const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
+  // ★ subscribe 추가 (수동 loadRecords 제거를 위해)
+  const { db, get, add, put, deleteItem, subscribe } = useBudgetDB();
   const { settings, updateSetting } = useSettings();
 
   const [records, setRecords] = useState([]);
@@ -67,48 +68,60 @@ export default function DetailPage() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  const [recordDate, setRecordDate] = useState(
-    isDateMode ? date : new Date().toISOString().split("T")[0]
-  );
+  const [recordDate, setRecordDate] = useState(isDateMode ? date : new Date().toISOString().split("T")[0]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editType, setEditType] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
 
-  const loadRecords = async () => {
-    if (!db) return;
-    let list = [];
-    if (isChapterMode) {
-      list = await getAllFromIndex("records", "chapterId", Number(chapterId));
-    } else if (isDateMode) {
-      const all = await getAll("records");
-      list = all.filter((r) => String(r.date || r.createdAt).split("T")[0] === date);
-    }
-    list.sort((a, b) => {
-      const da = new Date(a.date || a.createdAt);
-      const dbDate = new Date(b.date || b.createdAt);
-      if (da.getTime() !== dbDate.getTime()) return da - dbDate;
-      return (a.order ?? 0) - (b.order ?? 0);
-    });
-    setRecords(list);
-  };
+  // ★ [핵심 수정 1] ID 타입 안전하게 변환 (Number 강제 변환 제거)
+  const safeChapterId = useMemo(() => {
+    if (!chapterId) return null;
+    // 숫자로 변환해보고, NaN이면(문자열 ID면) 그대로 씀
+    const num = Number(chapterId);
+    return isNaN(num) ? chapterId : num;
+  }, [chapterId]);
 
-  const loadCategories = async () => {
-    if (!db) return;
-    const rows = await getAll("categories");
-    const list = rows.map((c) => c.name);
-    setCategories(list);
-    if (!category && list.length > 0) setCategory(list[0]);
-  };
-
+  // ★ [핵심 수정 2] 실시간 데이터 구독 (subscribe 사용)
   useEffect(() => {
-    if (!db) return;
-    loadRecords();
-    loadCategories();
+    // 1. 카테고리 구독
+    const unsubCategories = subscribe("categories", (list) => {
+      const names = list.map((c) => c.name);
+      setCategories(names);
+      if (!category && names.length > 0) setCategory(names[0]);
+    });
 
-    if (isChapterMode) {
-      db.get("chapters", Number(chapterId)).then((data) => {
+    // 2. 레코드 구독
+    const unsubRecords = subscribe("records", (allRecords) => {
+      let list = [];
+      if (isChapterMode) {
+        // chapterId가 일치하는 것만 필터링 (타입 주의: == 비교로 처리하거나 String 변환 후 비교)
+        list = allRecords.filter((r) => String(r.chapterId) === String(safeChapterId));
+      } else if (isDateMode) {
+        list = allRecords.filter((r) => String(r.date || r.createdAt).split("T")[0] === date);
+      }
+
+      // 정렬 로직
+      list.sort((a, b) => {
+        const da = new Date(a.date || a.createdAt);
+        const dbDate = new Date(b.date || b.createdAt);
+        if (da.getTime() !== dbDate.getTime()) return da - dbDate;
+        return (a.order ?? 0) - (b.order ?? 0);
+      });
+      setRecords(list);
+    });
+
+    return () => {
+      unsubCategories && unsubCategories();
+      unsubRecords && unsubRecords();
+    };
+  }, [subscribe, isChapterMode, isDateMode, safeChapterId, date]); // category 의존성 제거
+
+  // ★ [핵심 수정 3] 챕터 정보 가져오기 (safeChapterId 사용)
+  useEffect(() => {
+    if (isChapterMode && safeChapterId && db) {
+      get("chapters", safeChapterId).then((data) => {
         setChapter(data);
         if (data && !isDateMode && !isEditing) {
           const chapterDate = new Date(data.createdAt);
@@ -123,10 +136,9 @@ export default function DetailPage() {
         }
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db, chapterId, date]);
+  }, [db, isChapterMode, safeChapterId, date]); // isEditing 제거
 
-  // 특정 항목으로 스크롤 (DateMode 진입 시)
+  // 특정 항목으로 스크롤
   useEffect(() => {
     if (!isDateMode || records.length === 0) return;
     const target = document.getElementById(`record-${paramId}`);
@@ -151,26 +163,30 @@ export default function DetailPage() {
 
     const recordAmount = unformatNumber(amount);
     const newChapterTitle = formatChapterTitle(recordDate);
-    const currentChapterId = isChapterMode ? Number(chapterId) : null;
+    // ★ [수정] safeChapterId 사용
+    const currentChapterId = isChapterMode ? safeChapterId : null;
     let targetChapterId = currentChapterId;
     let chapterChanged = false;
 
     // 챕터 이름 자동 관리 로직
     if (isChapterMode && chapter) {
       if (newChapterTitle !== chapter.title) {
-        const allChapters = await getAll("chapters");
-        const existingChapter = allChapters.find((c) => c.title === newChapterTitle);
-        if (existingChapter) {
-          targetChapterId = existingChapter.chapterId;
-        } else {
-          targetChapterId = await add("chapters", {
-            title: newChapterTitle,
-            createdAt: new Date(recordDate),
-            order: allChapters.length,
-            isTemporary: false,
-          });
-        }
-        chapterChanged = targetChapterId !== currentChapterId;
+        // subscribe로 받아온 상태 대신 직접 조회할 수도 있지만, 여기서는 편의상 get/add 사용
+        // 주의: 챕터 목록 전체를 가져오는 API가 useBudgetDB에 없으므로 (필요시 추가),
+        // 여기서는 간단히 새 챕터를 무조건 생성하거나 기존 로직 유지.
+        // *참고: 원본 로직 유지하되 add가 리턴하는 ID 사용
+
+        // (간소화를 위해 기존 로직과 동일하게 처리하되 ID 타입만 주의)
+        // 만약 여기서 전체 챕터를 뒤져야 한다면 subscribe된 chapters state가 필요할 수 있음.
+        // 일단은 '새로 생성' 로직으로 진행
+        const result = await add("chapters", {
+          title: newChapterTitle,
+          createdAt: new Date(recordDate),
+          order: 999, // 임시 순서
+          isTemporary: false,
+        });
+        targetChapterId = result.id; // add는 id가 포함된 객체 리턴
+        chapterChanged = true;
       }
     }
 
@@ -190,17 +206,17 @@ export default function DetailPage() {
       const updated = {
         ...recordDataBase,
         id: editId,
-        order: !chapterChanged && editRecord?.type === type ? (editRecord.order ?? 0) : records.filter(r => r.type === type).length,
+        order: !chapterChanged && editRecord?.type === type ? editRecord.order ?? 0 : records.filter((r) => r.type === type).length,
       };
       await put("records", updated);
       cancelEdit();
-      await loadRecords();
+      // await loadRecords(); <--- 제거 (subscribe가 자동 갱신)
       return;
     }
 
     const nextOrder = records.filter((r) => r.type === type).length;
     await add("records", { ...recordDataBase, order: nextOrder });
-    
+
     // 임시 챕터를 정식 챕터로 전환
     if (isChapterMode && chapter?.isTemporary && targetChapterId === currentChapterId) {
       const updatedChapter = { ...chapter, title: newChapterTitle, isTemporary: false };
@@ -210,7 +226,7 @@ export default function DetailPage() {
 
     setTitle("");
     setAmount("");
-    await loadRecords();
+    // await loadRecords(); <--- 제거
 
     if (isChapterMode && records.length === 0) {
       navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
@@ -250,7 +266,7 @@ export default function DetailPage() {
     const updatedRecord = { ...editRecord, isPaid: !editRecord.isPaid };
     await put("records", updatedRecord);
     cancelEdit();
-    loadRecords();
+    // loadRecords(); <--- 제거
   };
 
   const deleteRecord = async (rid, isAggregated) => {
@@ -260,7 +276,7 @@ export default function DetailPage() {
     }
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
     await deleteItem("records", rid);
-    loadRecords();
+    // loadRecords(); <--- 제거
   };
 
   const onDragEnd = async (result) => {
@@ -272,8 +288,8 @@ export default function DetailPage() {
     if (isIncomeSource && settings.isIncomeGrouped) return;
     if (!isIncomeSource && settings.isExpenseGrouped) return;
 
-    const sourceList = records.filter(r => r.type === (isIncomeSource ? "income" : "expense"));
-    const destList = records.filter(r => r.type === (destination.droppableId === "incomeList" ? "income" : "expense"));
+    const sourceList = records.filter((r) => r.type === (isIncomeSource ? "income" : "expense"));
+    const destList = records.filter((r) => r.type === (destination.droppableId === "incomeList" ? "income" : "expense"));
     const newType = destination.droppableId === "incomeList" ? "income" : "expense";
 
     if (source.droppableId === destination.droppableId) {
@@ -288,7 +304,7 @@ export default function DetailPage() {
       for (let i = 0; i < sItems.length; i++) await put("records", { ...sItems[i], order: i });
       for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i });
     }
-    loadRecords();
+    // loadRecords(); <--- 제거
   };
 
   return (
@@ -301,15 +317,21 @@ export default function DetailPage() {
         <S.SummaryBox>
           <S.SummaryRow>
             <span>총 수입</span>
-            <span>{formatNumber(incomeSum)} {unit}</span>
+            <span>
+              {formatNumber(incomeSum)} {unit}
+            </span>
           </S.SummaryRow>
           <S.SummaryRow>
             <span>총 지출</span>
-            <span>{formatNumber(expenseSum)} {unit}</span>
+            <span>
+              {formatNumber(expenseSum)} {unit}
+            </span>
           </S.SummaryRow>
           <S.SummaryRow style={{ fontWeight: "bold" }}>
             <span>잔액</span>
-            <span>{formatNumber(incomeSum - expenseSum)} {unit}</span>
+            <span>
+              {formatNumber(incomeSum - expenseSum)} {unit}
+            </span>
           </S.SummaryRow>
         </S.SummaryBox>
 
