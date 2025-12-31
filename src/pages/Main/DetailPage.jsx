@@ -12,10 +12,21 @@ import RecordList from "../../components/RecordList";
 
 import * as S from "./DetailPage.styles";
 
-/* 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 */
+/* [수정] 한국 시간(KST) 기준 오늘 날짜 문자열(YYYY-MM-DD) 반환 헬퍼 */
+const getTodayKST = () => {
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Seoul",
+  });
+};
+
+/* [수정] 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 
+   (new Date() 사용 시 타임존 문제 발생 가능 -> 문자열 파싱으로 변경) 
+*/
 const formatChapterTitle = (dateString) => {
-  const d = new Date(dateString);
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+  // dateString 포맷이 "YYYY-MM-DD" 라고 가정
+  if (!dateString) return "";
+  const [y, m] = dateString.split("-");
+  return `${y}년 ${parseInt(m, 10)}월`;
 };
 
 /* 드래그 정렬을 위한 배열 재배치 함수 */
@@ -67,16 +78,12 @@ export default function DetailPage() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  // const [recordDate, setRecordDate] = useState(isDateMode ? date : new Date().toISOString().split("T")[0]);
+  
+  // [수정] 초기 날짜 설정 로직 단순화 및 KST 적용
   const [recordDate, setRecordDate] = useState(() => {
     if (isDateMode) return date;
-
-    // 한국 시간(KST) 기준으로 오늘 날짜 계산
-    const now = new Date();
-    const kstOffset = 9 * 60 * 60 * 1000; // 9시간 밀리초
-    const kstDate = new Date(now.getTime() + kstOffset);
-
-    return kstDate.toISOString().split("T")[0];
+    // 한국 시간 기준 오늘 날짜 리턴
+    return getTodayKST();
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -120,12 +127,21 @@ export default function DetailPage() {
         setChapter(data);
         if (data && !isDateMode && !isEditing) {
           const chapterDate = new Date(data.createdAt);
-          const today = new Date();
-          if (chapterDate.getFullYear() === today.getFullYear() && chapterDate.getMonth() === today.getMonth()) {
-            setRecordDate(today.toISOString().split("T")[0]);
+          
+          // [수정] 비교 로직도 KST 기준으로 변경
+          const todayKST = getTodayKST(); // "2026-01-01"
+          const [tYear, tMonth] = todayKST.split("-").map(Number);
+          
+          const cYear = chapterDate.getFullYear();
+          const cMonth = chapterDate.getMonth() + 1;
+
+          // 챕터의 연/월이 '오늘(KST)'의 연/월과 같다면 -> 오늘 날짜 선택
+          if (cYear === tYear && cMonth === tMonth) {
+            setRecordDate(todayKST);
           } else {
-            const yyyy = chapterDate.getFullYear();
-            const mm = String(chapterDate.getMonth() + 1).padStart(2, "0");
+            // 다르다면 -> 해당 챕터의 1일 선택
+            const yyyy = cYear;
+            const mm = String(cMonth).padStart(2, "0");
             setRecordDate(`${yyyy}-${mm}-01`);
           }
         }
