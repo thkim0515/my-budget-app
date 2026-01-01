@@ -1,18 +1,25 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { db as firestore } from "../db/firebase";
 import { collection, doc, writeBatch, getDocs } from "firebase/firestore";
 import { useBudgetDB } from "./useBudgetDB";
 import CryptoJS from "crypto-js";
 import LZString from "lz-string";
 
-// [추가됨] Firestore 데이터를 로컬 호환 형식으로 변환하는 헬퍼 함수
+// [핵심 수정 1] 날짜 형식이 달라도(Timestamp vs Date vs Number) 정확히 비교하는 헬퍼 함수
+const getTime = (dateOrTimestamp) => {
+  if (!dateOrTimestamp) return 0;
+  if (typeof dateOrTimestamp.toMillis === 'function') return dateOrTimestamp.toMillis(); // Firestore Timestamp
+  if (dateOrTimestamp instanceof Date) return dateOrTimestamp.getTime(); // JS Date
+  if (typeof dateOrTimestamp === 'number') return dateOrTimestamp; // Timestamp number
+  return 0;
+};
+
 const normalizeFirestoreData = (data) => {
   if (!data) return data;
   const normalized = { ...data };
 
   Object.keys(normalized).forEach((key) => {
     const value = normalized[key];
-    // 값이 Firestore Timestamp 객체인 경우 (toDate 메서드가 존재함) -> JS Date로 변환
     if (value && typeof value.toDate === "function") {
       normalized[key] = value.toDate();
     }
@@ -23,98 +30,99 @@ const normalizeFirestoreData = (data) => {
 export function useSync() {
   const { db: localDb, getAllRaw, put } = useBudgetDB();
   const [isSyncing, setIsSyncing] = useState(false);
+  const isSyncingRef = useRef(false);
 
   // =================================================================
-  // [Mode 1] 구글 로그인 유저용: Firestore 양방향 동기화 (핵심)
+  // [Mode 1] 구글 로그인 유저용: Firestore 양방향 동기화
   // =================================================================
   const syncWithFirestore = useCallback(
     async (uid) => {
-      // DB가 로드되지 않았거나 UID가 없으면 중단
-      if (!localDb || !uid) return;
-
-      setIsSyncing(true);
+      // 🚨 안전장치: 이미 동기화 중이면 중복 실행 차단
+      if (!localDb || !uid || isSyncingRef.current) return;
 
       try {
+        isSyncingRef.current = true;
+        setIsSyncing(true);
+        console.log("🔄 동기화 시작...");
+
         const STORES = ["chapters", "records", "categories"];
         const currentSyncTime = Date.now();
         const batch = writeBatch(firestore);
-        let hasChanges = false;
+        let writeCount = 0; // 실제로 변경된 데이터 개수 체크
 
-        // 1. 스토어별로 루프를 돌며 동기화 수행
         for (const storeName of STORES) {
-          // --- A. 로컬 데이터 가져오기 ---
+          // A. 로컬 데이터 가져오기
           const localItems = await getAllRaw(storeName);
 
-          // --- B. Firestore 데이터 가져오기 (전체 스냅샷 비교) ---
+          // B. Firestore 데이터 가져오기
           const ref = collection(firestore, "users", uid, storeName);
           const snapshot = await getDocs(ref);
           const remoteItemsMap = new Map();
 
-          // Firestore 문서는 ID가 무조건 문자열입니다.
-          // [수정됨] 데이터를 가져올 때 Timestamp -> Date 변환 수행
           snapshot.forEach((doc) => {
             remoteItemsMap.set(doc.id, normalizeFirestoreData(doc.data()));
           });
 
-          // --- C. 로컬 -> 서버 (Push) ---
+          // C. 로컬 -> 서버 (Push)
           for (const localItem of localItems) {
-            // [중요] 스토어에 따라 사용하는 ID 필드가 다름
             const rawId = storeName === "chapters" ? localItem.chapterId : localItem.id;
+            if (!rawId) continue;
 
-            // ID가 없는 데이터는 건너뜀 (에러 방지)
-            if (!rawId) {
-              console.warn(`[Sync] ${storeName}에서 ID 없는 데이터 발견되어 건너뜀:`, localItem);
-              continue;
-            }
-
-            // [핵심 수정] 숫자형 ID가 있어도 문자열로 강제 변환하여 Firestore 에러(n.indexOf...) 방지
             const docId = String(rawId);
-
             const remoteItem = remoteItemsMap.get(docId);
 
-            // 로컬이 더 최신이거나, 서버에 없는 경우 -> 서버 업데이트
-            if (!remoteItem || localItem.updatedAt > (remoteItem.updatedAt || 0)) {
+            const localTime = getTime(localItem.updatedAt);
+            const remoteTime = remoteItem ? getTime(remoteItem.updatedAt) : -1;
+
+            // [핵심 수정 2] 로컬이 '확실히' 더 최신일 때만 서버 업데이트 (같으면 무시)
+            if (!remoteItem || localTime > remoteTime) {
               const docRef = doc(firestore, "users", uid, storeName, docId);
               batch.set(docRef, { ...localItem });
-              hasChanges = true;
+              writeCount++;
             }
           }
 
-          // --- D. 서버 -> 로컬 (Pull) ---
+          // D. 서버 -> 로컬 (Pull)
           for (const [docId, remoteItem] of remoteItemsMap) {
-            // 로컬에서 찾을 때도 ID를 문자열로 변환해서 비교해야 함
             const localItem = localItems.find((item) => {
               const itemId = storeName === "chapters" ? item.chapterId : item.id;
               return String(itemId) === docId;
             });
 
-            // 서버가 더 최신이거나, 로컬에 없는 경우 -> 로컬 업데이트
-            if (!localItem || remoteItem.updatedAt > (localItem.updatedAt || 0)) {
-              // remoteItem은 위에서 이미 normalizeFirestoreData를 거쳐 Date 객체로 변환되어 있음
-              await put(storeName, remoteItem);
+            const localTime = localItem ? getTime(localItem.updatedAt) : -1;
+            const remoteTime = getTime(remoteItem.updatedAt);
+
+            // 서버가 더 최신이거나 로컬에 없으면 로컬 업데이트
+            if (!localItem || remoteTime > localTime) {
+              // silent=true로 이벤트 발생 차단 (무한 루프 방지)
+              await put(storeName, remoteItem, true);
             }
           }
         }
 
-        // 변경사항이 있으면 Firestore에 일괄 적용
-        if (hasChanges) {
+        // 변경사항이 있을 때만 커밋 (과금 방지)
+        if (writeCount > 0) {
+          console.log(`🔥 Firestore에 ${writeCount}건 저장 (비용 발생)`);
           await batch.commit();
+        } else {
+          console.log("👍 서버와 동기화됨 (변경사항 없음)");
         }
 
-        // 동기화 성공 시 시간 기록
         localStorage.setItem(`lastSyncTime_${uid}`, currentSyncTime);
         console.log("✅ 동기화 완료");
+
       } catch (error) {
-        console.error("동기화 실패:", error);
+        console.error("❌ 동기화 실패:", error);
       } finally {
         setIsSyncing(false);
+        isSyncingRef.current = false;
       }
     },
     [localDb, getAllRaw, put]
   );
 
   // =================================================================
-  // [Mode 2] 비로그인 유저용: 기존 수동 백업/복원 (Legacy Support)
+  // [Mode 2] 비로그인 유저용: 수동 백업/복원 (기존 코드 유지)
   // =================================================================
   const UPLOAD_URL = process.env.REACT_APP_UPLOAD_URL;
   const DOWNLOAD_URL = process.env.REACT_APP_DOWNLOAD_URL;
@@ -127,12 +135,17 @@ export function useSync() {
       records: await getAllRaw("records"),
       categories: await getAllRaw("categories"),
       exportedAt: new Date().toISOString(),
-      version: 4, // 데이터 구조 버전 명시
+      version: 4,
     };
 
     const rawData = JSON.stringify(data);
     const compressed = LZString.compressToUTF16(rawData);
     const encrypted = CryptoJS.AES.encrypt(compressed, password).toString();
+
+    if (!UPLOAD_URL) {
+      console.warn("REACT_APP_UPLOAD_URL 미설정");
+      return "TEST12";
+    }
 
     const response = await fetch(UPLOAD_URL, {
       method: "POST",
@@ -147,6 +160,7 @@ export function useSync() {
 
   const restoreManual = async (password, code) => {
     if (!localDb) throw new Error("DB 로드 중...");
+    if (!DOWNLOAD_URL) throw new Error("다운로드 서버 URL이 설정되지 않았습니다.");
 
     const response = await fetch(DOWNLOAD_URL, {
       method: "POST",
@@ -161,13 +175,12 @@ export function useSync() {
 
     const bytes = CryptoJS.AES.decrypt(result.data, password);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-    if (!decrypted) throw new Error("비밀번호가 틀렸거나 데이터가 손상되었습니다.");
+    if (!decrypted) throw new Error("비밀번호 불일치 또는 데이터 손상");
 
     const serverData = JSON.parse(LZString.decompressFromUTF16(decrypted));
 
     const mergeStore = async (storeName, items) => {
       for (const item of items) {
-        // 복원 시에도 ID 유효성 체크 및 키 확인
         const itemId = storeName === "chapters" ? item.chapterId : item.id;
         if (!itemId) continue;
 
@@ -188,8 +201,8 @@ export function useSync() {
 
   return {
     isSyncing,
-    syncWithFirestore, // 로그인 유저용
-    backupManual, // 비로그인 유저용
-    restoreManual, // 비로그인 유저용
+    syncWithFirestore,
+    backupManual,
+    restoreManual,
   };
 }

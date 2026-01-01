@@ -43,9 +43,9 @@ export function useBudgetDB() {
     [db]
   );
 
-  // [수정] 데이터 추가 시 동기화 트리거 발동
+  // [수정] silent 옵션 추가: true일 경우 이벤트 발생 안 함 (무한 루프 방지)
   const add = useCallback(
-    async (store, data) => {
+    async (store, data, silent = false) => {
       if (!db) return;
       const now = Date.now();
       const id = data.id || crypto.randomUUID();
@@ -64,32 +64,35 @@ export function useBudgetDB() {
 
       await db.add(store, itemToSave);
 
-      // 📢 여기가 핵심! "데이터 변했으니 서버랑 맞춰라"라고 소리침
-      window.dispatchEvent(new CustomEvent("budget-db-updated"));
+      if (!silent) {
+        window.dispatchEvent(new CustomEvent("budget-db-updated"));
+      }
 
       return id;
     },
     [db]
   );
 
-  // [수정] 데이터 수정 시 동기화 트리거 발동
+  // [수정] silent 옵션 추가
   const put = useCallback(
-    async (store, data) => {
+    async (store, data, silent = false) => {
       if (!db) return;
       const result = await db.put(store, {
         ...data,
         updatedAt: Date.now(),
       });
 
-      window.dispatchEvent(new CustomEvent("budget-db-updated"));
+      if (!silent) {
+        window.dispatchEvent(new CustomEvent("budget-db-updated"));
+      }
       return result;
     },
     [db]
   );
 
-  // [수정] 데이터 삭제 시 동기화 트리거 발동
+  // [수정] silent 옵션 추가
   const deleteItem = useCallback(
-    async (store, id) => {
+    async (store, id, silent = false) => {
       if (!db) return;
       const item = await db.get(store, id);
       if (item) {
@@ -98,13 +101,15 @@ export function useBudgetDB() {
           isDeleted: true,
           updatedAt: Date.now(),
         });
-        window.dispatchEvent(new CustomEvent("budget-db-updated"));
+
+        if (!silent) {
+          window.dispatchEvent(new CustomEvent("budget-db-updated"));
+        }
       }
     },
     [db]
   );
 
-  // [수정] 초기화 시 동기화 트리거 발동
   const clear = useCallback(
     async (store) => {
       if (!db) return;

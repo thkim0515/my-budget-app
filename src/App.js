@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import { getLightTheme, getDarkTheme } from "./theme";
@@ -24,37 +24,43 @@ import {
 } from "./appImports";
 
 import { useNativeSync } from "./hooks/useNativeSync";
-import { useSync } from "./hooks/useSync"; // [추가] 클라우드 동기화 훅
+import { useSync } from "./hooks/useSync";
 import { syncParsingRules } from "./utils/notiParser";
 
 function AppContent() {
   const { settings } = useSettings();
   const { isLocked, isChecking, authenticate } = useBiometricLock();
 
-  // 훅 초기화
   useAndroidBackHandler();
-  useNativeSync(); // 문자/앱푸시 -> 로컬 DB 저장
-  const { syncWithFirestore } = useSync(); // 로컬 DB <-> Firestore 동기화
+  useNativeSync();
+  const { syncWithFirestore } = useSync();
 
-  // 1. 앱 초기 구동 시 설정 및 동기화 트리거 연결
+  // [핵심 수정] syncWithFirestore 함수가 재생성되더라도 useEffect를 다시 실행시키지 않기 위해 Ref 사용
+  const syncRef = useRef(syncWithFirestore);
+
+  // syncWithFirestore가 갱신될 때마다 Ref 업데이트 (useEffect 트리거 안 함)
   useEffect(() => {
-    // 파싱 규칙 실시간 감시
+    syncRef.current = syncWithFirestore;
+  }, [syncWithFirestore]);
+
+  useEffect(() => {
+    // 파싱 규칙 감시
     const unsubscribeRules = syncParsingRules();
 
-    // [핵심] 로그인 상태 감지 -> 자동 동기화 시작
+    // 1. 로그인 상태 감지 -> 동기화
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log(`👤 로그인 감지 (${user.email}): 클라우드 동기화 시작`);
-        syncWithFirestore(user.uid);
+      if (user && syncRef.current) {
+        console.log(`👤 로그인 감지 (${user.email}): 동기화 시작`);
+        syncRef.current(user.uid);
       }
     });
 
-    // [핵심] 로컬 DB 변경 감지 (문자 수신, 수동 입력 등) -> 서버로 전송
+    // 2. 로컬 DB 변경 감지 -> 동기화
     const handleLocalUpdate = async () => {
       const user = auth.currentUser;
-      if (user) {
+      if (user && syncRef.current) {
         console.log("💾 로컬 변경 감지: 서버 동기화 시도");
-        await syncWithFirestore(user.uid);
+        await syncRef.current(user.uid);
       }
     };
 
@@ -65,14 +71,12 @@ function AppContent() {
       unsubscribeAuth();
       window.removeEventListener("budget-db-updated", handleLocalUpdate);
     };
-  }, [syncWithFirestore]);
+  }, []); // [핵심] 빈 배열로 설정하여 컴포넌트 마운트 시 딱 1번만 실행 (루프 방지)
 
   if (isChecking) return null;
 
-  // 잠금 화면 처리
   if (isLocked) return <LockScreen mode={settings.mode} onAuthenticate={authenticate} />;
 
-  // 테마 적용
   const theme = settings.mode === "light" ? getLightTheme(settings.lightTextColor) : getDarkTheme(settings.darkTextColor);
 
   return (
@@ -82,7 +86,6 @@ function AppContent() {
           <Route path="/" element={<MainPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/text-color" element={<TextColorSettingsPage />} />
-
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings/currency" element={<CurrencySettingsPage />} />
           <Route path="/source-stats" element={<StatsBySourcePage />} />
