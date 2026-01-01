@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import { getLightTheme, getDarkTheme } from "./theme";
-import { useEffect } from "react";
-import { SettingsProvider, useSettings } from "./context/SettingsContext";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./db/firebase";
 
+import { SettingsProvider, useSettings } from "./context/SettingsContext";
 import {
   useBiometricLock,
   useAndroidBackHandler,
@@ -18,46 +20,60 @@ import {
   CategorySettingsPage,
   CalendarStatsPage,
   TextColorSettingsPage,
-  PrivacyPolicyPage
+  PrivacyPolicyPage,
 } from "./appImports";
 
 import { useNativeSync } from "./hooks/useNativeSync";
-import { syncParsingRules } from "./utils/notiParser"; 
-// import { uploadInitialRules } from "./utils/initFirestoreData"; // 초기 데이터 설정용
+import { useSync } from "./hooks/useSync"; // [추가] 클라우드 동기화 훅
+import { syncParsingRules } from "./utils/notiParser";
 
 function AppContent() {
-  const { settings } = useSettings(); // Context에서 모든 설정값 가져오기
+  const { settings } = useSettings();
   const { isLocked, isChecking, authenticate } = useBiometricLock();
-  
+
+  // 훅 초기화
   useAndroidBackHandler();
-  useNativeSync();
+  useNativeSync(); // 문자/앱푸시 -> 로컬 DB 저장
+  const { syncWithFirestore } = useSync(); // 로컬 DB <-> Firestore 동기화
 
-  // 1. 앱 초기 구동 시 Firestore 실시간 감시 및 초기 설정
+  // 1. 앱 초기 구동 시 설정 및 동기화 트리거 연결
   useEffect(() => {
-    // 초기 데이터 밀어넣기용 주석 기능 유지
-    /*
-    uploadInitialRules().then(success => {
-      if (success) alert("데이터가 성공적으로 복구되었습니다. 다시 주석 처리해주세요!");
-    });
-    */
+    // 파싱 규칙 실시간 감시
+    const unsubscribeRules = syncParsingRules();
 
-    // syncParsingRules는 실시간 감시를 시작하고, 중단 함수(unsubscribe)를 반환
-    const unsubscribe = syncParsingRules();
+    // [핵심] 로그인 상태 감지 -> 자동 동기화 시작
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log(`👤 로그인 감지 (${user.email}): 클라우드 동기화 시작`);
+        syncWithFirestore(user.uid);
+      }
+    });
+
+    // [핵심] 로컬 DB 변경 감지 (문자 수신, 수동 입력 등) -> 서버로 전송
+    const handleLocalUpdate = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        console.log("💾 로컬 변경 감지: 서버 동기화 시도");
+        await syncWithFirestore(user.uid);
+      }
+    };
+
+    window.addEventListener("budget-db-updated", handleLocalUpdate);
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeRules) unsubscribeRules();
+      unsubscribeAuth();
+      window.removeEventListener("budget-db-updated", handleLocalUpdate);
     };
-  }, []);
+  }, [syncWithFirestore]);
 
   if (isChecking) return null;
-  
+
   // 잠금 화면 처리
   if (isLocked) return <LockScreen mode={settings.mode} onAuthenticate={authenticate} />;
 
-  // Context의 설정을 바탕으로 테마 생성
-  const theme = settings.mode === "light" 
-    ? getLightTheme(settings.lightTextColor) 
-    : getDarkTheme(settings.darkTextColor);
+  // 테마 적용
+  const theme = settings.mode === "light" ? getLightTheme(settings.lightTextColor) : getDarkTheme(settings.darkTextColor);
 
   return (
     <ThemeProvider theme={theme}>
@@ -66,7 +82,7 @@ function AppContent() {
           <Route path="/" element={<MainPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/text-color" element={<TextColorSettingsPage />} />
-          
+
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings/currency" element={<CurrencySettingsPage />} />
           <Route path="/source-stats" element={<StatsBySourcePage />} />
@@ -82,7 +98,6 @@ function AppContent() {
   );
 }
 
-// 최상위에서 Provider로 감싸줍니다.
 export default function App() {
   return (
     <SettingsProvider>

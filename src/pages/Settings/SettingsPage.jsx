@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-// import { useEffect } from "react";
 import Header from "../../components/UI/Header";
 import GoogleAuth from "../../components/Auth/GoogleAuth";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
@@ -15,10 +14,14 @@ import NotificationSettings from "../../components/Info/NotificationSettings";
 
 import * as S from "./SettingsPage.styles";
 
+// [필수] Firestore 삭제 기능을 위한 임포트
+import { db as firestore, auth } from "../../db/firebase";
+import { collection, getDocs, writeBatch } from "firebase/firestore";
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { db, clear } = useBudgetDB();
-  
+
   // 중앙 설정 본부에서 값(settings)과 변경 함수(updateSetting)
   const { settings, updateSetting } = useSettings();
 
@@ -53,24 +56,73 @@ export default function SettingsPage() {
   };
 
   const resetAll = async () => {
-    if (!window.confirm("정말 초기화 하시겠습니까?")) return;
+    if (!window.confirm("정말 초기화 하시겠습니까? 로컬 및 서버의 모든 데이터가 영구 삭제됩니다.")) return;
 
-    await clear("chapters");
-    await clear("records");
-    await clear("categories");
+    // DB가 로드되지 않았으면 중단
+    if (!db) {
+      alert("데이터베이스 로딩 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
 
-    const tx = db.transaction("categories", "readwrite");
-    const now = Date.now();
-    DEFAULT_CATEGORIES.forEach((name) => {
-      tx.objectStore("categories").add({ 
-        name, 
-        updatedAt: now, 
-        isDeleted: false 
+    try {
+      // -----------------------------------------------------------
+      // 1. [서버] Firestore 데이터 삭제 (로그인 상태라면)
+      // -----------------------------------------------------------
+      const user = auth.currentUser;
+      if (user) {
+        const batch = writeBatch(firestore);
+        const STORES = ["chapters", "records", "categories"];
+        let deletedCount = 0;
+
+        for (const storeName of STORES) {
+          const ref = collection(firestore, "users", user.uid, storeName);
+          const snapshot = await getDocs(ref);
+          snapshot.forEach((doc) => {
+            batch.delete(doc.ref);
+            deletedCount++;
+          });
+        }
+
+        if (deletedCount > 0) {
+          await batch.commit();
+          console.log("🔥 서버 데이터 삭제 완료");
+        }
+      }
+
+      // -----------------------------------------------------------
+      // 2. [로컬] IndexedDB 데이터 삭제
+      // -----------------------------------------------------------
+      await clear("chapters");
+      await clear("records");
+      await clear("categories");
+
+      // -----------------------------------------------------------
+      // 3. [복구] 기본 카테고리 재생성 (ID 포함 필수!)
+      // -----------------------------------------------------------
+      const tx = db.transaction("categories", "readwrite");
+      const now = Date.now();
+
+      // Promise.all로 병렬 처리하여 확실하게 저장
+      const promises = DEFAULT_CATEGORIES.map((name) => {
+        return tx.objectStore("categories").add({
+          id: crypto.randomUUID(), // 👈 [핵심] 이게 없으면 카테고리가 텅 빕니다!
+          name,
+          updatedAt: now,
+          isDeleted: false,
+        });
       });
-    });
-    await tx.done;
 
-    alert("전체 초기화 완료되었습니다.");
+      await Promise.all(promises);
+      await tx.done;
+
+      alert("모든 데이터가 초기화되고 기본 카테고리가 복구되었습니다.");
+
+      // 데이터 꼬임 방지를 위해 새로고침
+      window.location.reload();
+    } catch (error) {
+      console.error("초기화 실패:", error);
+      alert("초기화 중 오류가 발생했습니다: " + error.message);
+    }
   };
 
   return (
@@ -85,12 +137,7 @@ export default function SettingsPage() {
         <S.ToggleRow>
           <span>지문 생체 잠금 사용</span>
           <S.ToggleSwitch>
-            <input
-              type="checkbox"
-              // 중앙 설정값 참조
-              checked={settings.useBiometric}
-              onChange={toggleBiometric}
-            />
+            <input type="checkbox" checked={settings.useBiometric} onChange={toggleBiometric} />
             <span></span>
           </S.ToggleSwitch>
         </S.ToggleRow>
@@ -98,11 +145,8 @@ export default function SettingsPage() {
         <S.Btn onClick={() => navigate("/settings/currency")}>금액 기호 설정하기</S.Btn>
         <S.Btn onClick={() => navigate("/settings/text-color")}>글자 색상 설정하기</S.Btn>
         <S.Btn onClick={() => navigate("/settings/categories")}>카테고리 관리</S.Btn>
-        
-        {/* props 대신 settings.mode를 사용하고 updateSetting으로 테마 교체 */}
-        <S.Btn onClick={() => updateSetting("mode", settings.mode === "light" ? "dark" : "light")}>
-          테마 변경 (현재 {settings.mode === "light" ? "라이트" : "다크"})
-        </S.Btn>
+
+        <S.Btn onClick={() => updateSetting("mode", settings.mode === "light" ? "dark" : "light")}>테마 변경 (현재 {settings.mode === "light" ? "라이트" : "다크"})</S.Btn>
 
         <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
 
@@ -119,10 +163,7 @@ export default function SettingsPage() {
           개인정보 처리방침 확인
         </S.Btn>
 
-        <S.Btn
-          onClick={resetAll}
-          style={{ background: "#d9534f", marginTop: "20px" }}
-        >
+        <S.Btn onClick={resetAll} style={{ background: "#d9534f", marginTop: "20px" }}>
           전체 데이터 초기화
         </S.Btn>
       </S.Content>

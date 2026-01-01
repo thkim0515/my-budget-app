@@ -6,7 +6,7 @@ import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useSettings } from "../../context/SettingsContext";
-import { DEFAULT_CATEGORIES } from "../../constants/categories"; // [수정1] 기본 카테고리 임포트
+import { DEFAULT_CATEGORIES } from "../../constants/categories";
 
 import RecordForm from "../../components/RecordForm";
 import RecordList from "../../components/RecordList";
@@ -23,8 +23,9 @@ const getTodayKST = () => {
 /* 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 */
 const formatChapterTitle = (dateString) => {
   if (!dateString) return "";
-  const [y, m] = dateString.split("-");
-  return `${y}년 ${parseInt(m, 10)}월`;
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return ""; // 날짜가 유효하지 않으면 빈 값 반환
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
 };
 
 /* 드래그 정렬을 위한 배열 재배치 함수 */
@@ -92,7 +93,8 @@ export default function DetailPage() {
     if (!db) return;
     let list = [];
     if (isChapterMode) {
-      list = await getAllFromIndex("records", "chapterId", Number(chapterId));
+      // [수정 핵심 1] Number(chapterId) -> chapterId (UUID 문자열 그대로 사용)
+      list = await getAllFromIndex("records", "chapterId", chapterId);
     } else if (isDateMode) {
       const all = await getAll("records");
       list = all.filter((r) => String(r.date || r.createdAt).split("T")[0] === date);
@@ -106,7 +108,6 @@ export default function DetailPage() {
     setRecords(list);
   };
 
-  // [수정2] 카테고리 로드 함수 보완 (DB 비었을 시 기본값 사용)
   const loadCategories = async () => {
     if (!db) return;
 
@@ -133,7 +134,8 @@ export default function DetailPage() {
     loadCategories();
 
     if (isChapterMode) {
-      db.get("chapters", Number(chapterId)).then((data) => {
+      // [수정 핵심 2] Number(chapterId) -> chapterId
+      db.get("chapters", chapterId).then((data) => {
         setChapter(data);
         if (data && !isDateMode && !isEditing) {
           const chapterDate = new Date(data.createdAt);
@@ -160,6 +162,8 @@ export default function DetailPage() {
   // 특정 항목으로 스크롤 (DateMode 진입 시)
   useEffect(() => {
     if (!isDateMode || records.length === 0) return;
+    // paramId는 URL 파라미터로 문자열이므로 그대로 사용 가능
+    // 만약 record-UUID 형태의 ID를 사용한다면 여기서도 변환 불필요
     const target = document.getElementById(`record-${paramId}`);
     if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [records, isDateMode, paramId]);
@@ -182,7 +186,8 @@ export default function DetailPage() {
 
     const recordAmount = unformatNumber(amount);
     const newChapterTitle = formatChapterTitle(recordDate);
-    const currentChapterId = isChapterMode ? Number(chapterId) : null;
+    // [수정 핵심 3] Number(chapterId) 제거. null 혹은 string(UUID)
+    const currentChapterId = isChapterMode ? chapterId : null;
     let targetChapterId = currentChapterId;
     let chapterChanged = false;
 
@@ -194,6 +199,7 @@ export default function DetailPage() {
         if (existingChapter) {
           targetChapterId = existingChapter.chapterId;
         } else {
+          // add()는 이제 UUID 문자열을 반환합니다.
           targetChapterId = await add("chapters", {
             title: newChapterTitle,
             createdAt: new Date(recordDate),

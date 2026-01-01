@@ -58,6 +58,7 @@ export default function MainPage() {
 
   const createTemporaryChapter = async () => {
     const now = new Date();
+    // add 함수가 이제 UUID 문자열을 반환하므로 그대로 사용
     const id = await add("chapters", {
       title: `_TEMP_${now.getTime()}`,
       createdAt: now,
@@ -75,9 +76,10 @@ export default function MainPage() {
     // 1. 챕터 삭제 (Soft Delete)
     await deleteItem("chapters", chapterId);
 
-    // 2. [개선] 인덱스를 사용하여 해당 챕터의 기록들만 가져와 삭제
-    // getAll 대신 getAllFromIndex를 사용하면 전체 데이터를 뒤지지 않아도 됩니다.
-    const recordsInChapter = await getAllFromIndex("records", "chapterId", Number(chapterId));
+    // 2. [수정됨] 인덱스를 사용하여 해당 챕터의 기록들만 가져와 삭제
+    // 기존: Number(chapterId) -> 에러 발생 (UUID는 문자열임)
+    // 변경: chapterId 그대로 사용
+    const recordsInChapter = await getAllFromIndex("records", "chapterId", chapterId);
 
     for (let r of recordsInChapter) {
       await deleteItem("records", r.id);
