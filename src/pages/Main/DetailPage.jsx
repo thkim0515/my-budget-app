@@ -6,24 +6,22 @@ import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useSettings } from "../../context/SettingsContext";
+import { DEFAULT_CATEGORIES } from "../../constants/categories"; // [수정1] 기본 카테고리 임포트
 
 import RecordForm from "../../components/RecordForm";
 import RecordList from "../../components/RecordList";
 
 import * as S from "./DetailPage.styles";
 
-/* [수정] 한국 시간(KST) 기준 오늘 날짜 문자열(YYYY-MM-DD) 반환 헬퍼 */
+/* 한국 시간(KST) 기준 오늘 날짜 문자열(YYYY-MM-DD) 반환 헬퍼 */
 const getTodayKST = () => {
   return new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Seoul",
   });
 };
 
-/* [수정] 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 
-   (new Date() 사용 시 타임존 문제 발생 가능 -> 문자열 파싱으로 변경) 
-*/
+/* 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 */
 const formatChapterTitle = (dateString) => {
-  // dateString 포맷이 "YYYY-MM-DD" 라고 가정
   if (!dateString) return "";
   const [y, m] = dateString.split("-");
   return `${y}년 ${parseInt(m, 10)}월`;
@@ -78,11 +76,10 @@ export default function DetailPage() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  
-  // [수정] 초기 날짜 설정 로직 단순화 및 KST 적용
+
+  // 초기 날짜 설정 로직 (KST 적용)
   const [recordDate, setRecordDate] = useState(() => {
     if (isDateMode) return date;
-    // 한국 시간 기준 오늘 날짜 리턴
     return getTodayKST();
   });
 
@@ -109,12 +106,25 @@ export default function DetailPage() {
     setRecords(list);
   };
 
+  // [수정2] 카테고리 로드 함수 보완 (DB 비었을 시 기본값 사용)
   const loadCategories = async () => {
     if (!db) return;
+
+    // 1. DB에서 불러오기
     const rows = await getAll("categories");
-    const list = rows.map((c) => c.name);
+    let list = rows.map((c) => c.name);
+
+    // 2. DB가 비어있다면 기본 카테고리 사용
+    if (list.length === 0) {
+      list = [...DEFAULT_CATEGORIES];
+    }
+
     setCategories(list);
-    if (!category && list.length > 0) setCategory(list[0]);
+
+    // 3. 현재 선택된 카테고리가 없다면 첫 번째 항목 선택
+    if (!category && list.length > 0) {
+      setCategory(list[0]);
+    }
   };
 
   useEffect(() => {
@@ -127,19 +137,16 @@ export default function DetailPage() {
         setChapter(data);
         if (data && !isDateMode && !isEditing) {
           const chapterDate = new Date(data.createdAt);
-          
-          // [수정] 비교 로직도 KST 기준으로 변경
-          const todayKST = getTodayKST(); // "2026-01-01"
+
+          const todayKST = getTodayKST();
           const [tYear, tMonth] = todayKST.split("-").map(Number);
-          
+
           const cYear = chapterDate.getFullYear();
           const cMonth = chapterDate.getMonth() + 1;
 
-          // 챕터의 연/월이 '오늘(KST)'의 연/월과 같다면 -> 오늘 날짜 선택
           if (cYear === tYear && cMonth === tMonth) {
             setRecordDate(todayKST);
           } else {
-            // 다르다면 -> 해당 챕터의 1일 선택
             const yyyy = cYear;
             const mm = String(cMonth).padStart(2, "0");
             setRecordDate(`${yyyy}-${mm}-01`);
