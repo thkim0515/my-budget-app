@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef, useMemo, useCallback } from "react"; // useCallback 추가됨
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 
 import Header from "../../components/UI/Header";
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
@@ -104,6 +104,34 @@ export default function DetailPage() {
   const [editType, setEditType] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
 
+  // [핵심 수정] 챕터 진입 시 "최초 1회만" 날짜를 설정하는 useEffect 추가
+  // loadData에서 이 로직을 제거하여, 이후 사용자가 날짜를 변경해도 초기화되지 않도록 함
+  useEffect(() => {
+    if (!db || !isChapterMode || !chapterId) return;
+
+    const initChapterDate = async () => {
+      // DB에서 챕터 정보만 별도로 가져와서 날짜 초기화 수행
+      const data = await db.get("chapters", chapterId);
+      if (data && !isDateMode) {
+        const chapterDate = formatDateSafe(data.createdAt);
+        const todayKST = getTodayKST();
+        const [tYear, tMonth] = todayKST.split("-").map(Number);
+        const cYear = chapterDate.getFullYear();
+        const cMonth = chapterDate.getMonth() + 1;
+
+        // 챕터가 이번 달이면 '오늘 날짜', 아니면 '해당 월 1일'로 설정
+        if (cYear === tYear && cMonth === tMonth) {
+          setRecordDate(todayKST);
+        } else {
+          const yyyy = cYear;
+          const mm = String(cMonth).padStart(2, "0");
+          setRecordDate(`${yyyy}-${mm}-01`);
+        }
+      }
+    };
+    initChapterDate();
+  }, [db, isChapterMode, chapterId, isDateMode]);
+
   // [핵심 로직] 데이터 로드 및 날짜 갱신 함수 분리
   const loadData = useCallback(async () => {
     if (!db) return;
@@ -126,29 +154,13 @@ export default function DetailPage() {
     });
     setRecords(list);
 
-    // 2. 챕터 정보 로드 및 날짜 동기화 (웹 지연 로딩 해결)
+    // 2. 챕터 정보 로드 (제목 동기화용)
+    // [중요] 여기서 날짜(recordDate)를 setRecordDate로 건드리면 입력 중 날짜가 초기화되는 버그 발생 -> 제거함
     if (isChapterMode) {
       const data = await db.get("chapters", chapterId);
       setChapter(data);
-
-      // 챕터 데이터가 있고, 아직 수정 중이 아닐 때 날짜 갱신
-      if (data && !isDateMode && !isEditing) {
-        const chapterDate = formatDateSafe(data.createdAt);
-        const todayKST = getTodayKST();
-        const [tYear, tMonth] = todayKST.split("-").map(Number);
-        const cYear = chapterDate.getFullYear();
-        const cMonth = chapterDate.getMonth() + 1;
-
-        if (cYear === tYear && cMonth === tMonth) {
-          setRecordDate(todayKST);
-        } else {
-          const yyyy = cYear;
-          const mm = String(cMonth).padStart(2, "0");
-          setRecordDate(`${yyyy}-${mm}-01`);
-        }
-      }
     }
-  }, [db, chapterId, date, isChapterMode, isDateMode, isEditing, getAll, getAllFromIndex]);
+  }, [db, chapterId, date, isChapterMode, isDateMode, getAll, getAllFromIndex]);
 
   // [수정 4] useEffect에 동기화 리스너 추가
   useEffect(() => {

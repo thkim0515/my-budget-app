@@ -5,6 +5,21 @@ import { useBudgetDB } from "./useBudgetDB";
 import CryptoJS from "crypto-js";
 import LZString from "lz-string";
 
+// [추가됨] Firestore 데이터를 로컬 호환 형식으로 변환하는 헬퍼 함수
+const normalizeFirestoreData = (data) => {
+  if (!data) return data;
+  const normalized = { ...data };
+
+  Object.keys(normalized).forEach((key) => {
+    const value = normalized[key];
+    // 값이 Firestore Timestamp 객체인 경우 (toDate 메서드가 존재함) -> JS Date로 변환
+    if (value && typeof value.toDate === "function") {
+      normalized[key] = value.toDate();
+    }
+  });
+  return normalized;
+};
+
 export function useSync() {
   const { db: localDb, getAllRaw, put } = useBudgetDB();
   const [isSyncing, setIsSyncing] = useState(false);
@@ -36,7 +51,10 @@ export function useSync() {
           const remoteItemsMap = new Map();
 
           // Firestore 문서는 ID가 무조건 문자열입니다.
-          snapshot.forEach((doc) => remoteItemsMap.set(doc.id, doc.data()));
+          // [수정됨] 데이터를 가져올 때 Timestamp -> Date 변환 수행
+          snapshot.forEach((doc) => {
+            remoteItemsMap.set(doc.id, normalizeFirestoreData(doc.data()));
+          });
 
           // --- C. 로컬 -> 서버 (Push) ---
           for (const localItem of localItems) {
@@ -72,6 +90,7 @@ export function useSync() {
 
             // 서버가 더 최신이거나, 로컬에 없는 경우 -> 로컬 업데이트
             if (!localItem || remoteItem.updatedAt > (localItem.updatedAt || 0)) {
+              // remoteItem은 위에서 이미 normalizeFirestoreData를 거쳐 Date 객체로 변환되어 있음
               await put(storeName, remoteItem);
             }
           }
