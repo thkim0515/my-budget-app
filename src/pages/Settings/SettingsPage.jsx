@@ -115,7 +115,8 @@ export default function SettingsPage() {
       await Promise.all(promises);
       await tx.done;
 
-      alert("모든 데이터가 초기화되고 기본 카테고리가 복구되었습니다.");
+      alert("모든 데이터가 초기화되었습니다.");
+      // alert("모든 데이터가 초기화되고 기본 카테고리가 복구되었습니다.");
 
       // 데이터 꼬임 방지를 위해 새로고침
       window.location.reload();

@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react"; // useCallback 추가됨
 
 import Header from "../../components/UI/Header";
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
@@ -11,6 +11,10 @@ import { DEFAULT_CATEGORIES } from "../../constants/categories";
 import RecordForm from "../../components/RecordForm";
 import RecordList from "../../components/RecordList";
 
+// [수정 1] 삭제 동기화를 위해 파이어베이스 모듈 import 추가
+import { doc, deleteDoc } from "firebase/firestore";
+import { db as firestoreDb, auth } from "../../db/firebase";
+
 import * as S from "./DetailPage.styles";
 
 /* 한국 시간(KST) 기준 오늘 날짜 문자열(YYYY-MM-DD) 반환 헬퍼 */
@@ -20,11 +24,18 @@ const getTodayKST = () => {
   });
 };
 
+/* 날짜 안전 변환 함수 (Timestamp 대응) */
+const formatDateSafe = (dateValue) => {
+  if (!dateValue) return new Date();
+  if (dateValue.toDate) return dateValue.toDate(); // 파이어베이스 Timestamp
+  return new Date(dateValue);
+};
+
 /* 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 */
 const formatChapterTitle = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return ""; // 날짜가 유효하지 않으면 빈 값 반환
+  if (isNaN(date.getTime())) return "";
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
 };
 
@@ -71,14 +82,18 @@ export default function DetailPage() {
   const { settings, updateSetting } = useSettings();
 
   const [records, setRecords] = useState([]);
-  const [categories, setCategories] = useState([]);
+
+  // [수정 2] 카테고리 state 초기값 상수 사용
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [chapter, setChapter] = useState(null);
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
 
-  // 초기 날짜 설정 로직 (KST 적용)
+  // [수정 3] 초기 카테고리 안전하게 설정
+  const [category, setCategory] = useState(DEFAULT_CATEGORIES[0] || "식비");
+
+  // 초기 날짜 설정
   const [recordDate, setRecordDate] = useState(() => {
     if (isDateMode) return date;
     return getTodayKST();
@@ -89,81 +104,69 @@ export default function DetailPage() {
   const [editType, setEditType] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
 
-  const loadRecords = async () => {
+  // [핵심 로직] 데이터 로드 및 날짜 갱신 함수 분리
+  const loadData = useCallback(async () => {
     if (!db) return;
+
+    // 1. 내역 리스트 로드
     let list = [];
     if (isChapterMode) {
-      // [수정 핵심 1] Number(chapterId) -> chapterId (UUID 문자열 그대로 사용)
       list = await getAllFromIndex("records", "chapterId", chapterId);
     } else if (isDateMode) {
       const all = await getAll("records");
       list = all.filter((r) => String(r.date || r.createdAt).split("T")[0] === date);
     }
+
+    // 날짜 정렬 (formatDateSafe 사용)
     list.sort((a, b) => {
-      const da = new Date(a.date || a.createdAt);
-      const dbDate = new Date(b.date || b.createdAt);
+      const da = formatDateSafe(a.date || a.createdAt);
+      const dbDate = formatDateSafe(b.date || b.createdAt);
       if (da.getTime() !== dbDate.getTime()) return da - dbDate;
       return (a.order ?? 0) - (b.order ?? 0);
     });
     setRecords(list);
-  };
 
-  const loadCategories = async () => {
-    if (!db) return;
-
-    // 1. DB에서 불러오기
-    const rows = await getAll("categories");
-    let list = rows.map((c) => c.name);
-
-    // 2. DB가 비어있다면 기본 카테고리 사용
-    if (list.length === 0) {
-      list = [...DEFAULT_CATEGORIES];
-    }
-
-    setCategories(list);
-
-    // 3. 현재 선택된 카테고리가 없다면 첫 번째 항목 선택
-    if (!category && list.length > 0) {
-      setCategory(list[0]);
-    }
-  };
-
-  useEffect(() => {
-    if (!db) return;
-    loadRecords();
-    loadCategories();
-
+    // 2. 챕터 정보 로드 및 날짜 동기화 (웹 지연 로딩 해결)
     if (isChapterMode) {
-      // [수정 핵심 2] Number(chapterId) -> chapterId
-      db.get("chapters", chapterId).then((data) => {
-        setChapter(data);
-        if (data && !isDateMode && !isEditing) {
-          const chapterDate = new Date(data.createdAt);
+      const data = await db.get("chapters", chapterId);
+      setChapter(data);
 
-          const todayKST = getTodayKST();
-          const [tYear, tMonth] = todayKST.split("-").map(Number);
+      // 챕터 데이터가 있고, 아직 수정 중이 아닐 때 날짜 갱신
+      if (data && !isDateMode && !isEditing) {
+        const chapterDate = formatDateSafe(data.createdAt);
+        const todayKST = getTodayKST();
+        const [tYear, tMonth] = todayKST.split("-").map(Number);
+        const cYear = chapterDate.getFullYear();
+        const cMonth = chapterDate.getMonth() + 1;
 
-          const cYear = chapterDate.getFullYear();
-          const cMonth = chapterDate.getMonth() + 1;
-
-          if (cYear === tYear && cMonth === tMonth) {
-            setRecordDate(todayKST);
-          } else {
-            const yyyy = cYear;
-            const mm = String(cMonth).padStart(2, "0");
-            setRecordDate(`${yyyy}-${mm}-01`);
-          }
+        if (cYear === tYear && cMonth === tMonth) {
+          setRecordDate(todayKST);
+        } else {
+          const yyyy = cYear;
+          const mm = String(cMonth).padStart(2, "0");
+          setRecordDate(`${yyyy}-${mm}-01`);
         }
-      });
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db, chapterId, date]);
+  }, [db, chapterId, date, isChapterMode, isDateMode, isEditing, getAll, getAllFromIndex]);
 
-  // 특정 항목으로 스크롤 (DateMode 진입 시)
+  // [수정 4] useEffect에 동기화 리스너 추가
+  useEffect(() => {
+    loadData(); // 초기 로드
+
+    // 서버에서 데이터가 늦게 도착했을 때 감지하여 재실행
+    const handleSyncUpdate = () => {
+      console.log("[DetailPage] 동기화 감지 -> 데이터 갱신");
+      loadData();
+    };
+
+    window.addEventListener("budget-db-updated", handleSyncUpdate);
+    return () => window.removeEventListener("budget-db-updated", handleSyncUpdate);
+  }, [loadData]);
+
+  // 특정 항목으로 스크롤
   useEffect(() => {
     if (!isDateMode || records.length === 0) return;
-    // paramId는 URL 파라미터로 문자열이므로 그대로 사용 가능
-    // 만약 record-UUID 형태의 ID를 사용한다면 여기서도 변환 불필요
     const target = document.getElementById(`record-${paramId}`);
     if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [records, isDateMode, paramId]);
@@ -186,12 +189,10 @@ export default function DetailPage() {
 
     const recordAmount = unformatNumber(amount);
     const newChapterTitle = formatChapterTitle(recordDate);
-    // [수정 핵심 3] Number(chapterId) 제거. null 혹은 string(UUID)
     const currentChapterId = isChapterMode ? chapterId : null;
     let targetChapterId = currentChapterId;
     let chapterChanged = false;
 
-    // 챕터 이름 자동 관리 로직
     if (isChapterMode && chapter) {
       if (newChapterTitle !== chapter.title) {
         const allChapters = await getAll("chapters");
@@ -199,7 +200,6 @@ export default function DetailPage() {
         if (existingChapter) {
           targetChapterId = existingChapter.chapterId;
         } else {
-          // add()는 이제 UUID 문자열을 반환합니다.
           targetChapterId = await add("chapters", {
             title: newChapterTitle,
             createdAt: new Date(recordDate),
@@ -231,14 +231,13 @@ export default function DetailPage() {
       };
       await put("records", updated);
       cancelEdit();
-      await loadRecords();
+      await loadData(); // loadData로 변경
       return;
     }
 
     const nextOrder = records.filter((r) => r.type === type).length;
     await add("records", { ...recordDataBase, order: nextOrder });
 
-    // 임시 챕터를 정식 챕터로 전환
     if (isChapterMode && chapter?.isTemporary && targetChapterId === currentChapterId) {
       const updatedChapter = { ...chapter, title: newChapterTitle, isTemporary: false };
       await put("chapters", updatedChapter);
@@ -247,7 +246,7 @@ export default function DetailPage() {
 
     setTitle("");
     setAmount("");
-    await loadRecords();
+    await loadData(); // loadData로 변경
 
     if (isChapterMode && records.length === 0) {
       navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
@@ -265,7 +264,14 @@ export default function DetailPage() {
     setTitle(record.title);
     setAmount(formatNumber(record.amount));
     setCategory(record.category || categories[0] || "");
-    setRecordDate(String(record.date || record.createdAt).split("T")[0]);
+
+    // [수정 6] 날짜 변환 안전하게 (ISOString 시차 문제 해결을 위해 YYYY-MM-DD 직접 포맷팅 권장)
+    const safeDate = formatDateSafe(record.date || record.createdAt);
+    const yyyy = safeDate.getFullYear();
+    const mm = String(safeDate.getMonth() + 1).padStart(2, "0");
+    const dd = String(safeDate.getDate()).padStart(2, "0");
+    setRecordDate(`${yyyy}-${mm}-${dd}`);
+
     setIsEditing(true);
     setTimeout(() => {
       contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -287,17 +293,29 @@ export default function DetailPage() {
     const updatedRecord = { ...editRecord, isPaid: !editRecord.isPaid };
     await put("records", updatedRecord);
     cancelEdit();
-    loadRecords();
+    loadData(); // loadData로 변경
   };
 
+  // [수정 7] 삭제 동기화 로직
   const deleteRecord = async (rid, isAggregated) => {
     if (isAggregated) {
       alert("모아보기 상태에서는 삭제할 수 없습니다.");
       return;
     }
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
+
     await deleteItem("records", rid);
-    loadRecords();
+
+    if (auth.currentUser) {
+      try {
+        await deleteDoc(doc(firestoreDb, "records", rid));
+        console.log("서버 데이터 삭제 완료:", rid);
+      } catch (error) {
+        console.error("서버 데이터 삭제 실패:", error);
+      }
+    }
+
+    loadData(); // loadData로 변경
   };
 
   const onDragEnd = async (result) => {
@@ -325,7 +343,7 @@ export default function DetailPage() {
       for (let i = 0; i < sItems.length; i++) await put("records", { ...sItems[i], order: i });
       for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i });
     }
-    loadRecords();
+    loadData(); // loadData로 변경
   };
 
   return (
