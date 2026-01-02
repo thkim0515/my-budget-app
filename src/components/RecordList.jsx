@@ -1,4 +1,6 @@
+/* src/components/RecordList.jsx */
 import React, { useState, useRef } from "react";
+import ReactDOM from "react-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { FiTrash2, FiGrid, FiCoffee, FiTruck, FiPhone, FiShoppingBag, FiMusic, FiCreditCard, FiRefreshCw, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import * as S from "../pages/Main/DetailPage.styles";
@@ -13,6 +15,12 @@ const categoryIconMap = {
   금융: FiCreditCard,
   카드: FiCreditCard,
   기타: FiGrid,
+};
+
+// 드래그 중인 요소를 Portal로 띄워주기 위한 헬퍼 컴포넌트
+const DraggablePortal = ({ children, snapshot }) => {
+  if (!snapshot.isDragging) return children;
+  return ReactDOM.createPortal(children, document.body);
 };
 
 export default function RecordList({
@@ -77,52 +85,57 @@ export default function RecordList({
             return (
               <Draggable key={r.id} draggableId={String(r.id)} index={index} isDragDisabled={isGrouped || (r.isAggregated && r.count > 1)}>
                 {(p, snapshot) => (
-                  <S.ListItem
-                    ref={p.innerRef}
-                    {...p.draggableProps}
-                    {...p.dragHandleProps}
-                    onClick={() => onEdit(r)}
-                    $isEditing={r.id === editId}
-                    $isPaid={r.isPaid}
-                    $isAggregated={r.isAggregated && r.count > 1}
-                    id={`record-${r.id}`}
-                    style={{
-                      ...p.draggableProps.style,
-                      opacity: snapshot.isDragging ? 0.7 : 1,
-                    }}
-                  >
-                    <S.CardInfo>
-                      <S.CardMetaRow>
-                        <S.CategoryIconWrap>
-                          <CategoryIcon />
-                        </S.CategoryIconWrap>
-                        <span>
-                          {r.category} · {String(r.date || r.createdAt).split("T")[0]}
-                        </span>
-                        {r.isPaid && <S.PaidBadge style={{ marginLeft: "8px" }}>납부완료</S.PaidBadge>}
-                        {r.isAggregated && r.count > 1 && <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>[{r.count}건 합산]</span>}
-                      </S.CardMetaRow>
-                      <S.CardTitle title={r.title}>
-                        {r.title}
-                      </S.CardTitle>
-                    </S.CardInfo>
-                    <S.CardRight>
-                      <S.CardAmount>
-                        {formatNumber(r.amount)}
-                        {unit}
-                      </S.CardAmount>
-                      {(!r.isAggregated || r.count === 1) && (
-                        <S.CardAction
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(r.id, false);
-                          }}
-                        >
-                          <FiTrash2 />
-                        </S.CardAction>
-                      )}
-                    </S.CardRight>
-                  </S.ListItem>
+                  <DraggablePortal snapshot={snapshot}>
+                    <S.ListItem
+                      ref={p.innerRef}
+                      {...p.draggableProps}
+                      {...p.dragHandleProps}
+                      onClick={() => onEdit(r)}
+                      $isEditing={r.id === editId}
+                      $isDragging={snapshot.isDragging}
+                      $isPaid={r.isPaid}
+                      $isAggregated={r.isAggregated && r.count > 1}
+                      id={`record-${r.id}`}
+                      style={{
+                        ...p.draggableProps.style,
+                        // Portal 사용 시 드래그 중인 항목의 너비를 고정해주어야 깨지지 않음 (필요 시 maxWidth 480px 내외)
+                        width: snapshot.isDragging ? "calc(100% - 32px)" : "100%",
+                        maxWidth: snapshot.isDragging ? "448px" : "none",
+                        left: snapshot.isDragging ? "50%" : p.draggableProps.style?.left,
+                        transform: snapshot.isDragging ? `${p.draggableProps.style?.transform} translateX(-50%)` : p.draggableProps.style?.transform,
+                      }}
+                    >
+                      <S.CardInfo>
+                        <S.CardMetaRow>
+                          <S.CategoryIconWrap>
+                            <CategoryIcon />
+                          </S.CategoryIconWrap>
+                          <span>
+                            {r.category} · {String(r.date || r.createdAt).split("T")[0]}
+                          </span>
+                          {r.isPaid && <S.PaidBadge style={{ marginLeft: "8px" }}>납부완료</S.PaidBadge>}
+                          {r.isAggregated && r.count > 1 && <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>[{r.count}건 합산]</span>}
+                        </S.CardMetaRow>
+                        <S.CardTitle title={r.title}>{r.title}</S.CardTitle>
+                      </S.CardInfo>
+                      <S.CardRight>
+                        <S.CardAmount>
+                          {formatNumber(r.amount)}
+                          {unit}
+                        </S.CardAmount>
+                        {(!r.isAggregated || r.count === 1) && (
+                          <S.CardAction
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(r.id, false);
+                            }}
+                          >
+                            <FiTrash2 />
+                          </S.CardAction>
+                        )}
+                      </S.CardRight>
+                    </S.ListItem>
+                  </DraggablePortal>
                 )}
               </Draggable>
             );

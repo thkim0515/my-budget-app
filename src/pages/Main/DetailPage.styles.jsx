@@ -9,7 +9,7 @@ export const PageWrap = styled.div`
   flex-direction: column;
   position: relative;
   color: ${({ theme }) => theme.text};
-  background-color: ${({ theme }) => theme.background};
+  background-color: ${({ theme }) => theme.bg};
 `;
 
 /* 상단 헤더 고정 영역 */
@@ -140,7 +140,7 @@ export const List = styled.ul`
   margin: 0;
 `;
 
-/* [수정] 리스트 아이템 컨테이너: 배경색 강조 제거, 좌측 바만 유지 */
+/* 리스트 아이템 컨테이너 */
 export const ListItem = styled.li`
   display: flex;
   justify-content: space-between;
@@ -148,18 +148,15 @@ export const ListItem = styled.li`
   padding: 14px 16px;
   margin-bottom: 12px;
 
-  /* 배경색은 기본 카드 색상 고정 (편집 중일 때만 최소한의 강조) */
   background: ${({ theme, $isEditing }) => ($isEditing ? "rgba(255, 215, 0, 0.1)" : theme.card)};
 
   border-radius: 14px;
   border: 1px solid ${({ theme }) => theme.border};
 
-  /* [중요] 좌측 표시선으로만 상태 구분 */
   border-left: ${({ $isPaid }) => ($isPaid ? "5px solid #2ecc71" : "1px solid transparent")};
 
   box-shadow: ${({ $isEditing }) => ($isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")};
 
-  /* 납부 완료 시 투명도만 살짝 조정하여 처리된 느낌 부여 */
   opacity: ${({ $isPaid }) => ($isPaid ? 0.85 : 1)};
   transition: all 0.2s ease;
   cursor: pointer;
@@ -252,19 +249,24 @@ export const RefreshContent = styled.div`
   transition: ${({ $isRefreshing, $pullDistance }) => ($isRefreshing || $pullDistance === 0 ? "transform 0.2s ease" : "none")};
 `;
 
-/* [수정] 모드별 테마가 적용된 PaidBadge */
+/* [수정] 다크 모드에서도 선명하게 보이는 하얀색 글자와 텍스트 그림자 적용 */
 export const PaidBadge = styled.span`
   background: ${({ theme }) => theme.paidBadgeBg};
   color: ${({ theme }) => theme.paidBadgeText};
   font-size: 10px;
   padding: 2px 7px;
   border-radius: 4px;
-  font-weight: 700;
+  font-weight: 800; /* 글자를 더 굵게 하여 시인성 확보 */
   margin-left: 8px;
   vertical-align: middle;
   display: inline-flex;
   align-items: center;
-  border: 1px solid ${({ theme }) => (theme.paidBadgeText === "#6ee7b7" ? "rgba(110, 231, 183, 0.2)" : "rgba(5, 150, 105, 0.1)")};
+
+  /* [추가] 텍스트 그림자를 넣어 하얀 글자가 배경 위에서 뚜렷하게 보이도록 함 */
+  text-shadow: 0px 1px 1px rgba(0, 0, 0, 0.2);
+
+  /* [수정] 글자색이 흰색(#ffffff)일 때의 테두리 투명도 조정 */
+  border: 1px solid ${({ theme }) => (theme.paidBadgeText === "#ffffff" ? "rgba(255, 255, 255, 0.3)" : "rgba(5, 150, 105, 0.1)")};
 `;
 
 export const CardRight = styled.div`
