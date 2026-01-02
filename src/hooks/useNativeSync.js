@@ -73,15 +73,12 @@ export const useNativeSync = () => {
 
         // 3. [개선] 스마트 중복 방지 (시간차 기반)
         // 조건: 금액 일치 AND 상호명 유사 AND 시간차 5분(300000ms) 이내
-        // (기존의 날짜 단순 비교는 하루에 같은 곳 2번 결제 시 문제 발생)
         const isDuplicate = records.some((r) => {
           if (r.isDeleted) return false;
 
           const isSameAmount = r.amount === recordData.amount;
           const isSameTitle = r.title.includes(recordData.title) || recordData.title.includes(r.title);
 
-          // noti.time은 안드로이드가 준 발생 시간(ms)
-          // r.createdAt은 DB에 저장된 시간(Date obj or string)
           const dbTime = new Date(r.createdAt).getTime();
           const notiTime = noti.time || Date.now();
           const timeDiff = Math.abs(dbTime - notiTime);
@@ -101,7 +98,6 @@ export const useNativeSync = () => {
         if (targetChapter) {
           targetChapterId = targetChapter.chapterId;
         } else {
-          // add가 UUID를 반환하므로 그대로 사용
           targetChapterId = await add("chapters", {
             title: recordData.chapterTitle,
             createdAt: new Date(recordData.date),
@@ -121,10 +117,12 @@ export const useNativeSync = () => {
         // noti.time이 있으면 그걸 생성일로 사용 (정확도 향상)
         const creationTime = noti.time ? new Date(noti.time) : new Date();
 
+        // [변경] inputMode: "auto" 필드 추가하여 자동 지출 목록으로 분류되도록 함
         const newRecordId = await add("records", {
           ...finalRecord,
           createdAt: creationTime,
           chapterId: targetChapterId,
+          inputMode: "auto",
         });
 
         // 메모리 상 레코드 목록 갱신 (다음 루프 중복 체크용)
@@ -133,6 +131,7 @@ export const useNativeSync = () => {
           id: newRecordId,
           createdAt: creationTime,
           chapterId: targetChapterId,
+          inputMode: "auto",
         });
 
         console.log("✅ [Native Sync] 저장 완료:", finalRecord.title);

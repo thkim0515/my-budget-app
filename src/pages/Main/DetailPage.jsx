@@ -6,12 +6,12 @@ import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useSettings } from "../../context/SettingsContext";
+import { useSync } from "../../hooks/useSync"; // [추가] 증분 동기화 훅
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 
 import RecordForm from "../../components/RecordForm";
 import RecordList from "../../components/RecordList";
 
-// [수정 1] 삭제 동기화를 위해 파이어베이스 모듈 import 추가
 import { doc, deleteDoc } from "firebase/firestore";
 import { db as firestoreDb, auth } from "../../db/firebase";
 
@@ -27,7 +27,7 @@ const getTodayKST = () => {
 /* 날짜 안전 변환 함수 (Timestamp 대응) */
 const formatDateSafe = (dateValue) => {
   if (!dateValue) return new Date();
-  if (dateValue.toDate) return dateValue.toDate(); // 파이어베이스 Timestamp
+  if (dateValue.toDate) return dateValue.toDate(); // 파이어베이스 Timestamp 대응
   return new Date(dateValue);
 };
 
@@ -47,7 +47,7 @@ const reorder = (list, startIndex, endIndex) => {
   return result;
 };
 
-/* 데이터 그룹화(모아보기) 헬퍼 함수 */
+// [모아보기 헬퍼 함수]
 const groupRecordsByTitle = (list) => {
   const grouped = {};
   list.forEach((r) => {
@@ -80,20 +80,16 @@ export default function DetailPage() {
   const { unit } = useCurrencyUnit();
   const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
   const { settings, updateSetting } = useSettings();
+  const { syncWithFirestore, isSyncing } = useSync(); // [추가] 동기화 기능
 
   const [records, setRecords] = useState([]);
-
-  // [수정 2] 카테고리 state 초기값 상수 사용
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES); // 초기값은 기본 카테고리
   const [chapter, setChapter] = useState(null);
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
-
-  // [수정 3] 초기 카테고리 안전하게 설정
   const [category, setCategory] = useState(DEFAULT_CATEGORIES[0] || "식비");
 
-  // 초기 날짜 설정
   const [recordDate, setRecordDate] = useState(() => {
     if (isDateMode) return date;
     return getTodayKST();
@@ -104,13 +100,20 @@ export default function DetailPage() {
   const [editType, setEditType] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
 
-  // [핵심 수정] 챕터 진입 시 "최초 1회만" 날짜를 설정하는 useEffect 추가
-  // loadData에서 이 로직을 제거하여, 이후 사용자가 날짜를 변경해도 초기화되지 않도록 함
+  // [수동 새로고침 핸들러]
+  const handleRefresh = async () => {
+    if (auth.currentUser) {
+      await syncWithFirestore(auth.currentUser.uid);
+    } else {
+      alert("로그인이 필요한 기능입니다.");
+    }
+  };
+
+  // 챕터 진입 시 초기 날짜 설정
   useEffect(() => {
     if (!db || !isChapterMode || !chapterId) return;
 
     const initChapterDate = async () => {
-      // DB에서 챕터 정보만 별도로 가져와서 날짜 초기화 수행
       const data = await db.get("chapters", chapterId);
       if (data && !isDateMode) {
         const chapterDate = formatDateSafe(data.createdAt);
@@ -119,7 +122,6 @@ export default function DetailPage() {
         const cYear = chapterDate.getFullYear();
         const cMonth = chapterDate.getMonth() + 1;
 
-        // 챕터가 이번 달이면 '오늘 날짜', 아니면 '해당 월 1일'로 설정
         if (cYear === tYear && cMonth === tMonth) {
           setRecordDate(todayKST);
         } else {
@@ -132,11 +134,11 @@ export default function DetailPage() {
     initChapterDate();
   }, [db, isChapterMode, chapterId, isDateMode]);
 
-  // [핵심 로직] 데이터 로드 및 날짜 갱신 함수 분리
+  // [데이터 로드] 레코드 및 사용자 카테고리 통합 로드
   const loadData = useCallback(async () => {
     if (!db) return;
 
-    // 1. 내역 리스트 로드
+    // 1. 레코드 리스트 로드
     let list = [];
     if (isChapterMode) {
       list = await getAllFromIndex("records", "chapterId", chapterId);
@@ -145,7 +147,6 @@ export default function DetailPage() {
       list = all.filter((r) => String(r.date || r.createdAt).split("T")[0] === date);
     }
 
-    // 날짜 정렬 (formatDateSafe 사용)
     list.sort((a, b) => {
       const da = formatDateSafe(a.date || a.createdAt);
       const dbDate = formatDateSafe(b.date || b.createdAt);
@@ -154,29 +155,30 @@ export default function DetailPage() {
     });
     setRecords(list);
 
-    // 2. 챕터 정보 로드 (제목 동기화용)
-    // [중요] 여기서 날짜(recordDate)를 setRecordDate로 건드리면 입력 중 날짜가 초기화되는 버그 발생 -> 제거함
+    // 2. 챕터 정보 로드
     if (isChapterMode) {
       const data = await db.get("chapters", chapterId);
       setChapter(data);
     }
+
+    // 3. [추가] 사용자 정의 카테고리 로드 및 통합
+    const customCats = await getAll("categories");
+    const activeCustomNames = customCats.filter((c) => !c.isDeleted).map((c) => c.name);
+
+    // 기본 카테고리와 합치고 중복 제거
+    const mergedCategories = [...new Set([...DEFAULT_CATEGORIES, ...activeCustomNames])];
+    setCategories(mergedCategories);
   }, [db, chapterId, date, isChapterMode, isDateMode, getAll, getAllFromIndex]);
 
-  // [수정 4] useEffect에 동기화 리스너 추가
   useEffect(() => {
-    loadData(); // 초기 로드
-
-    // 서버에서 데이터가 늦게 도착했을 때 감지하여 재실행
+    loadData();
     const handleSyncUpdate = () => {
-      console.log("[DetailPage] 동기화 감지 -> 데이터 갱신");
       loadData();
     };
-
     window.addEventListener("budget-db-updated", handleSyncUpdate);
     return () => window.removeEventListener("budget-db-updated", handleSyncUpdate);
   }, [loadData]);
 
-  // 특정 항목으로 스크롤
   useEffect(() => {
     if (!isDateMode || records.length === 0) return;
     const target = document.getElementById(`record-${paramId}`);
@@ -186,16 +188,22 @@ export default function DetailPage() {
   const incomeSum = records.filter((r) => r.type === "income").reduce((a, b) => a + b.amount, 0);
   const expenseSum = records.filter((r) => r.type === "expense").reduce((a, b) => a + b.amount, 0);
 
-  const displayedIncomeList = useMemo(() => {
+  // [목록 3분할 필터링]
+  const incomeList = useMemo(() => {
     const list = records.filter((r) => r.type === "income");
     return settings.isIncomeGrouped ? groupRecordsByTitle(list) : list;
   }, [records, settings.isIncomeGrouped]);
 
-  const displayedExpenseList = useMemo(() => {
-    const list = records.filter((r) => r.type === "expense");
+  const budgetList = useMemo(() => {
+    return records.filter((r) => r.type === "expense" && r.inputMode === "manual");
+  }, [records]);
+
+  const autoExpenseList = useMemo(() => {
+    const list = records.filter((r) => r.type === "expense" && (r.inputMode === "auto" || !r.inputMode));
     return settings.isExpenseGrouped ? groupRecordsByTitle(list) : list;
   }, [records, settings.isExpenseGrouped]);
 
+  // [저장 로직]
   const saveRecord = async (type) => {
     if (!title || !amount) return;
 
@@ -213,10 +221,12 @@ export default function DetailPage() {
           targetChapterId = existingChapter.chapterId;
         } else {
           targetChapterId = await add("chapters", {
+            chapterId: `ch_${Date.now()}`,
             title: newChapterTitle,
             createdAt: new Date(recordDate),
             order: allChapters.length,
             isTemporary: false,
+            updatedAt: Date.now(),
           });
         }
         chapterChanged = targetChapterId !== currentChapterId;
@@ -233,6 +243,8 @@ export default function DetailPage() {
       source: title,
       isPaid: editRecord?.isPaid || false,
       createdAt: editRecord?.createdAt || new Date(),
+      updatedAt: Date.now(), // [중요] 증분 동기화용
+      inputMode: isEditing ? editRecord?.inputMode || "manual" : "manual",
     };
 
     if (isEditing && editId) {
@@ -243,22 +255,21 @@ export default function DetailPage() {
       };
       await put("records", updated);
       cancelEdit();
-      await loadData(); // loadData로 변경
-      return;
+    } else {
+      const nextOrder = records.filter((r) => r.type === type).length;
+      await add("records", { ...recordDataBase, id: `rec_${Date.now()}`, order: nextOrder });
     }
 
-    const nextOrder = records.filter((r) => r.type === type).length;
-    await add("records", { ...recordDataBase, order: nextOrder });
-
     if (isChapterMode && chapter?.isTemporary && targetChapterId === currentChapterId) {
-      const updatedChapter = { ...chapter, title: newChapterTitle, isTemporary: false };
+      const updatedChapter = { ...chapter, title: newChapterTitle, isTemporary: false, updatedAt: Date.now() };
       await put("chapters", updatedChapter);
       setChapter(updatedChapter);
     }
 
     setTitle("");
     setAmount("");
-    await loadData(); // loadData로 변경
+    await loadData();
+    window.dispatchEvent(new CustomEvent("budget-db-updated"));
 
     if (isChapterMode && records.length === 0) {
       navigate(`/detail/chapter/${targetChapterId}`, { replace: true });
@@ -277,7 +288,6 @@ export default function DetailPage() {
     setAmount(formatNumber(record.amount));
     setCategory(record.category || categories[0] || "");
 
-    // [수정 6] 날짜 변환 안전하게 (ISOString 시차 문제 해결을 위해 YYYY-MM-DD 직접 포맷팅 권장)
     const safeDate = formatDateSafe(record.date || record.createdAt);
     const yyyy = safeDate.getFullYear();
     const mm = String(safeDate.getMonth() + 1).padStart(2, "0");
@@ -302,13 +312,13 @@ export default function DetailPage() {
 
   const togglePaymentStatus = async () => {
     if (!isEditing || !editId || !editRecord) return;
-    const updatedRecord = { ...editRecord, isPaid: !editRecord.isPaid };
+    const updatedRecord = { ...editRecord, isPaid: !editRecord.isPaid, updatedAt: Date.now() };
     await put("records", updatedRecord);
     cancelEdit();
-    loadData(); // loadData로 변경
+    loadData();
+    window.dispatchEvent(new CustomEvent("budget-db-updated"));
   };
 
-  // [수정 7] 삭제 동기화 로직
   const deleteRecord = async (rid, isAggregated) => {
     if (isAggregated) {
       alert("모아보기 상태에서는 삭제할 수 없습니다.");
@@ -316,52 +326,71 @@ export default function DetailPage() {
     }
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
 
-    await deleteItem("records", rid);
-
-    if (auth.currentUser) {
-      try {
-        await deleteDoc(doc(firestoreDb, "records", rid));
-        console.log("서버 데이터 삭제 완료:", rid);
-      } catch (error) {
-        console.error("서버 데이터 삭제 실패:", error);
-      }
+    // Soft Delete (isDeleted 플래그 사용 시 put, 하드 삭제 시 deleteItem)
+    // 증분 동기화를 위해서는 soft delete 후 updatedAt을 갱신하는 것이 가장 좋습니다.
+    const target = records.find((r) => r.id === rid);
+    if (target) {
+      await put("records", { ...target, isDeleted: true, updatedAt: Date.now() });
+    } else {
+      await deleteItem("records", rid);
     }
 
-    loadData(); // loadData로 변경
+    loadData();
+    window.dispatchEvent(new CustomEvent("budget-db-updated"));
   };
 
+  // [드래그 앤 드롭 로직]
   const onDragEnd = async (result) => {
     const { source, destination } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    const isIncomeSource = source.droppableId === "incomeList";
-    if (isIncomeSource && settings.isIncomeGrouped) return;
-    if (!isIncomeSource && settings.isExpenseGrouped) return;
+    if (source.droppableId === "incomeList" && settings.isIncomeGrouped) return;
+    if (source.droppableId === "expenseList" && settings.isExpenseGrouped) return;
 
-    const sourceList = records.filter((r) => r.type === (isIncomeSource ? "income" : "expense"));
-    const destList = records.filter((r) => r.type === (destination.droppableId === "incomeList" ? "income" : "expense"));
-    const newType = destination.droppableId === "incomeList" ? "income" : "expense";
+    const getListByDroppable = (id) => {
+      if (id === "incomeList") return incomeList;
+      if (id === "budgetList") return budgetList;
+      return autoExpenseList;
+    };
+
+    const sourceList = getListByDroppable(source.droppableId);
+    const destList = getListByDroppable(destination.droppableId);
 
     if (source.droppableId === destination.droppableId) {
       const items = reorder(sourceList, source.index, destination.index);
-      for (let i = 0; i < items.length; i++) await put("records", { ...items[i], order: i });
+      for (let i = 0; i < items.length; i++) {
+        await put("records", { ...items[i], order: i, updatedAt: Date.now() });
+      }
     } else {
       const sItems = [...sourceList];
       const dItems = [...destList];
       const [removed] = sItems.splice(source.index, 1);
-      const movedItem = { ...removed, type: newType };
+
+      const newType = destination.droppableId === "incomeList" ? "income" : "expense";
+      const newMode = destination.droppableId === "budgetList" ? "manual" : destination.droppableId === "expenseList" ? "auto" : removed.inputMode;
+
+      const movedItem = { ...removed, type: newType, inputMode: newMode, updatedAt: Date.now() };
       dItems.splice(destination.index, 0, movedItem);
-      for (let i = 0; i < sItems.length; i++) await put("records", { ...sItems[i], order: i });
-      for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i });
+
+      for (let i = 0; i < sItems.length; i++) await put("records", { ...sItems[i], order: i, updatedAt: Date.now() });
+      for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i, updatedAt: Date.now() });
     }
-    loadData(); // loadData로 변경
+    loadData();
+    window.dispatchEvent(new CustomEvent("budget-db-updated"));
   };
 
   return (
     <S.PageWrap>
       <S.HeaderFix>
-        <Header title={isChapterMode ? (chapter?.isTemporary ? "내역 입력" : chapter?.title) : `${date} 상세 내역`} />
+        <Header
+          title={isChapterMode ? (chapter?.isTemporary ? "내역 입력" : chapter?.title) : `${date} 상세 내역`}
+          rightElement={
+            <button onClick={handleRefresh} disabled={isSyncing} style={{ background: "none", border: "none", color: "white", fontSize: "14px", cursor: "pointer", opacity: isSyncing ? 0.5 : 1 }}>
+              {isSyncing ? "동기화 중..." : "새로고침"}
+            </button>
+          }
+        />
       </S.HeaderFix>
 
       <S.Content ref={contentRef}>
@@ -393,7 +422,7 @@ export default function DetailPage() {
           title={title}
           amount={amount}
           category={category}
-          categories={categories}
+          categories={categories} // [업데이트됨] 사용자 추가 카테고리 포함
           recordDate={recordDate}
           setTitle={setTitle}
           setAmount={setAmount}
@@ -405,8 +434,9 @@ export default function DetailPage() {
         />
 
         <RecordList
-          incomeList={displayedIncomeList}
-          expenseList={displayedExpenseList}
+          incomeList={incomeList}
+          budgetList={budgetList}
+          expenseList={autoExpenseList}
           settings={settings}
           editId={editId}
           unit={unit}
@@ -415,6 +445,7 @@ export default function DetailPage() {
           onDragEnd={onDragEnd}
           onEdit={startEdit}
           onDelete={deleteRecord}
+          onRefresh={handleRefresh} // 당겨서 새로고침 연동용
         />
       </S.Content>
     </S.PageWrap>

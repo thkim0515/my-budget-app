@@ -75,25 +75,24 @@ export const ToggleSwitch = styled.div`
   position: relative;
   width: 40px;
   height: 22px;
-  background-color: ${({ $isOn }) => ($isOn ? '#4CAF50' : '#ccc')};
+  background-color: ${({ $isOn }) => ($isOn ? "#4CAF50" : "#ccc")};
   border-radius: 22px;
   transition: background-color 0.3s;
   flex-shrink: 0;
 
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 2px;
-    left: ${({ $isOn }) => ($isOn ? '20px' : '2px')};
+    left: ${({ $isOn }) => ($isOn ? "20px" : "2px")};
     width: 18px;
     height: 18px;
     background-color: white;
     border-radius: 50%;
     transition: left 0.3s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 `;
-/* -------------------------------- */
 
 /* 입력창 스타일 */
 export const InputBox = styled.input`
@@ -129,7 +128,7 @@ export const List = styled.ul`
   margin: 0;
 `;
 
-/* 리스트 아이템 컨테이너 - [수정됨] 합산 모드($isAggregated) 스타일 추가 */
+/* 리스트 아이템 컨테이너 - [수정됨] 납부완료($isPaid) 디자인 반영 */
 export const ListItem = styled.li`
   display: flex;
   justify-content: space-between;
@@ -138,21 +137,28 @@ export const ListItem = styled.li`
   padding: 14px 16px;
   margin-bottom: 12px;
 
-  background: ${({ theme, $isEditing }) =>
-    $isEditing ? "rgba(255, 215, 0, 0.18)" : theme.card};
+  /* 배경색 우선순위: 수정 중 > 합산 모드 > 납부 완료 > 기본 */
+  background: ${({ theme, $isEditing, $isPaid, $isAggregated }) => {
+    if ($isEditing) return "rgba(255, 215, 0, 0.18)";
+    if ($isAggregated) return "#e3f2fd";
+    if ($isPaid) return theme.mode === "dark" ? "rgba(255, 255, 255, 0.05)" : "#f8f9fa";
+    return theme.card;
+  }};
 
   border-radius: 14px;
+  border: 1px solid ${({ theme }) => theme.border};
 
-  box-shadow: ${({ $isEditing }) =>
-    $isEditing
-      ? "0 0 0 2px #f1c40f"
-      : "0 4px 12px rgba(0,0,0,0.08)"};
+  /* 납부 완료 시 왼쪽 포인트 색상 추가 */
+  border-left: ${({ $isPaid }) => ($isPaid ? "5px solid #2ecc71" : "1px solid transparent")};
 
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: ${({ $isEditing }) => ($isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.08)")};
 
+  /* 납부 완료 시 시각적으로 '처리됨'을 느끼게 투명도 조절 */
+  opacity: ${({ $isPaid }) => ($isPaid ? 0.75 : 1)};
+
+  transition: all 0.2s ease;
   cursor: pointer;
 `;
-
 
 export const CardInfo = styled.div`
   display: flex;
@@ -161,18 +167,73 @@ export const CardInfo = styled.div`
   min-width: 0;
 `;
 
-export const CardMeta = styled.div`
-  font-size: 12px;
-  opacity: 0.6;
-`;
-
 export const CardTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 15px;
   font-weight: 600;
-
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+`;
+
+/* 섹션 헤더 (수입/예산/지출 구분용) */
+export const SectionHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: ${({ theme }) => theme.text};
+  }
+`;
+
+/* 당겨서 새로고침 컨테이너 */
+export const PullToRefreshContainer = styled.div`
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+`;
+
+/* 새로고침 인디케이터 (당길 때 나타나는 화살표/텍스트) */
+export const RefreshIndicator = styled.div`
+  position: absolute;
+  top: -50px;
+  left: 0;
+  right: 0;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #888;
+  transform: translateY(${({ $pullDistance }) => Math.min($pullDistance, 60)}px);
+  transition: ${({ $isRefreshing }) => ($isRefreshing ? "none" : "transform 0.2s ease")};
+  z-index: 10;
+`;
+
+export const RefreshContent = styled.div`
+  transform: translateY(${({ $pullDistance }) => Math.min($pullDistance, 60)}px);
+  transition: ${({ $isRefreshing, $pullDistance }) => ($isRefreshing || $pullDistance === 0 ? "transform 0.2s ease" : "none")};
+`;
+
+/* [추가] 납부완료 배지 */
+export const PaidBadge = styled.span`
+  background: #2ecc71;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-left: 6px;
+  vertical-align: middle;
 `;
 
 export const CardRight = styled.div`
@@ -195,52 +256,16 @@ export const CardAction = styled.button`
   font-size: 18px;
   opacity: 0.9;
   cursor: pointer;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
-  transform: translateY(1px); 
+  transform: translateY(1px);
 
   &:hover {
     opacity: 1;
     transform: translateY(1px) scale(1.1);
   }
 `;
-
-
-
-// export const ListItem = styled.li`
-//   display: flex;
-//   /* 배경 우선순위: 합산모드 > 납부완료 > 기본 */
-//   background: ${({ theme, $isPaid, $isAggregated }) => {
-//     if ($isAggregated) return "#e3f2fd"; // 합산시 연한 파랑 (라이트모드 기준)
-//     if ($isPaid) return "#e0e0e0";
-//     return theme.card;
-//   }};
-  
-//   /* 합산 모드일 때 글자색 조정 (다크모드 대응 등 필요시 수정 가능) */
-//   color: ${({ $isPaid, $isAggregated }) => 
-//     ($isAggregated ? "#1565c0" : $isPaid ? "#333" : "inherit")};
-
-//   padding: 0;
-//   border-radius: 10px;
-//   margin-bottom: 10px;
-//   overflow: hidden;
-  
-//   /* 테두리 및 왼쪽 띠 설정 */
-//   border: 1px solid ${({ theme, $isAggregated }) => 
-//     $isAggregated ? "#90caf9" : theme.border};
-//   border-left: ${({ theme, $isAggregated }) =>
-//   $isAggregated
-//     ? "5px solid #2196F3"
-//     : `1px solid ${theme.border}`};
-
-//   transition: all 0.2s ease;
-  
-//   /* 합산 항목은 클릭해도 수정 불가능하므로 커서 기본값 */
-//   cursor: ${({ $isAggregated }) => ($isAggregated ? "default" : "pointer")};
-// `;
 
 export const CardMetaRow = styled.div`
   display: flex;
@@ -256,14 +281,11 @@ export const CategoryIconWrap = styled.div`
   flex-shrink: 0;
 `;
 
-
-/* 금액 입력창의 클리어 버튼 래퍼 */
 export const AmountInputWrap = styled.div`
   position: relative;
   width: 100%;
 `;
 
-/* 금액 클리어 버튼 */
 export const ClearBtn = styled.button`
   position: absolute;
   right: 10px;
@@ -276,7 +298,6 @@ export const ClearBtn = styled.button`
   cursor: pointer;
 `;
 
-/* 카테고리 선택 박스 */
 export const SelectBox = styled.select`
   width: 100%;
   padding: 10px;
@@ -285,20 +306,6 @@ export const SelectBox = styled.select`
   border-radius: 6px;
   background: ${({ theme }) => theme.card};
   color: ${({ theme }) => theme.text};
-`;
-
-export const HighlightItem = styled.li`
-  background: rgba(255, 215, 0, 0.18);
-  border-left: 4px solid #f1c40f;
-  
-  /* ListItem 스타일 상속을 위해 기본 속성 추가 */
-  display: flex;
-  padding: 0;
-  border-radius: 10px;
-  margin-bottom: 10px;
-  overflow: hidden;
-  border: 1px solid ${({ theme }) => theme.border}; /* 왼쪽은 위에서 덮어씀 */
-  cursor: pointer;
 `;
 
 export const ActionBtn = styled.button`

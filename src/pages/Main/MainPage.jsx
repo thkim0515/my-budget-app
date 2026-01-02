@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
+import { useSync } from "../../hooks/useSync";
+import { auth } from "../../db/firebase";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { FiRefreshCw } from "react-icons/fi"; // 새로고침 아이콘 추가
 import * as S from "./MainPage.styles";
 
 const reorder = (list, startIndex, endIndex) => {
@@ -18,28 +21,59 @@ export default function MainPage() {
   const pressTimerRef = useRef(null);
   const navigate = useNavigate();
   const { db, getAll, getAllFromIndex, add, deleteItem, put } = useBudgetDB();
+  const { syncWithFirestore, isSyncing } = useSync();
+
+  // --- 당겨서 새로고침 상태 ---
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const startY = useRef(0);
 
   const loadChapters = useCallback(async () => {
-    if (!db) return; // DB 객체가 있을 때만 실행
+    if (!db) return;
     const list = await getAll("chapters");
     list.sort((a, b) => {
-      if (a.order !== b.order) {
-        return (a.order ?? 999) - (b.order ?? 999);
-      }
+      if (a.order !== b.order) return (a.order ?? 999) - (b.order ?? 999);
       return new Date(b.createdAt) - new Date(a.createdAt);
     });
     setChapters(list);
   }, [db, getAll]);
 
+  const handleRefresh = async () => {
+    if (auth.currentUser) {
+      await syncWithFirestore(auth.currentUser.uid);
+    }
+  };
+
+  // --- 터치 이벤트 핸들러 ---
+  const handleTouchStart = (e) => {
+    if (window.scrollY === 0) startY.current = e.touches[0].pageY;
+  };
+
+  const handleTouchMove = (e) => {
+    if (startY.current === 0 || isSyncing) return;
+    const currentY = e.touches[0].pageY;
+    const distance = currentY - startY.current;
+    if (distance > 0) setPullDistance(distance * 0.4); // 저항감 부여
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 60 && !isSyncing) {
+      setIsPullRefreshing(true);
+      setPullDistance(60);
+      await handleRefresh();
+      setTimeout(() => {
+        setIsPullRefreshing(false);
+        setPullDistance(0);
+      }, 500);
+    } else {
+      setPullDistance(0);
+    }
+    startY.current = 0;
+  };
+
   useEffect(() => {
     loadChapters();
-
-    // 네이티브 동기화 완료 신호를 받으면 리스트를 새로고침합니다.
-    const handleSyncUpdate = () => {
-      console.log("[MainPage] 네이티브 동기화 완료 감지 - 리스트 갱신");
-      loadChapters();
-    };
-
+    const handleSyncUpdate = () => loadChapters();
     window.addEventListener("budget-db-updated", handleSyncUpdate);
     return () => window.removeEventListener("budget-db-updated", handleSyncUpdate);
   }, [db, loadChapters]);
@@ -58,7 +92,6 @@ export default function MainPage() {
 
   const createTemporaryChapter = async () => {
     const now = new Date();
-    // add 함수가 이제 UUID 문자열을 반환하므로 그대로 사용
     const id = await add("chapters", {
       title: `_TEMP_${now.getTime()}`,
       createdAt: now,
@@ -72,27 +105,11 @@ export default function MainPage() {
 
   const deleteChapter = async (chapterId) => {
     if (!window.confirm("해당 기록을 삭제하시겠습니까?")) return;
-
-    // 1. 챕터 삭제 (Soft Delete)
     await deleteItem("chapters", chapterId);
-
-    // 2. [수정됨] 인덱스를 사용하여 해당 챕터의 기록들만 가져와 삭제
-    // 기존: Number(chapterId) -> 에러 발생 (UUID는 문자열임)
-    // 변경: chapterId 그대로 사용
     const recordsInChapter = await getAllFromIndex("records", "chapterId", chapterId);
-
-    for (let r of recordsInChapter) {
-      await deleteItem("records", r.id);
-    }
-
+    for (let r of recordsInChapter) await deleteItem("records", r.id);
     loadChapters();
   };
-
-  const handlePressStart = (chapterId) => {
-    pressTimerRef.current = setTimeout(() => setPressedId(chapterId), 600);
-  };
-
-  const handlePressEnd = () => clearTimeout(pressTimerRef.current);
 
   const toggleComplete = async (chapter) => {
     await put("chapters", { ...chapter, isCompleted: !chapter.isCompleted });
@@ -101,11 +118,22 @@ export default function MainPage() {
   };
 
   return (
-    <S.PageWrap>
+    <S.PageWrap onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <S.HeaderFix>
         <Header title="가계부" rightButton={<S.CreateBtn onClick={createTemporaryChapter}>새 내역 추가</S.CreateBtn>} />
       </S.HeaderFix>
-      <S.ListWrap>
+
+      {/* 새로고침 인디케이터 */}
+      <S.RefreshIndicator $pullDistance={pullDistance} $isRefreshing={isSyncing}>
+        <FiRefreshCw />
+      </S.RefreshIndicator>
+
+      <S.ListWrap
+        style={{
+          transform: `translateY(${pullDistance}px)`,
+          transition: pullDistance === 0 || isPullRefreshing ? "transform 0.2s" : "none",
+        }}
+      >
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable droppableId="chapterList">
             {(provided) => (
@@ -119,11 +147,11 @@ export default function MainPage() {
                         {...provided.dragHandleProps}
                         $completed={c.isCompleted}
                         style={{ ...provided.draggableProps.style, opacity: snapshot.isDragging ? 0.7 : 1 }}
-                        onMouseDown={() => handlePressStart(c.chapterId)}
-                        onMouseUp={handlePressEnd}
-                        onMouseLeave={handlePressEnd}
-                        onTouchStart={() => handlePressStart(c.chapterId)}
-                        onTouchEnd={handlePressEnd}
+                        onMouseDown={() => (pressTimerRef.current = setTimeout(() => setPressedId(c.chapterId), 600))}
+                        onMouseUp={() => clearTimeout(pressTimerRef.current)}
+                        onMouseLeave={() => clearTimeout(pressTimerRef.current)}
+                        onTouchStart={() => (pressTimerRef.current = setTimeout(() => setPressedId(c.chapterId), 600))}
+                        onTouchEnd={() => clearTimeout(pressTimerRef.current)}
                         onClick={() => (pressedId === c.chapterId ? null : navigate(`/detail/chapter/${c.chapterId}`))}
                       >
                         <S.ChapterLink>{c.title}</S.ChapterLink>

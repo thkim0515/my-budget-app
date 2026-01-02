@@ -1,104 +1,122 @@
 import styled from "styled-components";
-// 페이지 전체 레이아웃
+
 export const PageWrap = styled.div`
   max-width: 480px;
   margin: 0 auto;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  position: relative;
-  color: ${({ theme }) => theme.text};
+  background: ${({ theme }) => theme.background};
 `;
 
-// 상단 헤더 고정 영역
 export const HeaderFix = styled.div`
   position: fixed;
   top: 0;
-  left: 0;
-  right: 0;
-  margin: 0 auto;
+  width: 100%;
   max-width: 480px;
   z-index: 20;
 `;
 
-// 본문 스크롤 영역
 export const Content = styled.div`
   flex: 1;
   padding: 16px;
-  padding-top: 96px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+  padding-top: 80px;
   overflow-y: auto;
 `;
 
-// 카테고리 입력창
-export const InputBox = styled.input`
-  width: 100%;
-  padding: 10px;
+export const SectionTitle = styled.h3`
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 24px;
   margin-bottom: 12px;
-  border-radius: 6px;
-  border: 1px solid ${({ theme }) => theme.border};
-  background: ${({ theme }) => theme.card};
   color: ${({ theme }) => theme.text};
 `;
 
-// 등록 버튼
-export const Btn = styled.button`
-  width: 100%;
-  padding: 12px;
-  background: #1976d2;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  margin-bottom: 16px;
-`;
-
-// 기본 카테고리 보여주는 그리드
-export const DefaultGrid = styled.div`
+/* 인풋 박스와 버튼 높이 해결을 위한 Row */
+export const InputRow = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch; /* 자식 요소들의 높이를 동일하게 맞춤 */
+  height: 48px; /* 기준 높이 설정 */
   margin-bottom: 20px;
 `;
 
-// 기본 카테고리 태그
+export const InputBox = styled.input`
+  flex: 1;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid ${({ theme }) => theme.border};
+  background: ${({ theme }) => theme.card};
+  color: ${({ theme }) => theme.text};
+  font-size: 14px;
+  outline: none;
+  &:focus {
+    border-color: #1976d2;
+  }
+`;
+
+export const AddBtn = styled.button`
+  padding: 0 20px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+`;
+
+export const DefaultGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+`;
+
 export const DefaultTag = styled.div`
-  width: 25%;
-  padding: 10px;
+  padding: 10px 4px;
   text-align: center;
   background: ${({ theme }) => theme.card};
   border: 1px solid ${({ theme }) => theme.border};
-  border-radius: 6px;
-  box-sizing: border-box;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: ${({ theme }) => theme.text};
+  opacity: 0.8;
 `;
 
-// 추가 카테고리 리스트
 export const List = styled.ul`
-  margin-top: 16px;
   padding: 0;
   list-style: none;
 `;
 
-// 추가 카테고리 아이템
 export const Item = styled.li`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
-  margin-bottom: 10px;
+  padding: 14px;
+  margin-bottom: 8px;
   background: ${({ theme }) => theme.card};
-  border-radius: 6px;
+  border-radius: 10px;
   border: 1px solid ${({ theme }) => theme.border};
+  span {
+    font-size: 14px;
+    font-weight: 500;
+  }
 `;
 
-// 삭제 버튼
 export const DeleteBtn = styled.button`
-  padding: 6px 10px;
-  background: #d9534f;
-  color: white;
+  padding: 6px 12px;
+  background: #fee2e2;
+  color: #ef4444;
   border: none;
-  border-radius: 4px;
-`
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+`;
+
+export const EmptyMsg = styled.p`
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  margin-top: 20px;
+`;
