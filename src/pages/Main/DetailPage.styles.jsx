@@ -140,7 +140,7 @@ export const List = styled.ul`
   margin: 0;
 `;
 
-/* 리스트 아이템 컨테이너 */
+/* 리스트 아이템 컨테이너 - 드래그 최적화 수정 */
 export const ListItem = styled.li`
   display: flex;
   justify-content: space-between;
@@ -148,22 +148,30 @@ export const ListItem = styled.li`
   padding: 14px 16px;
   margin-bottom: 12px;
 
-  background: ${({ theme, $isEditing }) => ($isEditing ? "rgba(255, 215, 0, 0.1)" : theme.card)};
+  /* 드래그 및 수정 상태 배경색 */
+  background: ${({ theme, $isEditing, $isDragging }) => ($isDragging ? theme.border : $isEditing ? "rgba(255, 215, 0, 0.1)" : theme.card)};
 
   border-radius: 14px;
-  border: 1px solid ${({ theme }) => theme.border};
+  border: 1px solid ${({ theme, $isDragging }) => ($isDragging ? "#1976d2" : theme.border)};
 
   border-left: ${({ $isPaid }) => ($isPaid ? "5px solid #2ecc71" : "1px solid transparent")};
 
-  box-shadow: ${({ $isEditing }) => ($isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")};
+  /* 드래그 중일 때는 transition을 제거하여 튀는 현상 방지 */
+  transition: ${({ $isDragging }) => ($isDragging ? "none" : "background 0.2s ease, opacity 0.2s ease")};
 
-  opacity: ${({ $isPaid }) => ($isPaid ? 0.85 : 1)};
-  transition: all 0.2s ease;
-  cursor: pointer;
+  box-shadow: ${({ $isEditing, $isDragging }) => ($isDragging ? "0 8px 16px rgba(0,0,0,0.15)" : $isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")};
+
+  opacity: ${({ $isPaid, $isDragging }) => ($isDragging ? 0.9 : $isPaid ? 0.85 : 1)};
+  cursor: grab;
 
   &:active {
-    transform: scale(0.98);
+    /* 드래그 중이 아닐 때만 scale 효과 적용 */
+    transform: ${({ $isDragging }) => ($isDragging ? "none" : "scale(0.98)")};
+    cursor: grabbing;
   }
+
+  /* 드래그 라이브러리가 주입하는 transform 스타일을 유지하기 위해 터치 액션 제어 */
+  touch-action: none;
 `;
 
 export const CardInfo = styled.div`
@@ -249,23 +257,18 @@ export const RefreshContent = styled.div`
   transition: ${({ $isRefreshing, $pullDistance }) => ($isRefreshing || $pullDistance === 0 ? "transform 0.2s ease" : "none")};
 `;
 
-/* [수정] 다크 모드에서도 선명하게 보이는 하얀색 글자와 텍스트 그림자 적용 */
 export const PaidBadge = styled.span`
   background: ${({ theme }) => theme.paidBadgeBg};
   color: ${({ theme }) => theme.paidBadgeText};
   font-size: 10px;
   padding: 2px 7px;
   border-radius: 4px;
-  font-weight: 800; /* 글자를 더 굵게 하여 시인성 확보 */
+  font-weight: 800;
   margin-left: 8px;
   vertical-align: middle;
   display: inline-flex;
   align-items: center;
-
-  /* [추가] 텍스트 그림자를 넣어 하얀 글자가 배경 위에서 뚜렷하게 보이도록 함 */
   text-shadow: 0px 1px 1px rgba(0, 0, 0, 0.2);
-
-  /* [수정] 글자색이 흰색(#ffffff)일 때의 테두리 투명도 조정 */
   border: 1px solid ${({ theme }) => (theme.paidBadgeText === "#ffffff" ? "rgba(255, 255, 255, 0.3)" : "rgba(5, 150, 105, 0.1)")};
 `;
 
