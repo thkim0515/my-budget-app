@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { FiTrash2, FiGrid, FiCoffee, FiTruck, FiPhone, FiShoppingBag, FiMusic, FiCreditCard, FiRefreshCw } from "react-icons/fi";
+import { FiTrash2, FiGrid, FiCoffee, FiTruck, FiPhone, FiShoppingBag, FiMusic, FiCreditCard, FiRefreshCw, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import * as S from "../pages/Main/DetailPage.styles";
 import { formatNumber } from "../utils/numberFormat";
 
@@ -16,26 +16,27 @@ const categoryIconMap = {
 };
 
 export default function RecordList({
-  incomeList,
-  budgetList,
-  expenseList,
-  settings,
+  incomeList = [],
+  budgetList = [],
+  expenseList = [],
+  settings = {},
   editId,
   unit,
+  collapsedState = { income: false, budget: false, expense: false },
+  onToggleSection = () => {},
   onToggleIncomeGroup,
   onToggleExpenseGroup,
   onDragEnd,
   onEdit,
   onDelete,
-  onRefresh, // DetailPage에서 전달받은 동기화 함수
+  onRefresh,
 }) {
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startY = useRef(0);
 
-  // --- 당겨서 새로고침 로직 시작 ---
+  // --- 당겨서 새로고침 로직 ---
   const handleTouchStart = (e) => {
-    // 스크롤이 최상단일 때만 작동
     if (window.scrollY === 0) {
       startY.current = e.touches[0].pageY;
     }
@@ -45,9 +46,7 @@ export default function RecordList({
     if (startY.current === 0 || isRefreshing) return;
     const currentY = e.touches[0].pageY;
     const distance = currentY - startY.current;
-
     if (distance > 0) {
-      // 당기는 저항감 부여 (0.4 곱함)
       setPullDistance(distance * 0.4);
     }
   };
@@ -55,12 +54,10 @@ export default function RecordList({
   const handleTouchEnd = async () => {
     if (pullDistance > 50 && !isRefreshing) {
       setIsRefreshing(true);
-      setPullDistance(50); // 새로고침 중 위치 고정
-
+      setPullDistance(50);
       if (onRefresh) {
         await onRefresh();
       }
-
       setTimeout(() => {
         setIsRefreshing(false);
         setPullDistance(0);
@@ -70,7 +67,6 @@ export default function RecordList({
     }
     startY.current = 0;
   };
-  // --- 당겨서 새로고침 로직 끝 ---
 
   const renderItems = (list, droppableId, isGrouped) => (
     <Droppable droppableId={droppableId}>
@@ -103,11 +99,11 @@ export default function RecordList({
                         <span>
                           {r.category} · {String(r.date || r.createdAt).split("T")[0]}
                         </span>
+                        {r.isPaid && <S.PaidBadge style={{ marginLeft: "8px" }}>납부완료</S.PaidBadge>}
                         {r.isAggregated && r.count > 1 && <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>[{r.count}건 합산]</span>}
                       </S.CardMetaRow>
                       <S.CardTitle title={r.title}>
                         {r.title}
-                        {r.isPaid && <S.PaidBadge>납부완료</S.PaidBadge>}
                       </S.CardTitle>
                     </S.CardInfo>
                     <S.CardRight>
@@ -148,28 +144,67 @@ export default function RecordList({
           {/* 1. 수입 목록 */}
           <S.SectionHeader>
             <h3>수입 내역</h3>
-            <S.ToggleLabel onClick={onToggleIncomeGroup}>
-              <span>모아보기</span>
-              <S.ToggleSwitch $isOn={settings.isIncomeGrouped} />
-            </S.ToggleLabel>
+            <S.HeaderActions>
+              <S.ToggleLabel onClick={onToggleIncomeGroup}>
+                <span>모아보기</span>
+                <S.ToggleSwitch $isOn={settings.isIncomeGrouped} />
+              </S.ToggleLabel>
+              <S.CollapseBtn onClick={() => onToggleSection("income")}>
+                {collapsedState.income ? (
+                  <>
+                    <FiChevronDown /> 펼치기
+                  </>
+                ) : (
+                  <>
+                    <FiChevronUp /> 접기
+                  </>
+                )}
+              </S.CollapseBtn>
+            </S.HeaderActions>
           </S.SectionHeader>
-          {renderItems(incomeList, "incomeList", settings.isIncomeGrouped)}
+          {!collapsedState.income && renderItems(incomeList, "incomeList", settings.isIncomeGrouped)}
 
-          {/* 2. 예산 목록 (수동 지출) */}
+          {/* 2. 예산 목록 */}
           <S.SectionHeader>
             <h3>예산 목록 (직접 입력)</h3>
+            <S.HeaderActions>
+              <S.CollapseBtn onClick={() => onToggleSection("budget")}>
+                {collapsedState.budget ? (
+                  <>
+                    <FiChevronDown /> 펼치기
+                  </>
+                ) : (
+                  <>
+                    <FiChevronUp /> 접기
+                  </>
+                )}
+              </S.CollapseBtn>
+            </S.HeaderActions>
           </S.SectionHeader>
-          {renderItems(budgetList, "budgetList", false)}
+          {!collapsedState.budget && renderItems(budgetList, "budgetList", false)}
 
-          {/* 3. 지출 목록 (자동 지출) */}
+          {/* 3. 지출 목록 */}
           <S.SectionHeader>
             <h3>지출 목록 (자동 기록)</h3>
-            <S.ToggleLabel onClick={onToggleExpenseGroup}>
-              <span>모아보기</span>
-              <S.ToggleSwitch $isOn={settings.isExpenseGrouped} />
-            </S.ToggleLabel>
+            <S.HeaderActions>
+              <S.ToggleLabel onClick={onToggleExpenseGroup}>
+                <span>모아보기</span>
+                <S.ToggleSwitch $isOn={settings.isExpenseGrouped} />
+              </S.ToggleLabel>
+              <S.CollapseBtn onClick={() => onToggleSection("expense")}>
+                {collapsedState.expense ? (
+                  <>
+                    <FiChevronDown /> 펼치기
+                  </>
+                ) : (
+                  <>
+                    <FiChevronUp /> 접기
+                  </>
+                )}
+              </S.CollapseBtn>
+            </S.HeaderActions>
           </S.SectionHeader>
-          {renderItems(expenseList, "expenseList", settings.isExpenseGrouped)}
+          {!collapsedState.expense && renderItems(expenseList, "expenseList", settings.isExpenseGrouped)}
         </DragDropContext>
       </S.RefreshContent>
     </S.PullToRefreshContainer>

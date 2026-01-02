@@ -5,7 +5,7 @@ import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useSync } from "../../hooks/useSync";
 import { auth } from "../../db/firebase";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { FiRefreshCw } from "react-icons/fi"; // 새로고침 아이콘 추가
+import { FiRefreshCw } from "react-icons/fi";
 import * as S from "./MainPage.styles";
 
 const reorder = (list, startIndex, endIndex) => {
@@ -53,7 +53,7 @@ export default function MainPage() {
     if (startY.current === 0 || isSyncing) return;
     const currentY = e.touches[0].pageY;
     const distance = currentY - startY.current;
-    if (distance > 0) setPullDistance(distance * 0.4); // 저항감 부여
+    if (distance > 0) setPullDistance(distance * 0.4);
   };
 
   const handleTouchEnd = async () => {
@@ -119,6 +119,7 @@ export default function MainPage() {
 
   return (
     <S.PageWrap onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      {/* StatsPage와 일치시킨 고정 헤더 영역 */}
       <S.HeaderFix>
         <Header title="가계부" rightButton={<S.CreateBtn onClick={createTemporaryChapter}>새 내역 추가</S.CreateBtn>} />
       </S.HeaderFix>
@@ -128,10 +129,12 @@ export default function MainPage() {
         <FiRefreshCw />
       </S.RefreshIndicator>
 
+      {/* 리스트 래퍼 */}
       <S.ListWrap
+        $pullDistance={pullDistance}
+        $isRefreshing={isPullRefreshing}
         style={{
           transform: `translateY(${pullDistance}px)`,
-          transition: pullDistance === 0 || isPullRefreshing ? "transform 0.2s" : "none",
         }}
       >
         <DragDropContext onDragEnd={onDragEnd}>

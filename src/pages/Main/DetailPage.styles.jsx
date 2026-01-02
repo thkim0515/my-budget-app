@@ -9,6 +9,7 @@ export const PageWrap = styled.div`
   flex-direction: column;
   position: relative;
   color: ${({ theme }) => theme.text};
+  background-color: ${({ theme }) => theme.background};
 `;
 
 /* 상단 헤더 고정 영역 */
@@ -33,6 +34,10 @@ export const Content = styled.div`
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
 /* 요약 정보 박스 */
@@ -50,9 +55,16 @@ export const SummaryRow = styled.div`
   justify-content: space-between;
   margin-bottom: 6px;
   font-size: 15px;
+
+  &:last-child {
+    margin-bottom: 0;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed ${({ theme }) => theme.border};
+  }
 `;
 
-/* --- [추가] 토글 스위치 영역 --- */
+/* --- 토글 스위치 영역 --- */
 export const ControlBar = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -128,36 +140,33 @@ export const List = styled.ul`
   margin: 0;
 `;
 
-/* 리스트 아이템 컨테이너 - [수정됨] 납부완료($isPaid) 디자인 반영 */
+/* [수정] 리스트 아이템 컨테이너: 배경색 강조 제거, 좌측 바만 유지 */
 export const ListItem = styled.li`
   display: flex;
   justify-content: space-between;
   align-items: center;
-
   padding: 14px 16px;
   margin-bottom: 12px;
 
-  /* 배경색 우선순위: 수정 중 > 합산 모드 > 납부 완료 > 기본 */
-  background: ${({ theme, $isEditing, $isPaid, $isAggregated }) => {
-    if ($isEditing) return "rgba(255, 215, 0, 0.18)";
-    if ($isAggregated) return "#e3f2fd";
-    if ($isPaid) return theme.mode === "dark" ? "rgba(255, 255, 255, 0.05)" : "#f8f9fa";
-    return theme.card;
-  }};
+  /* 배경색은 기본 카드 색상 고정 (편집 중일 때만 최소한의 강조) */
+  background: ${({ theme, $isEditing }) => ($isEditing ? "rgba(255, 215, 0, 0.1)" : theme.card)};
 
   border-radius: 14px;
   border: 1px solid ${({ theme }) => theme.border};
 
-  /* 납부 완료 시 왼쪽 포인트 색상 추가 */
+  /* [중요] 좌측 표시선으로만 상태 구분 */
   border-left: ${({ $isPaid }) => ($isPaid ? "5px solid #2ecc71" : "1px solid transparent")};
 
-  box-shadow: ${({ $isEditing }) => ($isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.08)")};
+  box-shadow: ${({ $isEditing }) => ($isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")};
 
-  /* 납부 완료 시 시각적으로 '처리됨'을 느끼게 투명도 조절 */
-  opacity: ${({ $isPaid }) => ($isPaid ? 0.75 : 1)};
-
+  /* 납부 완료 시 투명도만 살짝 조정하여 처리된 느낌 부여 */
+  opacity: ${({ $isPaid }) => ($isPaid ? 0.85 : 1)};
   transition: all 0.2s ease;
   cursor: pointer;
+
+  &:active {
+    transform: scale(0.98);
+  }
 `;
 
 export const CardInfo = styled.div`
@@ -178,7 +187,7 @@ export const CardTitle = styled.div`
   text-overflow: ellipsis;
 `;
 
-/* 섹션 헤더 (수입/예산/지출 구분용) */
+/* 섹션 헤더 */
 export const SectionHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -195,6 +204,26 @@ export const SectionHeader = styled.div`
   }
 `;
 
+export const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+export const CollapseBtn = styled.button`
+  background: none;
+  border: 1px solid ${({ theme }) => theme.border};
+  color: ${({ theme }) => theme.text};
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  &:active {
+    background: ${({ theme }) => theme.border};
+  }
+`;
+
 /* 당겨서 새로고침 컨테이너 */
 export const PullToRefreshContainer = styled.div`
   position: relative;
@@ -202,7 +231,6 @@ export const PullToRefreshContainer = styled.div`
   user-select: none;
 `;
 
-/* 새로고침 인디케이터 (당길 때 나타나는 화살표/텍스트) */
 export const RefreshIndicator = styled.div`
   position: absolute;
   top: -50px;
@@ -224,16 +252,19 @@ export const RefreshContent = styled.div`
   transition: ${({ $isRefreshing, $pullDistance }) => ($isRefreshing || $pullDistance === 0 ? "transform 0.2s ease" : "none")};
 `;
 
-/* [추가] 납부완료 배지 */
+/* [수정] 모드별 테마가 적용된 PaidBadge */
 export const PaidBadge = styled.span`
-  background: #2ecc71;
-  color: white;
+  background: ${({ theme }) => theme.paidBadgeBg};
+  color: ${({ theme }) => theme.paidBadgeText};
   font-size: 10px;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
-  font-weight: bold;
-  margin-left: 6px;
+  font-weight: 700;
+  margin-left: 8px;
   vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid ${({ theme }) => (theme.paidBadgeText === "#6ee7b7" ? "rgba(110, 231, 183, 0.2)" : "rgba(5, 150, 105, 0.1)")};
 `;
 
 export const CardRight = styled.div`
@@ -252,18 +283,17 @@ export const CardAmount = styled.div`
 export const CardAction = styled.button`
   background: transparent;
   border: none;
-  color: #ff0000ff;
+  color: #d9534f;
   font-size: 18px;
-  opacity: 0.9;
+  opacity: 0.8;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: translateY(1px);
 
   &:hover {
     opacity: 1;
-    transform: translateY(1px) scale(1.1);
+    transform: scale(1.1);
   }
 `;
 
