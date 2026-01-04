@@ -17,7 +17,6 @@ const categoryIconMap = {
   기타: FiGrid,
 };
 
-// 드래그 중인 요소를 Portal로 띄워주기 위한 헬퍼 컴포넌트
 const DraggablePortal = ({ children, snapshot }) => {
   if (!snapshot.isDragging) return children;
   return ReactDOM.createPortal(children, document.body);
@@ -43,7 +42,6 @@ export default function RecordList({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startY = useRef(0);
 
-  // --- 당겨서 새로고침 로직 ---
   const handleTouchStart = (e) => {
     if (window.scrollY === 0) {
       startY.current = e.touches[0].pageY;
@@ -98,11 +96,9 @@ export default function RecordList({
                       id={`record-${r.id}`}
                       style={{
                         ...p.draggableProps.style,
-                        // Portal 사용 시 드래그 중인 항목의 너비를 고정해주어야 깨지지 않음 (필요 시 maxWidth 480px 내외)
+                        // 너비만 고정하고 위치 계산(left, transform)은 라이브러리에 맡깁니다.
                         width: snapshot.isDragging ? "calc(100% - 32px)" : "100%",
                         maxWidth: snapshot.isDragging ? "448px" : "none",
-                        left: snapshot.isDragging ? "50%" : p.draggableProps.style?.left,
-                        transform: snapshot.isDragging ? `${p.draggableProps.style?.transform} translateX(-50%)` : p.draggableProps.style?.transform,
                       }}
                     >
                       <S.CardInfo>
@@ -154,7 +150,6 @@ export default function RecordList({
 
       <S.RefreshContent $pullDistance={pullDistance} $isRefreshing={isRefreshing}>
         <DragDropContext onDragEnd={onDragEnd}>
-          {/* 1. 수입 목록 */}
           <S.SectionHeader>
             <h3>수입 내역</h3>
             <S.HeaderActions>
@@ -177,7 +172,6 @@ export default function RecordList({
           </S.SectionHeader>
           {!collapsedState.income && renderItems(incomeList, "incomeList", settings.isIncomeGrouped)}
 
-          {/* 2. 예산 목록 */}
           <S.SectionHeader>
             <h3>예산 목록 (직접 입력)</h3>
             <S.HeaderActions>
@@ -196,7 +190,6 @@ export default function RecordList({
           </S.SectionHeader>
           {!collapsedState.budget && renderItems(budgetList, "budgetList", false)}
 
-          {/* 3. 지출 목록 */}
           <S.SectionHeader>
             <h3>지출 목록 (자동 기록)</h3>
             <S.HeaderActions>

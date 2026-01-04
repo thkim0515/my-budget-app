@@ -1,6 +1,6 @@
+/* src/pages/Main/DetailPage.styles.jsx */
 import styled from "styled-components";
 
-/* 페이지 레이아웃 컨테이너 */
 export const PageWrap = styled.div`
   max-width: 480px;
   margin: 0 auto;
@@ -12,7 +12,6 @@ export const PageWrap = styled.div`
   background-color: ${({ theme }) => theme.bg};
 `;
 
-/* 상단 헤더 고정 영역 */
 export const HeaderFix = styled.div`
   position: fixed;
   top: 0;
@@ -24,7 +23,6 @@ export const HeaderFix = styled.div`
   z-index: 20;
 `;
 
-/* 콘텐츠 스크롤 영역 */
 export const Content = styled.div`
   flex: 1;
   overflow-y: auto;
@@ -34,13 +32,11 @@ export const Content = styled.div`
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-
   &::-webkit-scrollbar {
     display: none;
   }
 `;
 
-/* 요약 정보 박스 */
 export const SummaryBox = styled.div`
   background: ${({ theme }) => theme.card};
   border: 1px solid ${({ theme }) => theme.border};
@@ -49,13 +45,11 @@ export const SummaryBox = styled.div`
   margin-bottom: 20px;
 `;
 
-/* 요약행 스타일 */
 export const SummaryRow = styled.div`
   display: flex;
   justify-content: space-between;
   margin-bottom: 6px;
   font-size: 15px;
-
   &:last-child {
     margin-bottom: 0;
     margin-top: 8px;
@@ -64,7 +58,6 @@ export const SummaryRow = styled.div`
   }
 `;
 
-/* --- 토글 스위치 영역 --- */
 export const ControlBar = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -91,7 +84,6 @@ export const ToggleSwitch = styled.div`
   border-radius: 22px;
   transition: background-color 0.3s;
   flex-shrink: 0;
-
   &::after {
     content: "";
     position: absolute;
@@ -106,7 +98,6 @@ export const ToggleSwitch = styled.div`
   }
 `;
 
-/* 입력창 스타일 */
 export const InputBox = styled.input`
   width: 100%;
   padding: 10px;
@@ -117,14 +108,12 @@ export const InputBox = styled.input`
   color: ${({ theme }) => theme.text};
 `;
 
-/* 단위 버튼 행 */
 export const UnitBtnRow = styled.div`
   display: flex;
   gap: 10px;
   margin-bottom: 20px;
 `;
 
-/* 단위 버튼 */
 export const UnitBtn = styled.button`
   flex: 1;
   padding: 10px;
@@ -140,37 +129,23 @@ export const List = styled.ul`
   margin: 0;
 `;
 
-/* 리스트 아이템 컨테이너 - 드래그 최적화 수정 */
 export const ListItem = styled.li`
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
   margin-bottom: 12px;
-
-  /* 드래그 및 수정 상태 배경색 */
   background: ${({ theme, $isEditing, $isDragging }) => ($isDragging ? theme.border : $isEditing ? "rgba(255, 215, 0, 0.1)" : theme.card)};
-
   border-radius: 14px;
   border: 1px solid ${({ theme, $isDragging }) => ($isDragging ? "#1976d2" : theme.border)};
-
   border-left: ${({ $isPaid }) => ($isPaid ? "5px solid #2ecc71" : "1px solid transparent")};
-
-  /* 드래그 중일 때는 transition을 제거하여 튀는 현상 방지 */
   transition: ${({ $isDragging }) => ($isDragging ? "none" : "background 0.2s ease, opacity 0.2s ease")};
-
   box-shadow: ${({ $isEditing, $isDragging }) => ($isDragging ? "0 8px 16px rgba(0,0,0,0.15)" : $isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")};
-
   opacity: ${({ $isPaid, $isDragging }) => ($isDragging ? 0.9 : $isPaid ? 0.85 : 1)};
   cursor: grab;
-
   &:active {
-    /* 드래그 중이 아닐 때만 scale 효과 적용 */
-    transform: ${({ $isDragging }) => ($isDragging ? "none" : "scale(0.98)")};
     cursor: grabbing;
   }
-
-  /* 드래그 라이브러리가 주입하는 transform 스타일을 유지하기 위해 터치 액션 제어 */
   touch-action: none;
 `;
 
@@ -192,7 +167,6 @@ export const CardTitle = styled.div`
   text-overflow: ellipsis;
 `;
 
-/* 섹션 헤더 */
 export const SectionHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -200,7 +174,6 @@ export const SectionHeader = styled.div`
   margin-top: 24px;
   margin-bottom: 12px;
   padding: 0 4px;
-
   h3 {
     margin: 0;
     font-size: 16px;
@@ -229,7 +202,6 @@ export const CollapseBtn = styled.button`
   }
 `;
 
-/* 당겨서 새로고침 컨테이너 */
 export const PullToRefreshContainer = styled.div`
   position: relative;
   overflow: hidden;
@@ -295,7 +267,6 @@ export const CardAction = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-
   &:hover {
     opacity: 1;
     transform: scale(1.1);

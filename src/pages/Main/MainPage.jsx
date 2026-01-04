@@ -1,4 +1,6 @@
+/* src/pages/Main/MainPage.jsx */
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
@@ -15,6 +17,12 @@ const reorder = (list, startIndex, endIndex) => {
   return result;
 };
 
+// 드래그 중인 요소를 Portal로 띄워주기 위한 헬퍼 컴포넌트
+const DraggablePortal = ({ children, snapshot }) => {
+  if (!snapshot.isDragging) return children;
+  return ReactDOM.createPortal(children, document.body);
+};
+
 export default function MainPage() {
   const [chapters, setChapters] = useState([]);
   const [pressedId, setPressedId] = useState(null);
@@ -23,7 +31,6 @@ export default function MainPage() {
   const { db, getAll, getAllFromIndex, add, deleteItem, put } = useBudgetDB();
   const { syncWithFirestore, isSyncing } = useSync();
 
-  // --- 당겨서 새로고침 상태 ---
   const [pullDistance, setPullDistance] = useState(0);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const startY = useRef(0);
@@ -44,7 +51,6 @@ export default function MainPage() {
     }
   };
 
-  // --- 터치 이벤트 핸들러 ---
   const handleTouchStart = (e) => {
     if (window.scrollY === 0) startY.current = e.touches[0].pageY;
   };
@@ -80,6 +86,11 @@ export default function MainPage() {
 
   const displayedChapters = useMemo(() => chapters.filter((c) => !c.isTemporary), [chapters]);
 
+  // 드래그 시작 시 관리 모드 해제
+  const onDragStart = () => {
+    setPressedId(null);
+  };
+
   const onDragEnd = async (result) => {
     if (!result.destination) return;
     const reorderedList = reorder(displayedChapters, result.source.index, result.destination.index);
@@ -108,6 +119,7 @@ export default function MainPage() {
     await deleteItem("chapters", chapterId);
     const recordsInChapter = await getAllFromIndex("records", "chapterId", chapterId);
     for (let r of recordsInChapter) await deleteItem("records", r.id);
+    setPressedId(null);
     loadChapters();
   };
 
@@ -119,17 +131,14 @@ export default function MainPage() {
 
   return (
     <S.PageWrap onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-      {/* StatsPage와 일치시킨 고정 헤더 영역 */}
       <S.HeaderFix>
         <Header title="가계부" rightButton={<S.CreateBtn onClick={createTemporaryChapter}>새 내역 추가</S.CreateBtn>} />
       </S.HeaderFix>
 
-      {/* 새로고침 인디케이터 */}
       <S.RefreshIndicator $pullDistance={pullDistance} $isRefreshing={isSyncing}>
         <FiRefreshCw />
       </S.RefreshIndicator>
 
-      {/* 리스트 래퍼 */}
       <S.ListWrap
         $pullDistance={pullDistance}
         $isRefreshing={isPullRefreshing}
@@ -137,46 +146,66 @@ export default function MainPage() {
           transform: `translateY(${pullDistance}px)`,
         }}
       >
-        <DragDropContext onDragEnd={onDragEnd}>
+        <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
           <Droppable droppableId="chapterList">
             {(provided) => (
               <div ref={provided.innerRef} {...provided.droppableProps}>
                 {displayedChapters.map((c, index) => (
                   <Draggable key={c.chapterId} draggableId={String(c.chapterId)} index={index}>
-                    {(provided, snapshot) => (
-                      <S.ChapterItem
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        $completed={c.isCompleted}
-                        style={{ ...provided.draggableProps.style, opacity: snapshot.isDragging ? 0.7 : 1 }}
-                        onMouseDown={() => (pressTimerRef.current = setTimeout(() => setPressedId(c.chapterId), 600))}
-                        onMouseUp={() => clearTimeout(pressTimerRef.current)}
-                        onMouseLeave={() => clearTimeout(pressTimerRef.current)}
-                        onTouchStart={() => (pressTimerRef.current = setTimeout(() => setPressedId(c.chapterId), 600))}
-                        onTouchEnd={() => clearTimeout(pressTimerRef.current)}
-                        onClick={() => (pressedId === c.chapterId ? null : navigate(`/detail/chapter/${c.chapterId}`))}
-                      >
-                        <S.ChapterLink>{c.title}</S.ChapterLink>
-                        {pressedId === c.chapterId && (
-                          <S.CompleteBtn
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleComplete(c);
-                            }}
-                          >
-                            {c.isCompleted ? "취소" : "완료"}
-                          </S.CompleteBtn>
-                        )}
-                        <S.DeleteBtn
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteChapter(c.chapterId);
+                    {(p, snapshot) => (
+                      <DraggablePortal snapshot={snapshot}>
+                        <S.ChapterItem
+                          ref={p.innerRef}
+                          {...p.draggableProps}
+                          {...p.dragHandleProps}
+                          $completed={c.isCompleted}
+                          $isDragging={snapshot.isDragging}
+                          $isPressed={pressedId === c.chapterId}
+                          style={{
+                            ...p.draggableProps.style,
+                            // 포탈로 빠져나갔을 때 너비가 0이 되지 않도록 고정 (앱 최대 너비 480px 고려)
+                            width: snapshot.isDragging ? "calc(100% - 32px)" : "100%",
+                            maxWidth: snapshot.isDragging ? "448px" : "none",
                           }}
+                          onMouseDown={() => (pressTimerRef.current = setTimeout(() => setPressedId(c.chapterId), 600))}
+                          onMouseUp={() => clearTimeout(pressTimerRef.current)}
+                          onMouseLeave={() => clearTimeout(pressTimerRef.current)}
+                          onTouchStart={() => (pressTimerRef.current = setTimeout(() => setPressedId(c.chapterId), 600))}
+                          onTouchEnd={() => clearTimeout(pressTimerRef.current)}
+                          onClick={() => (pressedId === c.chapterId ? null : navigate(`/detail/chapter/${c.chapterId}`))}
                         >
-                          삭제
-                        </S.DeleteBtn>
-                      </S.ChapterItem>
+                          {pressedId === c.chapterId ? (
+                            <S.ActionGroup onClick={(e) => e.stopPropagation()}>
+                              <S.CompleteBtn
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleComplete(c);
+                                }}
+                              >
+                                {c.isCompleted ? "미완료" : "완료"}
+                              </S.CompleteBtn>
+                              <S.DeleteBtn
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteChapter(c.chapterId);
+                                }}
+                              >
+                                삭제
+                              </S.DeleteBtn>
+                              <S.CloseBtn
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPressedId(null);
+                                }}
+                              >
+                                닫기
+                              </S.CloseBtn>
+                            </S.ActionGroup>
+                          ) : (
+                            <S.ChapterLink>{c.title}</S.ChapterLink>
+                          )}
+                        </S.ChapterItem>
+                      </DraggablePortal>
                     )}
                   </Draggable>
                 ))}
