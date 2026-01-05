@@ -1,3 +1,4 @@
+/* src/utils/notiParser.js */
 import { db } from "../db/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
@@ -12,6 +13,8 @@ export const formatChapterTitle = (dateString) => {
 };
 
 // 인터넷 미연결 시 사용할 기본값 (Fallback Data)
+let IGNORE_KEYWORDS = ["광고", "수신거부", "할인", "이벤트", "안내", "혜택", "무료", "쿠폰", "점검"];
+
 let CATEGORY_RULES = [
   { category: "편의점", keywords: ["gs25", "cu", "세븐일레븐", "미니스톱", "이마트24", "편의점"] },
   { category: "구독", keywords: ["넷플릭스", "netflix", "spotify", "유튜브", "디즈니", "쿠팡와우", "네이버플러스"] },
@@ -52,6 +55,7 @@ export const syncParsingRules = () => {
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
       const data = docSnap.data();
+      if (data.IGNORE_KEYWORDS) IGNORE_KEYWORDS = data.IGNORE_KEYWORDS; // 무시 키워드 동기화 추가
       if (data.CATEGORY_RULES) CATEGORY_RULES = data.CATEGORY_RULES;
       if (data.bankMap) bankMap = data.bankMap;
       // console.log("파싱 규칙 실시간 동기화 완료");
@@ -73,6 +77,11 @@ const detectCategory = (text) => {
 
 export const parseAndCreateRecord = (text) => {
   if (!text || typeof text !== "string") return null;
+
+  // [추가] 광고 및 무시 키워드 필터링 (최우선 처리)
+  if (IGNORE_KEYWORDS.some(k => text.includes(k))) {
+    return null;
+  }
 
   const cleanText = text.replace(/\n+/g, " ").replace(/[()[\]]/g, " ").replace(/\s+/g, " ").trim();
 

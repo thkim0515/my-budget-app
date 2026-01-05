@@ -40,16 +40,17 @@ export default function RecordList({
 }) {
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false); // 드래그 중 새로고침 방지용
   const startY = useRef(0);
 
   const handleTouchStart = (e) => {
-    if (window.scrollY === 0) {
-      startY.current = e.touches[0].pageY;
-    }
+    // 드래그 중이거나 스크롤이 맨 위가 아니면 무시
+    if (isDragActive || window.scrollY !== 0) return;
+    startY.current = e.touches[0].pageY;
   };
 
   const handleTouchMove = (e) => {
-    if (startY.current === 0 || isRefreshing) return;
+    if (startY.current === 0 || isRefreshing || isDragActive) return;
     const currentY = e.touches[0].pageY;
     const distance = currentY - startY.current;
     if (distance > 0) {
@@ -74,6 +75,15 @@ export default function RecordList({
     startY.current = 0;
   };
 
+  const handleBeforeDragStart = () => {
+    setIsDragActive(true);
+  };
+
+  const handleDragEndAction = (result) => {
+    setIsDragActive(false);
+    onDragEnd(result);
+  };
+
   const renderItems = (list, droppableId, isGrouped) => (
     <Droppable droppableId={droppableId}>
       {(provided) => (
@@ -81,14 +91,19 @@ export default function RecordList({
           {list.map((r, index) => {
             const CategoryIcon = categoryIconMap[r.category] || FiGrid;
             return (
-              <Draggable key={r.id} draggableId={String(r.id)} index={index} isDragDisabled={isGrouped || (r.isAggregated && r.count > 1)}>
+              <Draggable 
+                key={r.id} 
+                draggableId={String(r.id)} 
+                index={index} 
+                isDragDisabled={isGrouped || (r.isAggregated && r.count > 1)}
+              >
                 {(p, snapshot) => (
                   <DraggablePortal snapshot={snapshot}>
                     <S.ListItem
                       ref={p.innerRef}
                       {...p.draggableProps}
                       {...p.dragHandleProps}
-                      onClick={() => onEdit(r)}
+                      onClick={() => !snapshot.isDragging && onEdit(r)}
                       $isEditing={r.id === editId}
                       $isDragging={snapshot.isDragging}
                       $isPaid={r.isPaid}
@@ -96,7 +111,6 @@ export default function RecordList({
                       id={`record-${r.id}`}
                       style={{
                         ...p.draggableProps.style,
-                        // 너비만 고정하고 위치 계산(left, transform)은 라이브러리에 맡깁니다.
                         width: snapshot.isDragging ? "calc(100% - 32px)" : "100%",
                         maxWidth: snapshot.isDragging ? "448px" : "none",
                       }}
@@ -149,7 +163,7 @@ export default function RecordList({
       </S.RefreshIndicator>
 
       <S.RefreshContent $pullDistance={pullDistance} $isRefreshing={isRefreshing}>
-        <DragDropContext onDragEnd={onDragEnd}>
+        <DragDropContext onBeforeDragStart={handleBeforeDragStart} onDragEnd={handleDragEndAction}>
           <S.SectionHeader>
             <h3>수입 내역</h3>
             <S.HeaderActions>

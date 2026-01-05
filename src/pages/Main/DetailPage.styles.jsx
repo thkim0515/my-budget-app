@@ -135,18 +135,35 @@ export const ListItem = styled.li`
   align-items: center;
   padding: 14px 16px;
   margin-bottom: 12px;
-  background: ${({ theme, $isEditing, $isDragging }) => ($isDragging ? theme.border : $isEditing ? "rgba(255, 215, 0, 0.1)" : theme.card)};
+  background: ${({ theme, $isEditing, $isDragging }) => 
+    $isDragging ? theme.card : ($isEditing ? "rgba(255, 215, 0, 0.1)" : theme.card)
+  };
   border-radius: 14px;
   border: 1px solid ${({ theme, $isDragging }) => ($isDragging ? "#1976d2" : theme.border)};
-  border-left: ${({ $isPaid }) => ($isPaid ? "5px solid #2ecc71" : "1px solid transparent")};
-  transition: ${({ $isDragging }) => ($isDragging ? "none" : "background 0.2s ease, opacity 0.2s ease")};
-  box-shadow: ${({ $isEditing, $isDragging }) => ($isDragging ? "0 8px 16px rgba(0,0,0,0.15)" : $isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")};
-  opacity: ${({ $isPaid, $isDragging }) => ($isDragging ? 0.9 : $isPaid ? 0.85 : 1)};
+  border-left: ${({ $isPaid, $isDragging }) => 
+    $isDragging ? "1px solid #1976d2" : ($isPaid ? "5px solid #2ecc71" : "1px solid transparent")
+  };
+  
+  /* 붕 뜨는 효과를 위한 핵심 로직 */
+  transition: ${({ $isDragging }) => ($isDragging ? "none" : "background 0.2s ease, transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease")};
+  transform: ${({ $isDragging }) => ($isDragging ? "scale(1.04)" : "scale(1)")};
+  box-shadow: ${({ $isEditing, $isDragging }) => 
+    $isDragging ? "0 15px 30px rgba(0,0,0,0.2)" : ($isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")
+  };
+  
+  z-index: ${({ $isDragging }) => ($isDragging ? 9999 : 1)};
+  opacity: ${({ $isPaid, $isDragging }) => ($isDragging ? 1 : ($isPaid ? 0.85 : 1))};
+  
+  /* 모바일 DND 최적화 */
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+
   &:active {
     cursor: grabbing;
   }
-  touch-action: none;
 `;
 
 export const CardInfo = styled.div`

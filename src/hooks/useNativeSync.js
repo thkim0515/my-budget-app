@@ -7,7 +7,7 @@ import { useBudgetDB } from "./useBudgetDB";
 import { useSettings } from "../context/SettingsContext";
 
 export const useNativeSync = () => {
-  // 중복 검사를 위해 getAllRaw(삭제된 것 포함 전체) 사용 권장
+  // 중복 검사를 위해 getAllRaw(삭제된 것 포함 전체) 사용
   const { db, add, getAll, getAllRaw, deleteItem } = useBudgetDB();
   const { settings } = useSettings();
   const isRunningRef = useRef(false);
@@ -20,11 +20,14 @@ export const useNativeSync = () => {
     if (platform !== "android") return;
 
     isRunningRef.current = true;
-    // console.log("[Native Sync] 동기화 프로세스 시작...");
+    console.log("[Native Sync] 동기화 프로세스 시작...");
 
     try {
       const permission = await BudgetPlugin.hasNotificationAccess();
-      if (!permission || !permission.granted) return;
+      if (!permission || !permission.granted) {
+        isRunningRef.current = false;
+        return;
+      }
 
       const result = await BudgetPlugin.getPendingNotifications();
       const jsonString = result.data || "[]";
@@ -58,7 +61,7 @@ export const useNativeSync = () => {
           // 같은 금액, 비슷한 상호명을 가진 최근 내역 찾기
           const target = records.find(
             (r) =>
-              !r.isDeleted && // 삭제되지 않은 것 중에서
+              !r.isDeleted && 
               r.amount === recordData.amount &&
               (r.title.includes(recordData.title) || recordData.title.includes(r.title))
           );
@@ -71,23 +74,24 @@ export const useNativeSync = () => {
           continue;
         }
 
-        // 3. [개선] 스마트 중복 방지 (시간차 기반)
-        // 조건: 금액 일치 AND 상호명 유사 AND 시간차 5분(300000ms) 이내
+        // 3. [개선] 초단위 정밀 중복 방지 (연달아 결제 대응)
+        // 조건: 금액 일치 AND 상호명 유사 AND 시간차 1초(1000ms) 미만
+        // 시스템에 의해 거의 동시에 들어오는 중복 알림만 차단하고, 실제 연달아 결제한 내역은 저장함
         const isDuplicate = records.some((r) => {
           if (r.isDeleted) return false;
 
           const isSameAmount = r.amount === recordData.amount;
-          const isSameTitle = r.title.includes(recordData.title) || recordData.title.includes(r.title);
+          const isSameTitle = r.title === recordData.title || r.title.includes(recordData.title) || recordData.title.includes(r.title);
 
           const dbTime = new Date(r.createdAt).getTime();
           const notiTime = noti.time || Date.now();
           const timeDiff = Math.abs(dbTime - notiTime);
 
-          return isSameAmount && isSameTitle && timeDiff < 300000;
+          return isSameAmount && isSameTitle && timeDiff < 1000;
         });
 
         if (isDuplicate) {
-          console.warn("[Native Sync] 중복 알림 차단:", recordData.title);
+          console.warn("[Native Sync] 중복 알림 차단 (1초 이내 동일 데이터):", recordData.title);
           continue;
         }
 
@@ -114,10 +118,10 @@ export const useNativeSync = () => {
         // 5. 최종 저장
         const { chapterTitle, isCancellation, ...finalRecord } = recordData;
 
-        // noti.time이 있으면 그걸 생성일로 사용 (정확도 향상)
+        // 알림 발생 시간(noti.time)을 생성일로 사용하여 정확도 유지
         const creationTime = noti.time ? new Date(noti.time) : new Date();
 
-        // [변경] inputMode: "auto" 필드 추가하여 자동 지출 목록으로 분류되도록 함
+        // inputMode: "auto" 필드를 추가하여 자동 지출 목록으로 분류
         const newRecordId = await add("records", {
           ...finalRecord,
           createdAt: creationTime,
@@ -139,7 +143,7 @@ export const useNativeSync = () => {
 
       await BudgetPlugin.clearNotifications();
 
-      // [핵심] 클라우드 동기화 트리거 발동
+      // 클라우드 동기화 트리거 발동
       window.dispatchEvent(new CustomEvent("budget-db-updated"));
     } catch (error) {
       console.error("[Native Sync] 에러:", error);
