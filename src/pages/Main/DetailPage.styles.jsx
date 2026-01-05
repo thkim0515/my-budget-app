@@ -129,12 +129,30 @@ export const List = styled.ul`
   margin: 0;
 `;
 
+/**
+ * ListItem: 브라우저 스크롤 간섭을 해결하기 위한 핵심 스타일
+ */
 export const ListItem = styled.li`
+  margin-bottom: 12px;
+  outline: none;
+  
+  /* [중요] 롱 프레스 시 브라우저가 스크롤로 인식하지 못하게 차단 */
+  touch-action: none; 
+  
+  /* 텍스트 선택 방지 및 터치 하이라이트 제거 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  
+  z-index: ${({ $isDragging }) => ($isDragging ? 9999 : 1)};
+`;
+
+export const ItemCard = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  margin-bottom: 12px;
   background: ${({ theme, $isEditing, $isDragging }) => 
     $isDragging ? theme.card : ($isEditing ? "rgba(255, 215, 0, 0.1)" : theme.card)
   };
@@ -144,22 +162,17 @@ export const ListItem = styled.li`
     $isDragging ? "1px solid #1976d2" : ($isPaid ? "5px solid #2ecc71" : "1px solid transparent")
   };
   
-  /* 붕 뜨는 효과를 위한 핵심 로직 */
+  /* 드래그 시 즉각적인 반응을 위해 transition 조건부 제거 */
   transition: ${({ $isDragging }) => ($isDragging ? "none" : "background 0.2s ease, transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease")};
-  transform: ${({ $isDragging }) => ($isDragging ? "scale(1.04)" : "scale(1)")};
+  
+  /* 드래그 중인 항목 시각적 강조 */
+  transform: ${({ $isDragging }) => ($isDragging ? "scale(1.05)" : "scale(1)")};
   box-shadow: ${({ $isEditing, $isDragging }) => 
-    $isDragging ? "0 15px 30px rgba(0,0,0,0.2)" : ($isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")
+    $isDragging ? "0 15px 35px rgba(0,0,0,0.3)" : ($isEditing ? "0 0 0 2px #f1c40f" : "0 4px 12px rgba(0,0,0,0.05)")
   };
   
-  z-index: ${({ $isDragging }) => ($isDragging ? 9999 : 1)};
   opacity: ${({ $isPaid, $isDragging }) => ($isDragging ? 1 : ($isPaid ? 0.85 : 1))};
-  
-  /* 모바일 DND 최적화 */
   cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
 
   &:active {
     cursor: grabbing;
