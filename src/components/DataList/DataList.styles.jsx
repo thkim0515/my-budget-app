@@ -1,3 +1,4 @@
+/* src/components/DataList/DataList.styles.jsx */
 import styled, { keyframes } from "styled-components";
 
 const spin = keyframes`
@@ -14,6 +15,7 @@ export const List = styled.ul`
 export const ListItem = styled.li`
   margin-bottom: 12px;
   outline: none;
+  list-style: none; /* 드래그 시 포탈로 이동해도 점이 안 보이도록 추가 */
   touch-action: none; 
   user-select: none;
   -webkit-user-select: none;

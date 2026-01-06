@@ -1,4 +1,4 @@
-/* src/components/RecordList.jsx */
+/* src/components/DataList/DataList.jsx */
 import React, { useState, useRef } from "react";
 import ReactDOM from "react-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
