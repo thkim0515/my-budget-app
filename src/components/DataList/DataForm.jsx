@@ -1,4 +1,4 @@
-import * as S from "./RecordForm.styles"
+import * as S from "./DataForm.styles"
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 
 export default function RecordForm({

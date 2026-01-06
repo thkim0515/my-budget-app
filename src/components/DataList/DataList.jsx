@@ -3,7 +3,7 @@ import React, { useState, useRef } from "react";
 import ReactDOM from "react-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { FiTrash2, FiGrid, FiCoffee, FiTruck, FiPhone, FiShoppingBag, FiMusic, FiCreditCard, FiRefreshCw, FiChevronDown, FiChevronUp } from "react-icons/fi";
-import * as S from "./RecordList.styles";
+import * as S from "./DataList.styles";
 import { formatNumber } from "../../utils/numberFormat";
 
 const categoryIconMap = {

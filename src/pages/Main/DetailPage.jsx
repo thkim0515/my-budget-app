@@ -9,8 +9,8 @@ import { useSettings } from "../../context/SettingsContext";
 import { useSync } from "../../hooks/useSync";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 
-import RecordForm from "../../components/DataList/RecordForm";
-import RecordList from "../../components/DataList/RecordList";
+import DataForm from "../../components/DataList/DataForm";
+import DataList from "../../components/DataList/DataList";
 
 import { auth } from "../../db/firebase";
 import * as S from "./DetailPage.styles";
@@ -412,7 +412,7 @@ export default function DetailPage() {
           </S.SummaryRow>
         </S.SummaryBox>
 
-        <RecordForm
+        <DataForm
           isEditing={isEditing}
           editRecord={editRecord}
           editType={editType}
@@ -431,7 +431,7 @@ export default function DetailPage() {
         />
 
         {/* [요구사항 5] 접어두기 상태 및 함수 전달 */}
-        <RecordList
+        <DataList
           incomeList={incomeList}
           budgetList={budgetList}
           expenseList={autoExpenseList}
