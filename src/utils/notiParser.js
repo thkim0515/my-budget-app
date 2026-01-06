@@ -13,7 +13,7 @@ export const formatChapterTitle = (dateString) => {
 };
 
 // 인터넷 미연결 시 사용할 기본값 (Fallback Data)
-let IGNORE_KEYWORDS = ["광고", "수신거부", "할인", "이벤트", "안내", "혜택", "무료", "쿠폰", "점검"];
+let IGNORE_KEYWORDS = ["광고", "수신거부", "할인", "이벤트", "안내", "혜택", "무료", "쿠폰", "점검", "적립", "포인트", "리워드"];
 
 let CATEGORY_RULES = [
   { category: "편의점", keywords: ["gs25", "cu", "세븐일레븐", "미니스톱", "이마트24", "편의점"] },
