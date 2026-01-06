@@ -3,8 +3,8 @@ import React, { useState, useRef } from "react";
 import ReactDOM from "react-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { FiTrash2, FiGrid, FiCoffee, FiTruck, FiPhone, FiShoppingBag, FiMusic, FiCreditCard, FiRefreshCw, FiChevronDown, FiChevronUp } from "react-icons/fi";
-import * as S from "../pages/Main/DetailPage.styles";
-import { formatNumber } from "../utils/numberFormat";
+import * as S from "./RecordList.styles";
+import { formatNumber } from "../../utils/numberFormat";
 
 const categoryIconMap = {
   식비: FiCoffee,

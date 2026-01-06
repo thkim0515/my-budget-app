@@ -1,5 +1,5 @@
-import * as S from "../pages/Main/DetailPage.styles";
-import { formatNumber, unformatNumber } from "../utils/numberFormat";
+import * as S from "./RecordForm.styles"
+import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 
 export default function RecordForm({
   isEditing,

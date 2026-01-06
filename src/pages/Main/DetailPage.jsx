@@ -9,8 +9,8 @@ import { useSettings } from "../../context/SettingsContext";
 import { useSync } from "../../hooks/useSync";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 
-import RecordForm from "../../components/RecordForm";
-import RecordList from "../../components/RecordList";
+import RecordForm from "../../components/DataList/RecordForm";
+import RecordList from "../../components/DataList/RecordList";
 
 import { auth } from "../../db/firebase";
 import * as S from "./DetailPage.styles";
