@@ -6,13 +6,11 @@ import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useSettings } from "../../context/SettingsContext";
-import { useSync } from "../../hooks/useSync";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 
 import DataForm from "../../components/DataList/DataForm";
 import DataList from "../../components/DataList/DataList";
 
-import { auth } from "../../db/firebase";
 import * as S from "./DetailPage.styles";
 
 /* 한국 시간(KST) 기준 오늘 날짜 문자열(YYYY-MM-DD) 반환 헬퍼 */
@@ -78,7 +76,6 @@ export default function DetailPage() {
   const { unit } = useCurrencyUnit();
   const { db, getAll, getAllFromIndex, add, put, deleteItem } = useBudgetDB();
   const { settings, updateSetting } = useSettings();
-  const { syncWithFirestore, isSyncing } = useSync();
 
   const [records, setRecords] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
@@ -97,6 +94,7 @@ export default function DetailPage() {
   const [editId, setEditId] = useState(null);
   const [editType, setEditType] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   // [요구사항 5] 접어두기 상태 (로컬스토리지 연동 - 월에 상관없이 전역 적용)
   const [collapsedState, setCollapsedState] = useState(() => {
@@ -115,14 +113,6 @@ export default function DetailPage() {
       ...prev,
       [section]: !prev[section],
     }));
-  };
-
-  const handleRefresh = async () => {
-    if (auth.currentUser) {
-      await syncWithFirestore(auth.currentUser.uid);
-    } else {
-      alert("로그인이 필요한 기능입니다.");
-    }
   };
 
   useEffect(() => {
@@ -337,6 +327,7 @@ export default function DetailPage() {
   };
 
   const onDragEnd = async (result) => {
+    if (!isReorderMode) return;
     const { source, destination } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
@@ -367,18 +358,58 @@ export default function DetailPage() {
       for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i, updatedAt: Date.now() });
     }
     loadData();
-    window.dispatchEvent(new CustomEvent("budget-db-updated"));
+      window.dispatchEvent(new CustomEvent("budget-db-updated"));
   };
+
+  const reorderModeToggle = () => setIsReorderMode((prev) => !prev);
 
   return (
     <S.PageWrap>
       <S.HeaderFix>
         <Header
           title={isChapterMode ? (chapter?.isTemporary ? "내역 입력" : chapter?.title) : `${date} 상세 내역`}
-          rightElement={
-            <button onClick={handleRefresh} disabled={isSyncing} style={{ background: "none", border: "none", color: "white", fontSize: "14px", cursor: "pointer", opacity: isSyncing ? 0.5 : 1 }}>
-              {isSyncing ? "동기화 중..." : "새로고침"}
-            </button>
+          rightButton={
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  fontSize: 12,
+                  color: "white",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  userSelect: "none",
+                }}
+                onClick={reorderModeToggle}
+              >
+                <span>순서 편집</span>
+                <span
+                  style={{
+                    position: "relative",
+                    width: 32,
+                    height: 16,
+                    borderRadius: 12,
+                    background: isReorderMode ? "#4caf50" : "#ccc",
+                    display: "inline-block",
+                    transition: "background-color 0.2s ease",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 1,
+                      left: isReorderMode ? 16 : 1,
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: "white",
+                      transition: "left 0.2s ease",
+                    }}
+                  />
+                </span>
+              </label>
+            </div>
           }
         />
       </S.HeaderFix>
@@ -445,7 +476,8 @@ export default function DetailPage() {
           onDragEnd={onDragEnd}
           onEdit={startEdit}
           onDelete={deleteRecord}
-          onRefresh={handleRefresh}
+          enablePullToRefresh={false}
+          isReorderMode={isReorderMode}
         />
       </S.Content>
     </S.PageWrap>

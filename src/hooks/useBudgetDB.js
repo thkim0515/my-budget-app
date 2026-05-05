@@ -43,32 +43,61 @@ export function useBudgetDB() {
     [db]
   );
 
+  const mapRecord = (store, data, providedId) => {
+    const now = Date.now();
+    const id = providedId || data.id || data.chapterId || crypto.randomUUID();
+    const item = {
+      ...data,
+      updatedAt: now,
+      isDeleted: false,
+    };
+
+    if (store === "chapters") {
+      item.chapterId = id;
+    } else {
+      item.id = id;
+    }
+
+    return item;
+  };
+
   // [수정] silent 옵션 추가: true일 경우 이벤트 발생 안 함 (무한 루프 방지)
   const add = useCallback(
     async (store, data, silent = false) => {
       if (!db) return;
-      const now = Date.now();
-      const id = data.id || crypto.randomUUID();
-
-      const itemToSave = {
-        ...data,
-        updatedAt: now,
-        isDeleted: false,
-      };
-
-      if (store === "chapters") {
-        itemToSave.chapterId = id;
-      } else {
-        itemToSave.id = id;
-      }
-
+      const itemToSave = mapRecord(store, data);
       await db.add(store, itemToSave);
 
       if (!silent) {
         window.dispatchEvent(new CustomEvent("budget-db-updated"));
       }
 
-      return id;
+      return store === "chapters" ? itemToSave.chapterId : itemToSave.id;
+    },
+    [db]
+  );
+
+  const addMany = useCallback(
+    async (store, items = [], silent = false) => {
+      if (!db) return [];
+
+      const savedIds = [];
+      for (const item of items) {
+        const itemToSave = mapRecord(store, item);
+        const hasKey = store === "chapters" ? item.chapterId : item.id;
+        const key = hasKey || itemToSave.chapterId || itemToSave.id;
+        if (key) {
+          itemToSave[store === "chapters" ? "chapterId" : "id"] = key;
+        }
+        await db.add(store, itemToSave);
+        savedIds.push(store === "chapters" ? itemToSave.chapterId : itemToSave.id);
+      }
+
+      if (!silent) {
+        window.dispatchEvent(new CustomEvent("budget-db-updated"));
+      }
+
+      return savedIds;
     },
     [db]
   );
@@ -86,6 +115,28 @@ export function useBudgetDB() {
         window.dispatchEvent(new CustomEvent("budget-db-updated"));
       }
       return result;
+    },
+    [db]
+  );
+
+  const putMany = useCallback(
+    async (store, items = [], silent = false) => {
+      if (!db) return [];
+
+      const results = [];
+      for (const item of items) {
+        const result = await db.put(store, {
+          ...item,
+          updatedAt: Date.now(),
+        });
+        results.push(result);
+      }
+
+      if (!silent) {
+        window.dispatchEvent(new CustomEvent("budget-db-updated"));
+      }
+
+      return results;
     },
     [db]
   );
@@ -124,10 +175,12 @@ export function useBudgetDB() {
     get,
     getAll,
     getAllRaw,
-    getAllFromIndex,
-    add,
-    put,
-    deleteItem,
-    clear,
-  };
-}
+      getAllFromIndex,
+      addMany,
+      add,
+      put,
+      putMany,
+      deleteItem,
+      clear,
+    };
+  }

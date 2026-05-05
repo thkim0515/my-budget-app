@@ -27,6 +27,7 @@ export default function RecordList({
   incomeList = [],
   budgetList = [],
   expenseList = [],
+  isReorderMode = false,
   settings = {},
   editId,
   unit,
@@ -38,6 +39,7 @@ export default function RecordList({
   onEdit,
   onDelete,
   onRefresh,
+  enablePullToRefresh = true,
 }) {
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -45,12 +47,14 @@ export default function RecordList({
   const startY = useRef(0);
 
   const handleTouchStart = (e) => {
+    if (!enablePullToRefresh) return;
     // 드래그 중이거나 스크롤이 맨 위가 아니면 새로고침 무시
     if (isDragActive || window.scrollY !== 0) return;
     startY.current = e.touches[0].pageY;
   };
 
   const handleTouchMove = (e) => {
+    if (!enablePullToRefresh) return;
     if (startY.current === 0 || isRefreshing || isDragActive) return;
     const currentY = e.touches[0].pageY;
     const distance = currentY - startY.current;
@@ -60,6 +64,7 @@ export default function RecordList({
   };
 
   const handleTouchEnd = async () => {
+    if (!enablePullToRefresh) return;
     if (pullDistance > 50 && !isRefreshing) {
       setIsRefreshing(true);
       setPullDistance(50);
@@ -77,6 +82,7 @@ export default function RecordList({
   };
 
   const handleBeforeDragStart = () => {
+    if (!isReorderMode) return;
     setIsDragActive(true);
   };
 
@@ -91,15 +97,17 @@ export default function RecordList({
         <S.List ref={provided.innerRef} {...provided.droppableProps}>
           {list.map((r, index) => {
             const CategoryIcon = categoryIconMap[r.category] || FiGrid;
+            const isDragDisabled = !isReorderMode || isGrouped || (r.isAggregated && r.count > 1);
             return (
-              <Draggable key={r.id} draggableId={String(r.id)} index={index} isDragDisabled={isGrouped || (r.isAggregated && r.count > 1)}>
+              <Draggable key={r.id} draggableId={String(r.id)} index={index} isDragDisabled={isDragDisabled}>
                 {(p, snapshot) => (
                   <DraggablePortal snapshot={snapshot}>
                     <S.ListItem
                       ref={p.innerRef}
                       {...p.draggableProps}
-                      {...p.dragHandleProps}
+                      {...(!isDragDisabled ? p.dragHandleProps : {})}
                       $isDragging={snapshot.isDragging}
+                      $isReorderMode={isReorderMode}
                       id={`record-${r.id}`}
                       style={{
                         ...p.draggableProps.style,
@@ -109,9 +117,9 @@ export default function RecordList({
                         margin: snapshot.isDragging ? 0 : "0 0 12px 0",
                       }}
                     >
-                      <S.ItemCard
-                        onClick={() => !snapshot.isDragging && onEdit(r)}
-                        $isEditing={r.id === editId}
+                        <S.ItemCard
+                          onClick={() => !snapshot.isDragging && onEdit(r)}
+                          $isEditing={r.id === editId}
                         $isDragging={snapshot.isDragging}
                         $isPaid={r.isPaid}
                         $isAggregated={r.isAggregated && r.count > 1}
@@ -159,12 +167,21 @@ export default function RecordList({
   );
 
   return (
-    <S.PullToRefreshContainer onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-      <S.RefreshIndicator $pullDistance={pullDistance} $isRefreshing={isRefreshing}>
-        {isRefreshing ? <FiRefreshCw className="spin" /> : pullDistance > 40 ? "놓아서 새로고침" : "아래로 당겨서 새로고침"}
-      </S.RefreshIndicator>
+    <S.PullToRefreshContainer
+      onTouchStart={enablePullToRefresh ? handleTouchStart : undefined}
+      onTouchMove={enablePullToRefresh ? handleTouchMove : undefined}
+      onTouchEnd={enablePullToRefresh ? handleTouchEnd : undefined}
+    >
+      {enablePullToRefresh && (
+        <S.RefreshIndicator $pullDistance={pullDistance} $isRefreshing={isRefreshing}>
+          {isRefreshing ? <FiRefreshCw className="spin" /> : pullDistance > 40 ? "놓아서 새로고침" : "아래로 당겨서 새로고침"}
+        </S.RefreshIndicator>
+      )}
 
-      <S.RefreshContent $pullDistance={pullDistance} $isRefreshing={isRefreshing}>
+      <S.RefreshContent
+        $pullDistance={enablePullToRefresh ? pullDistance : 0}
+        $isRefreshing={enablePullToRefresh ? isRefreshing : false}
+      >
         <DragDropContext onBeforeDragStart={handleBeforeDragStart} onDragEnd={handleDragEndAction}>
           <S.SectionHeader>
             <h3>수입 내역</h3>

@@ -16,7 +16,7 @@ export const ListItem = styled.li`
   margin-bottom: 12px;
   outline: none;
   list-style: none; /* 드래그 시 포탈로 이동해도 점이 안 보이도록 추가 */
-  touch-action: none; 
+  touch-action: ${({ $isReorderMode }) => ($isReorderMode ? "none" : "pan-y")};
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
