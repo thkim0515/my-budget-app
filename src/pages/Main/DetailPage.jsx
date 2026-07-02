@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import ReactDOM from "react-dom";
 
 import Header from "../../components/UI/Header";
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
@@ -10,24 +11,19 @@ import { DEFAULT_CATEGORIES } from "../../constants/categories";
 
 import DataForm from "../../components/DataList/DataForm";
 import DataList from "../../components/DataList/DataList";
+import { pushBackHandler } from "../../utils/backHandlerStack";
 
 import * as S from "./DetailPage.styles";
 
-/* 한국 시간(KST) 기준 오늘 날짜 문자열(YYYY-MM-DD) 반환 헬퍼 */
-const getTodayKST = () => {
-  return new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Seoul",
-  });
-};
+const getTodayKST = () =>
+  new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 
-/* 날짜 안전 변환 함수 (Timestamp 대응) */
 const formatDateSafe = (dateValue) => {
   if (!dateValue) return new Date();
   if (dateValue.toDate) return dateValue.toDate();
   return new Date(dateValue);
 };
 
-/* 날짜를 기반으로 챕터 제목을 자동 생성하는 함수 */
 const formatChapterTitle = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -35,7 +31,6 @@ const formatChapterTitle = (dateString) => {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
 };
 
-/* 드래그 정렬을 위한 배열 재배치 함수 */
 const reorder = (list, startIndex, endIndex) => {
   const result = Array.from(list);
   const [removed] = result.splice(startIndex, 1);
@@ -43,19 +38,12 @@ const reorder = (list, startIndex, endIndex) => {
   return result;
 };
 
-// [모아보기 헬퍼 함수]
 const groupRecordsByTitle = (list) => {
   const grouped = {};
   list.forEach((r) => {
     const key = r.title;
     if (!grouped[key]) {
-      grouped[key] = {
-        ...r,
-        count: 1,
-        isAggregated: true,
-        id: `grouped-${r.id}`,
-        originalId: r.id,
-      };
+      grouped[key] = { ...r, count: 1, isAggregated: true, id: `grouped-${r.id}`, originalId: r.id };
     } else {
       grouped[key].amount += r.amount;
       grouped[key].count += 1;
@@ -84,35 +72,48 @@ export default function DetailPage() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState(DEFAULT_CATEGORIES[0] || "식비");
-
-  const [recordDate, setRecordDate] = useState(() => {
-    if (isDateMode) return date;
-    return getTodayKST();
-  });
+  const [recordDate, setRecordDate] = useState(() => isDateMode ? date : getTodayKST());
 
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editType, setEditType] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
-  const [isReorderMode, setIsReorderMode] = useState(false);
 
-  // [요구사항 5] 접어두기 상태 (로컬스토리지 연동 - 월에 상관없이 전역 적용)
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  // 바텀시트 아래로 스와이프(드래그)하여 닫기
+  const sheetRef = useRef(null);
+  const sheetDragStart = useRef(null);
+  const sheetDragOffset = useRef(0);
+  const [sheetDragY, setSheetDragY] = useState(0);
+  // 하드웨어 뒤로가기에서 항상 최신 closeSheet를 호출하기 위한 ref
+  const closeSheetRef = useRef(() => {});
+
   const [collapsedState, setCollapsedState] = useState(() => {
     const saved = localStorage.getItem("detail_sections_collapsed");
     return saved ? JSON.parse(saved) : { income: false, budget: false, expense: false };
   });
 
-  // 접어두기 상태가 변할 때마다 로컬스토리지에 저장
   useEffect(() => {
     localStorage.setItem("detail_sections_collapsed", JSON.stringify(collapsedState));
   }, [collapsedState]);
 
-  // 섹션 토글 핸들러
+  // 납부완료 항목을 이 달의 합계 계산에서 제외할지 여부 (개별 항목의 계산 제외 토글과는 별개, 월 단위로 기억)
+  const excludePaidStorageKey = `detail_exclude_paid_${chapterId || date || "default"}`;
+  const [excludePaidFromCalc, setExcludePaidFromCalc] = useState(
+    () => localStorage.getItem(excludePaidStorageKey) === "true"
+  );
+
+  useEffect(() => {
+    setExcludePaidFromCalc(localStorage.getItem(excludePaidStorageKey) === "true");
+  }, [excludePaidStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(excludePaidStorageKey, String(excludePaidFromCalc));
+  }, [excludePaidFromCalc, excludePaidStorageKey]);
+
   const toggleSection = (section) => {
-    setCollapsedState((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
+    setCollapsedState((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
   useEffect(() => {
@@ -128,8 +129,7 @@ export default function DetailPage() {
         if (cYear === tYear && cMonth === tMonth) {
           setRecordDate(todayKST);
         } else {
-          const mm = String(cMonth).padStart(2, "0");
-          setRecordDate(`${cYear}-${mm}-01`);
+          setRecordDate(`${cYear}-${String(cMonth).padStart(2, "0")}-01`);
         }
       }
     };
@@ -147,8 +147,8 @@ export default function DetailPage() {
     }
     list.sort((a, b) => {
       const da = formatDateSafe(a.date || a.createdAt);
-      const dbDate = formatDateSafe(b.date || b.createdAt);
-      if (da.getTime() !== dbDate.getTime()) return da - dbDate;
+      const db2 = formatDateSafe(b.date || b.createdAt);
+      if (da.getTime() !== db2.getTime()) return da - db2;
       return (a.order ?? 0) - (b.order ?? 0);
     });
     setRecords(list);
@@ -158,15 +158,14 @@ export default function DetailPage() {
     }
     const customCats = await getAll("categories");
     const activeCustomNames = customCats.filter((c) => !c.isDeleted).map((c) => c.name);
-    const mergedCategories = [...new Set([...DEFAULT_CATEGORIES, ...activeCustomNames])];
-    setCategories(mergedCategories);
+    setCategories([...new Set([...DEFAULT_CATEGORIES, ...activeCustomNames])]);
   }, [db, chapterId, date, isChapterMode, isDateMode, getAll, getAllFromIndex]);
 
   useEffect(() => {
     loadData();
-    const handleSyncUpdate = () => loadData();
-    window.addEventListener("budget-db-updated", handleSyncUpdate);
-    return () => window.removeEventListener("budget-db-updated", handleSyncUpdate);
+    const handle = () => loadData();
+    window.addEventListener("budget-db-updated", handle);
+    return () => window.removeEventListener("budget-db-updated", handle);
   }, [loadData]);
 
   useEffect(() => {
@@ -175,34 +174,37 @@ export default function DetailPage() {
     if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [records, isDateMode, paramId]);
 
-  // [요구사항 1] 합산 로직 세분화
-  const incomeSum = useMemo(() => {
-    return records.filter((r) => r.type === "income").reduce((a, b) => a + b.amount, 0);
-  }, [records]);
+  // 계산에서 제외(excludedFromCalc) 처리된 항목은 합계에 반영하지 않는다. (목록에는 그대로 표시)
+  // excludePaidFromCalc가 켜져 있으면 납부완료(isPaid) 항목도 이 달 합계에서 함께 제외한다.
+  const isCountedInCalc = useCallback((r) =>
+    !r.excludedFromCalc && !(excludePaidFromCalc && r.isPaid), [excludePaidFromCalc]);
 
-  const budgetSum = useMemo(() => {
-    // 예산: 수동으로 입력한 지출 (manual)
-    return records.filter((r) => r.type === "expense" && r.inputMode === "manual").reduce((a, b) => a + b.amount, 0);
-  }, [records]);
+  const incomeSum = useMemo(() =>
+    records.filter((r) => r.type === "income" && isCountedInCalc(r)).reduce((a, b) => a + b.amount, 0), [records, isCountedInCalc]);
 
-  const autoExpenseSum = useMemo(() => {
-    // 지출: 자동으로 기록된 지출 (auto)
-    return records.filter((r) => r.type === "expense" && (r.inputMode === "auto" || !r.inputMode)).reduce((a, b) => a + b.amount, 0);
-  }, [records]);
+  const budgetSum = useMemo(() =>
+    records.filter((r) => r.type === "expense" && r.inputMode === "manual" && isCountedInCalc(r)).reduce((a, b) => a + b.amount, 0), [records, isCountedInCalc]);
+
+  const autoExpenseSum = useMemo(() =>
+    records.filter((r) => r.type === "expense" && (r.inputMode === "auto" || !r.inputMode) && isCountedInCalc(r)).reduce((a, b) => a + b.amount, 0), [records, isCountedInCalc]);
+
+  const excludedCount = useMemo(() =>
+    records.filter((r) => r.excludedFromCalc).length, [records]);
 
   const incomeList = useMemo(() => {
     const list = records.filter((r) => r.type === "income");
     return settings.isIncomeGrouped ? groupRecordsByTitle(list) : list;
   }, [records, settings.isIncomeGrouped]);
 
-  const budgetList = useMemo(() => {
-    return records.filter((r) => r.type === "expense" && r.inputMode === "manual");
-  }, [records]);
+  const budgetList = useMemo(() =>
+    records.filter((r) => r.type === "expense" && r.inputMode === "manual"), [records]);
 
   const autoExpenseList = useMemo(() => {
     const list = records.filter((r) => r.type === "expense" && (r.inputMode === "auto" || !r.inputMode));
     return settings.isExpenseGrouped ? groupRecordsByTitle(list) : list;
   }, [records, settings.isExpenseGrouped]);
+
+  const balance = incomeSum - (budgetSum + autoExpenseSum);
 
   const saveRecord = async (type) => {
     if (!title || !amount) return;
@@ -250,13 +252,16 @@ export default function DetailPage() {
       const updated = {
         ...recordDataBase,
         id: editId,
-        order: !chapterChanged && editRecord?.type === type ? editRecord.order ?? 0 : records.filter((r) => r.type === type).length,
+        order: !chapterChanged && editRecord?.type === type ? (editRecord.order ?? 0) : records.filter((r) => r.type === type).length,
       };
       await put("records", updated);
-      cancelEdit();
+      closeSheet();
     } else {
       const nextOrder = records.filter((r) => r.type === type).length;
       await add("records", { ...recordDataBase, id: `rec_${Date.now()}`, order: nextOrder });
+      setTitle("");
+      setAmount("");
+      // 새 항목 추가는 시트를 닫지 않고 계속 입력 가능하게
     }
 
     if (isChapterMode && chapter?.isTemporary && targetChapterId === currentChapterId) {
@@ -265,8 +270,13 @@ export default function DetailPage() {
       setChapter(updatedChapter);
     }
 
-    setTitle("");
-    setAmount("");
+    if (isChapterMode && chapter?.isTemporary && chapterChanged) {
+      const remaining = await getAllFromIndex("records", "chapterId", currentChapterId);
+      if (remaining.length === 0) {
+        await deleteItem("chapters", currentChapterId);
+      }
+    }
+
     await loadData();
     window.dispatchEvent(new CustomEvent("budget-db-updated"));
     if (isChapterMode && records.length === 0) {
@@ -288,7 +298,7 @@ export default function DetailPage() {
     const safeDate = formatDateSafe(record.date || record.createdAt);
     setRecordDate(`${safeDate.getFullYear()}-${String(safeDate.getMonth() + 1).padStart(2, "0")}-${String(safeDate.getDate()).padStart(2, "0")}`);
     setIsEditing(true);
-    setTimeout(() => contentRef.current?.scrollTo({ top: 0, behavior: "smooth" }), 0);
+    setIsSheetOpen(true);
   };
 
   const cancelEdit = () => {
@@ -301,33 +311,108 @@ export default function DetailPage() {
     if (categories.length > 0) setCategory(categories[0]);
   };
 
+  const closeSheet = () => {
+    setSheetDragY(0);
+    sheetDragStart.current = null;
+    sheetDragOffset.current = 0;
+    setIsSheetOpen(false);
+    cancelEdit();
+  };
+
+  // 시트가 열려 있는 동안 하드웨어 뒤로가기가 페이지 대신 시트를 닫도록 등록
+  closeSheetRef.current = closeSheet;
+  useEffect(() => {
+    if (!isSheetOpen) return;
+    const unregister = pushBackHandler(() => closeSheetRef.current());
+    return unregister;
+  }, [isSheetOpen]);
+
+  // 아래로 스와이프하여 닫기 (내부 스크롤이 최상단일 때만 드래그 시작)
+  const onSheetTouchStart = (e) => {
+    if (sheetRef.current && sheetRef.current.scrollTop > 0) return;
+    sheetDragStart.current = e.touches[0].clientY;
+  };
+  const onSheetTouchMove = (e) => {
+    if (sheetDragStart.current == null) return;
+    const dy = e.touches[0].clientY - sheetDragStart.current;
+    sheetDragOffset.current = dy > 0 ? dy : 0;
+    setSheetDragY(sheetDragOffset.current);
+  };
+  const onSheetTouchEnd = () => {
+    if (sheetDragStart.current == null) return;
+    const shouldClose = sheetDragOffset.current > 110;
+    sheetDragStart.current = null;
+    sheetDragOffset.current = 0;
+    if (shouldClose) {
+      closeSheet();
+    } else {
+      setSheetDragY(0);
+    }
+  };
+
+  const openNewSheet = () => {
+    cancelEdit();
+    setIsSheetOpen(true);
+  };
+
   const togglePaymentStatus = async () => {
     if (!isEditing || !editId || !editRecord) return;
     const updatedRecord = { ...editRecord, isPaid: !editRecord.isPaid, updatedAt: Date.now() };
     await put("records", updatedRecord);
-    cancelEdit();
+    closeSheet();
     loadData();
     window.dispatchEvent(new CustomEvent("budget-db-updated"));
   };
 
-  const deleteRecord = async (rid, isAggregated) => {
-    if (isAggregated) {
-      alert("모아보기 상태에서는 삭제할 수 없습니다.");
-      return;
-    }
-    if (!window.confirm("정말 삭제하시겠습니까?")) return;
-    const target = records.find((r) => r.id === rid);
+  // 이 항목을 총액 계산에서 제외/포함 토글. 시트는 닫지 않고 즉시 반영해 변화를 바로 보여준다.
+  const toggleExcludeFromCalc = async () => {
+    if (!isEditing || !editId || !editRecord) return;
+    const updatedRecord = { ...editRecord, excludedFromCalc: !editRecord.excludedFromCalc, updatedAt: Date.now() };
+    await put("records", updatedRecord);
+    setEditRecord(updatedRecord);
+    loadData();
+    window.dispatchEvent(new CustomEvent("budget-db-updated"));
+  };
+
+  // 이 항목을 복제해 같은 수입/지출 영역에 새 항목으로 추가
+  const copyRecord = async () => {
+    if (!editRecord) return;
+    const nextOrder = records.filter((r) => r.type === editRecord.type).length;
+    await add("records", {
+      chapterId: isChapterMode ? chapterId : undefined,
+      title: editRecord.title,
+      amount: editRecord.amount,
+      type: editRecord.type,
+      category: editRecord.category,
+      date: editRecord.date,
+      source: editRecord.title,
+      isPaid: false,
+      excludedFromCalc: false,
+      createdAt: new Date(),
+      updatedAt: Date.now(),
+      inputMode: editRecord.inputMode || "manual",
+      id: `rec_${Date.now()}`,
+      order: nextOrder,
+    });
+    closeSheet();
+    loadData();
+    window.dispatchEvent(new CustomEvent("budget-db-updated"));
+  };
+
+  const deleteRecord = async () => {
+    if (!editId) return;
+    const target = records.find((r) => r.id === editId);
     if (target) {
       await put("records", { ...target, isDeleted: true, updatedAt: Date.now() });
     } else {
-      await deleteItem("records", rid);
+      await deleteItem("records", editId);
     }
+    closeSheet();
     loadData();
     window.dispatchEvent(new CustomEvent("budget-db-updated"));
   };
 
   const onDragEnd = async (result) => {
-    if (!isReorderMode) return;
     const { source, destination } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
@@ -358,10 +443,8 @@ export default function DetailPage() {
       for (let i = 0; i < dItems.length; i++) await put("records", { ...dItems[i], order: i, updatedAt: Date.now() });
     }
     loadData();
-      window.dispatchEvent(new CustomEvent("budget-db-updated"));
+    window.dispatchEvent(new CustomEvent("budget-db-updated"));
   };
-
-  const reorderModeToggle = () => setIsReorderMode((prev) => !prev);
 
   return (
     <S.PageWrap>
@@ -369,99 +452,50 @@ export default function DetailPage() {
         <Header
           title={isChapterMode ? (chapter?.isTemporary ? "내역 입력" : chapter?.title) : `${date} 상세 내역`}
           rightButton={
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <label
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 7,
-                  fontSize: 12,
-                  color: "white",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  userSelect: "none",
-                }}
-                onClick={reorderModeToggle}
-              >
-                <span>순서 편집</span>
-                <span
-                  style={{
-                    position: "relative",
-                    width: 32,
-                    height: 16,
-                    borderRadius: 12,
-                    background: isReorderMode ? "#4caf50" : "#ccc",
-                    display: "inline-block",
-                    transition: "background-color 0.2s ease",
-                  }}
-                >
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: 1,
-                      left: isReorderMode ? 16 : 1,
-                      width: 14,
-                      height: 14,
-                      borderRadius: "50%",
-                      background: "white",
-                      transition: "left 0.2s ease",
-                    }}
-                  />
-                </span>
-              </label>
-            </div>
+            <S.ExcludePaidToggleBtn
+              type="button"
+              $on={excludePaidFromCalc}
+              aria-pressed={excludePaidFromCalc}
+              onClick={() => setExcludePaidFromCalc((v) => !v)}
+            >
+              납부완료 제외
+            </S.ExcludePaidToggleBtn>
           }
         />
       </S.HeaderFix>
 
       <S.Content ref={contentRef}>
-        {/* [요구사항 1] 요약 박스 세분화 (수입, 예산, 지출) */}
-        <S.SummaryBox>
-          <S.SummaryRow>
-            <span>총 수입</span>
-            <span>
-              {formatNumber(incomeSum)} {unit}
-            </span>
-          </S.SummaryRow>
-          <S.SummaryRow>
-            <span>총 예산</span>
-            <span>
-              {formatNumber(budgetSum)} {unit}
-            </span>
-          </S.SummaryRow>
-          <S.SummaryRow>
-            <span>총 지출</span>
-            <span>
-              {formatNumber(autoExpenseSum)} {unit}
-            </span>
-          </S.SummaryRow>
-          <S.SummaryRow style={{ fontWeight: "bold" }}>
-            <span>잔액</span>
-            <span>
-              {formatNumber(incomeSum - (budgetSum + autoExpenseSum))} {unit}
-            </span>
-          </S.SummaryRow>
-        </S.SummaryBox>
+        <S.SummaryCard>
+          <S.BalanceLabel>잔액</S.BalanceLabel>
+          <S.BalanceAmount $negative={balance < 0}>
+            {formatNumber(balance)} {unit}
+          </S.BalanceAmount>
+          {excludedCount > 0 && (
+            <S.ExcludedNote>계산 제외 {excludedCount}건 반영</S.ExcludedNote>
+          )}
+          <S.StatGrid>
+            <S.StatChip>
+              <span>수입</span>
+              <strong>{formatNumber(incomeSum)} {unit}</strong>
+            </S.StatChip>
+            <S.StatChip>
+              <span>예산</span>
+              <strong>{formatNumber(budgetSum)} {unit}</strong>
+            </S.StatChip>
+            <S.StatChip>
+              <span>지출</span>
+              <strong>{formatNumber(autoExpenseSum)} {unit}</strong>
+            </S.StatChip>
+          </S.StatGrid>
+        </S.SummaryCard>
 
-        <DataForm
-          isEditing={isEditing}
-          editRecord={editRecord}
-          editType={editType}
-          title={title}
-          amount={amount}
-          category={category}
-          categories={categories}
-          recordDate={recordDate}
-          setTitle={setTitle}
-          setAmount={setAmount}
-          setCategory={setCategory}
-          setRecordDate={setRecordDate}
-          onSave={saveRecord}
-          onCancel={cancelEdit}
-          onTogglePaid={togglePaymentStatus}
-        />
+        {isEditing && editRecord && (
+          <S.EditBanner>
+            <span>✏️ "{editRecord.title}" 수정 중</span>
+            <S.EditBannerCancel onClick={closeSheet}>취소</S.EditBannerCancel>
+          </S.EditBanner>
+        )}
 
-        {/* [요구사항 5] 접어두기 상태 및 함수 전달 */}
         <DataList
           incomeList={incomeList}
           budgetList={budgetList}
@@ -469,17 +503,59 @@ export default function DetailPage() {
           settings={settings}
           editId={editId}
           unit={unit}
-          collapsedState={collapsedState} // 전달
-          onToggleSection={toggleSection} // 전달
+          collapsedState={collapsedState}
+          onToggleSection={toggleSection}
           onToggleIncomeGroup={() => updateSetting("isIncomeGrouped", !settings.isIncomeGrouped)}
           onToggleExpenseGroup={() => updateSetting("isExpenseGrouped", !settings.isExpenseGrouped)}
           onDragEnd={onDragEnd}
           onEdit={startEdit}
-          onDelete={deleteRecord}
           enablePullToRefresh={false}
-          isReorderMode={isReorderMode}
         />
       </S.Content>
+
+      {/* FAB */}
+      <S.FAB onClick={openNewSheet}>+</S.FAB>
+
+      {/* Bottom sheet */}
+      {isSheetOpen &&
+        ReactDOM.createPortal(
+          <>
+            <S.SheetBackdrop onClick={closeSheet} />
+            <S.Sheet
+              ref={sheetRef}
+              onTouchStart={onSheetTouchStart}
+              onTouchMove={onSheetTouchMove}
+              onTouchEnd={onSheetTouchEnd}
+              style={{
+                transform: sheetDragY ? `translateX(-50%) translateY(${sheetDragY}px)` : undefined,
+                transition: sheetDragStart.current != null ? "none" : "transform 0.25s cubic-bezier(0.2, 0, 0, 1)",
+              }}
+            >
+              <S.SheetHandle />
+              <DataForm
+                isEditing={isEditing}
+                editRecord={editRecord}
+                editType={editType}
+                title={title}
+                amount={amount}
+                category={category}
+                categories={categories}
+                recordDate={recordDate}
+                setTitle={setTitle}
+                setAmount={setAmount}
+                setCategory={setCategory}
+                setRecordDate={setRecordDate}
+                onSave={saveRecord}
+                onCancel={closeSheet}
+                onTogglePaid={togglePaymentStatus}
+                onToggleExclude={toggleExcludeFromCalc}
+                onCopy={isEditing ? copyRecord : undefined}
+                onDelete={isEditing ? deleteRecord : undefined}
+              />
+            </S.Sheet>
+          </>,
+          document.body,
+        )}
     </S.PageWrap>
   );
 }

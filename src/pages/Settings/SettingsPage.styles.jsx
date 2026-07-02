@@ -9,6 +9,8 @@ export const PageWrap = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
+  background: ${({ theme }) => theme.bg};
+  color: ${({ theme }) => theme.text};
 `;
 
 // 고정된 상단 헤더 영역
@@ -29,7 +31,7 @@ export const Content = styled.div`
   overflow-y: auto;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
 `;
 
 export const Row50 = styled.div`
@@ -45,19 +47,28 @@ export const Row50 = styled.div`
 // 설정 버튼 스타일
 export const Btn = styled.button`
   width: 100%;
-  padding: 12px;
-  margin-bottom: 12px;
-  border: none;
-  border-radius: 6px;
-  background: #1976d2;
-  color: white;
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ theme }) => theme.card};
+  color: ${({ theme }) => theme.text};
   font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  &:active { transform: scale(0.99); background: ${({ theme }) => theme.surfaceHover}; }
 `;
 
 // 섹션 제목 스타일
 export const SectionTitle = styled.h3`
-  color: ${({ theme }) => theme.text};
-  margin-top: 20px;
+  color: ${({ theme }) => theme.subText};
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-top: 24px;
   margin-bottom: 12px;
 `;
 
@@ -66,11 +77,12 @@ export const ToggleRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
+  padding: 14px 16px;
   background: ${({ theme }) => theme.card};
   border: 1px solid ${({ theme }) => theme.border};
-  border-radius: 6px;
-  margin-bottom: 12px;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  margin-bottom: 10px;
+  font-weight: 600;
   color: ${({ theme }) => theme.text};
 `;
 
@@ -106,13 +118,14 @@ export const ToggleSwitch = styled.label`
     width: 20px;
     left: 3px;
     bottom: 3px;
-    background-color: white;
+    background-color: ${({ theme }) => theme.card};
     transition: 0.4s;
     border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
 
   input:checked + span {
-    background-color: #1976d2;
+    background-color: ${({ theme }) => theme.primary};
   }
 
   input:checked + span:before {

@@ -29,7 +29,7 @@ import { syncParsingRules } from "./utils/notiParser";
 
 function AppContent() {
   const { settings } = useSettings();
-  const { isLocked, isChecking, authenticate } = useBiometricLock();
+  const { isLocked, isChecking, authenticate, needsPinFallback, verifyPin } = useBiometricLock();
 
   useAndroidBackHandler();
   useNativeSync();
@@ -75,7 +75,7 @@ function AppContent() {
 
   if (isChecking) return null;
 
-  if (isLocked) return <LockScreen mode={settings.mode} onAuthenticate={authenticate} />;
+  if (isLocked) return <LockScreen onAuthenticate={authenticate} needsPinFallback={needsPinFallback} onVerifyPin={verifyPin} />;
 
   const theme = settings.mode === "light" ? getLightTheme(settings.lightTextColor) : getDarkTheme(settings.darkTextColor);
 

@@ -26,28 +26,35 @@ export const Content = styled.div`
   flex: 1;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
   overflow-y: auto;
 `;
 
 // 통화 단위 선택 드롭다운
 export const SelectBox = styled.select`
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   margin-bottom: 20px;
-  border-radius: 6px;
-  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  border: 1.5px solid ${({ theme }) => theme.border};
   background: ${({ theme }) => theme.card};
   color: ${({ theme }) => theme.text};
+  font-size: 15px;
+  font-weight: 600;
 `;
 
 // 뒤로가기 버튼 스타일
 export const BackBtn = styled.button`
   width: 100%;
-  padding: 12px;
-  background: #1976d2;
-  color: ${({ theme }) => theme.textBright};
+  padding: 14px;
+  background: ${({ theme }) => theme.gradientPrimary};
+  color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: ${({ theme }) => theme.shadowSm};
+  &:active { transform: scale(0.98); }
 `;
 

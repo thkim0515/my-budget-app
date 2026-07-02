@@ -62,6 +62,7 @@ export default function CalendarStatsPage() {
   /* 날짜별 금액 */
   const dailyTotals = {};
   filtered.forEach((r) => {
+    if (r.excludedFromCalc) return;
     const key = formatDateKey(new Date(r.date || r.createdAt));
     if (!dailyTotals[key]) dailyTotals[key] = { income: 0, expense: 0 };
     dailyTotals[key][r.type] += r.amount;
@@ -77,12 +78,12 @@ export default function CalendarStatsPage() {
     return (
       <S.AmountBox>
         {data?.income > 0 && (
-          <div style={{ color: "#2ecc71" }}>
+          <div style={{ color: "#12B76A", fontWeight: 700 }}>
             +{formatCompact(data.income)}
           </div>
         )}
         {data?.expense > 0 && (
-          <div style={{ color: "#e74c3c" }}>
+          <div style={{ color: "#F5455C", fontWeight: 700 }}>
             -{formatCompact(data.expense)}
           </div>
         )}
@@ -174,31 +175,31 @@ export default function CalendarStatsPage() {
       </S.HeaderFix>
 
       <S.Content>
-        <S.SummaryBox>
-          <S.Row>
-            <span>총 수입</span>
-            <span>
+        <S.SummaryGrid>
+          <S.StatCard $tone="income">
+            <S.StatLabel>총 수입</S.StatLabel>
+            <S.StatValue $tone="income">
               {formatNumber(
                 filtered
-                  .filter((r) => r.type === "income")
+                  .filter((r) => r.type === "income" && !r.excludedFromCalc)
                   .reduce((a, b) => a + b.amount, 0)
               )}{" "}
               {unit}
-            </span>
-          </S.Row>
+            </S.StatValue>
+          </S.StatCard>
 
-          <S.Row>
-            <span>총 지출</span>
-            <span>
+          <S.StatCard $tone="expense">
+            <S.StatLabel>총 지출</S.StatLabel>
+            <S.StatValue $tone="expense">
               {formatNumber(
                 filtered
-                  .filter((r) => r.type === "expense")
+                  .filter((r) => r.type === "expense" && !r.excludedFromCalc)
                   .reduce((a, b) => a + b.amount, 0)
               )}{" "}
               {unit}
-            </span>
-          </S.Row>
-        </S.SummaryBox>
+            </S.StatValue>
+          </S.StatCard>
+        </S.SummaryGrid>
 
         <div {...handlers} className={`calendar-slide ${slide}`}>
           <Calendar
@@ -232,7 +233,8 @@ export default function CalendarStatsPage() {
                 $isPaid={r.isPaid}
               >
                 <S.Title $isPaid={r.isPaid}>
-                  [{r.type === "income" ? "수입" : "지출"}] {r.title}
+                  <S.TypeTag $tone={r.type}>{r.type === "income" ? "수입" : "지출"}</S.TypeTag>
+                  {r.title}
                 </S.Title>
 
                 <S.Amount type={r.type} $isPaid={r.isPaid}>

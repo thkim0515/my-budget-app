@@ -22,7 +22,7 @@ export const Content = styled.div`
   flex: 1;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
 
   overflow-y: auto;
   color: ${({ theme }) => theme.text};
@@ -145,47 +145,92 @@ export const AmountBox = styled.div`
   text-align: center;
 `;
 
-export const SummaryBox = styled.div`
-  background: ${({ theme }) => theme.card};
-  border: 1px solid ${({ theme }) => theme.border};
-  margin-bottom: 20px;
-  padding: 16px;
-  border-radius: 8px;
+export const SummaryGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
 `;
 
-export const Row = styled.div`
+export const StatCard = styled.div`
+  background: ${({ theme, $tone }) => ($tone === "income" ? theme.incomeSoft : theme.expenseSoft)};
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: ${({ theme }) => theme.radius.md};
+  padding: 14px 16px;
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+export const StatLabel = styled.span`
+  font-size: 12px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.subText};
+`;
+
+export const StatValue = styled.strong`
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: ${({ theme, $tone }) => ($tone === "income" ? theme.incomeColor : theme.expenseColor)};
 `;
 
 export const DetailBox = styled.div`
-  margin-top: 20px;
+  margin-top: 22px;
+  h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 800;
+    color: ${({ theme }) => theme.text};
+  }
 `;
 
 /* 카드 스타일 수정: isPaid prop에 따라 배경색 변경 */
 export const Card = styled.div`
-  background: ${({ theme, $isPaid }) => ($isPaid ? "#e0e0e0" : theme.card)};
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: ${({ theme, $isPaid }) => ($isPaid ? theme.completedBg : theme.card)};
+  border: 1px solid ${({ theme, $isPaid }) => ($isPaid ? theme.completedBorder : theme.border)};
+  border-radius: ${({ theme }) => theme.radius.md};
+  box-shadow: ${({ theme }) => theme.shadowSm};
+  padding: 14px 16px;
+  margin-bottom: 10px;
   transition: background-color 0.2s ease;
   opacity: ${({ $isPaid }) => ($isPaid ? 0.85 : 1)};
 `;
 
+export const TypeTag = styled.span`
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: ${({ theme }) => theme.radius.pill};
+  background: ${({ theme, $tone }) => ($tone === "income" ? theme.incomeSoft : theme.expenseSoft)};
+  color: ${({ theme, $tone }) => ($tone === "income" ? theme.incomeColor : theme.expenseColor)};
+`;
+
 /* 제목 스타일 수정: isPaid일 경우 취소선 및 색상 변경 */
 export const Title = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
-  margin-bottom: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-decoration: ${({ $isPaid }) => ($isPaid ? "line-through" : "none")};
-  color: ${({ $isPaid, theme }) => ($isPaid ? "#888" : theme.text)};
+  color: ${({ $isPaid, theme }) => ($isPaid ? theme.mutedText : theme.text)};
 `;
 
 /* 금액 스타일 수정: isPaid일 경우 취소선 적용 */
 export const Amount = styled.div`
   font-size: 16px;
-  font-weight: bold;
-  color: ${({ type }) => (type === "income" ? "#2ecc71" : "#e74c3c")};
+  font-weight: 800;
+  color: ${({ type, theme }) => (type === "income" ? theme.incomeColor : theme.expenseColor)};
   text-decoration: ${({ $isPaid }) => ($isPaid ? "line-through" : "none")};
 `;

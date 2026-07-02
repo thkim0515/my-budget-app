@@ -4,9 +4,9 @@ import styled from "styled-components";
 export const PageWrap = styled.div`
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100vh;
+  height: 100vh;
   position: relative;
-  background: ${({ theme }) => theme.background};
+  background: ${({ theme }) => theme.bg};
   color: ${({ theme }) => theme.text};
   display: flex;
   flex-direction: column;
@@ -22,135 +22,175 @@ export const HeaderFix = styled.div`
   max-width: 480px;
   margin: 0 auto;
   z-index: 20;
-  background: ${({ theme }) => theme.background};
-  border-bottom: none;
+  background: ${({ theme }) => theme.headerBg};
+`;
+
+export const HeaderButtons = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: center;
 `;
 
 export const ListWrap = styled.div`
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  margin-top: 88px;
-  padding: 16px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+  padding: 18px 16px;
+  padding-top: calc(env(safe-area-inset-top) + 96px);
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
   width: 100%;
   max-width: 480px;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0 auto;
   box-sizing: border-box;
   overscroll-behavior: contain;
-  touch-action: pan-y;
 `;
 
 export const CreateBtn = styled.button`
-  background: #1976d2;
+  background: ${({ theme }) => theme.gradientPrimary};
   color: white;
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  font-size: 14px;
+  padding: 9px 16px;
+  border-radius: ${({ theme }) => theme.radius.pill};
+  border: none;
+  font-size: 13.5px;
   font-weight: 700;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: ${({ theme }) => theme.shadowPrimary};
   cursor: pointer;
-  &:active {
-    transform: scale(0.95);
-  }
+  white-space: nowrap;
+  &:active { transform: scale(0.95); }
 `;
 
-export const ChapterItem = styled.div`
+export const SortBtn = styled.button`
+  background: ${({ theme }) => theme.cardAlt};
+  color: ${({ theme }) => theme.subText};
+  padding: 9px 13px;
+  border-radius: ${({ theme }) => theme.radius.pill};
+  border: 1px solid ${({ theme }) => theme.border};
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
   display: flex;
   align-items: center;
-  min-height: 64px;
-  padding: 0 16px;
-  /* 포탈 이동 시 theme을 잃을 수 있으므로 기본 배경/글자색 보완 */
-  background: ${({ theme, $completed, $isDragging }) =>
-    $isDragging ? "#e0e0e0" : $completed ? theme.completedBg || "#f9f9f9" : theme.card || "#ffffff"};
-  border-radius: 12px;
-  border: 1px solid ${({ theme, $completed, $isDragging }) => ($isDragging ? "#1976d2" : $completed ? theme.completedBorder : theme.border || "#eee")};
-  color: ${({ theme }) => theme.text || "#333"};
-
-  transition: ${({ $isDragging }) => ($isDragging ? "none" : "background-color 0.2s ease, transform 0.1s ease")};
-  cursor: pointer;
-  opacity: ${({ $isDragging }) => ($isDragging ? 0.95 : 1)};
-  box-shadow: ${({ $isDragging }) => ($isDragging ? "0 8px 24px rgba(0,0,0,0.2)" : "none")};
-
-  touch-action: pan-y;
-  position: relative;
-  z-index: ${({ $isDragging }) => ($isDragging ? 9999 : 1)};
-  box-sizing: border-box;
+  gap: 4px;
+  &:active { transform: scale(0.95); }
 `;
 
-export const ChapterLink = styled.span`
-  flex: 1;
-  color: inherit;
+export const HideCompletedBtn = styled.button`
+  background: ${({ $on, theme }) => ($on ? theme.primary : theme.cardAlt)};
+  color: ${({ $on, theme }) => ($on ? "#fff" : theme.subText)};
+  padding: 9px 13px;
+  border-radius: ${({ theme }) => theme.radius.pill};
+  border: 1px solid ${({ $on, theme }) => ($on ? theme.primary : theme.border)};
+  font-size: 12.5px;
   font-weight: 600;
-  font-size: 16px;
-  line-height: 64px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  &:active { transform: scale(0.95); }
+`;
+
+export const ChapterRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 18px;
+  margin-bottom: 14px;
+  background: ${({ theme, $completed }) =>
+    $completed ? theme.completedBg : theme.card};
+  border-radius: ${({ theme }) => theme.radius.md};
+  border: 1px solid ${({ theme, $completed }) =>
+    $completed ? theme.completedBorder : theme.border};
+  box-shadow: ${({ theme }) => theme.shadowSm};
+  color: ${({ theme }) => theme.text};
+  opacity: ${({ $completed }) => ($completed ? 0.72 : 1)};
+  box-sizing: border-box;
+  transition: transform 0.12s, box-shadow 0.2s;
+  &:active { transform: scale(0.995); }
+`;
+
+export const ChapterMain = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  padding: 2px 2px 0;
+`;
+
+export const ChapterTitle = styled.span`
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: block; /* Flex 환경에서 너비 유지 */
+  min-width: 0;
+`;
+
+export const StatRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid ${({ theme }) => theme.border};
+`;
+
+export const StatItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  small {
+    font-size: 11px;
+    font-weight: 700;
+    color: ${({ theme }) => theme.mutedText};
+  }
+  strong {
+    font-size: 13.5px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: ${({ theme, $tone, $negative }) =>
+      $negative ? theme.expenseColor
+      : $tone === "income" ? theme.incomeColor
+      : $tone === "expense" ? theme.expenseColor
+      : theme.text};
+  }
 `;
 
 export const ActionGroup = styled.div`
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  height: 64px;
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
   align-items: center;
-  padding-right: 12px;
-  visibility: ${({ $isVisible }) => ($isVisible ? "visible" : "hidden")};
-  opacity: ${({ $isVisible }) => ($isVisible ? 1 : 0)};
-  transition: opacity 0.18s ease, visibility 0.18s ease;
-  pointer-events: ${({ $isVisible }) => ($isVisible ? "auto" : "none")};
-  z-index: 1;
+  width: 100%;
 `;
 
-export const SwipeContainer = styled.div`
-  position: relative;
-  overflow: hidden;
-  border-radius: 12px;
-  margin-bottom: 12px;
-`;
-
-export const SwipeContent = styled.div`
-  transform: translateX(${({ $offset }) => `${$offset}px`});
-  transition: transform 0.2s ease;
-  touch-action: pan-y;
-`;
-
-export const DeleteBtn = styled.button`
-  background: #d9534f;
-  color: white;
+export const ActionBtn = styled.button`
+  flex: 1;
+  background: ${({ $bg }) => $bg || "#888"};
+  color: #fff;
   border: none;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  padding: 10px 6px;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  &:active { transform: scale(0.95); opacity: 0.9; }
 `;
 
-export const CompleteBtn = styled.button`
-  background: #4caf50;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-`;
-
-export const CloseBtn = styled.button`
-  background: #6c757d;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+export const EmptyState = styled.div`
+  text-align: center;
+  padding: 70px 20px;
+  color: ${({ theme }) => theme.mutedText};
+  p { margin: 6px 0; font-size: 15px; }
+  p:first-child { font-size: 17px; font-weight: 700; color: ${({ theme }) => theme.subText}; }
 `;

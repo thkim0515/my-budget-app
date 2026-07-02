@@ -10,11 +10,12 @@ import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import styled from "styled-components";
 
 const AuthContainer = styled.div`
-  background: ${({ theme }) => theme.cardBg || "rgba(0,0,0,0.03)"};
-  color: ${({ theme }) => theme.text || "#000"}; 
+  background: ${({ theme }) => theme.cardAlt};
+  color: ${({ theme }) => theme.text};
+  border: 1px solid ${({ theme }) => theme.border};
   padding: 16px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+  border-radius: ${({ theme }) => theme.radius.md};
+  margin-bottom: 16px;
 `;
 
 // 로그인 상태일 때 프로필과 버튼을 가로로 배치하기 위한 컨테이너

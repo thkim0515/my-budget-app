@@ -75,11 +75,21 @@ const detectCategory = (text) => {
   return "기타";
 };
 
+// 실제 결제/입출금 알림임을 나타내는 핵심 신호.
+// 이 신호가 있으면 "적립/포인트/할인" 같은 부가 문구가 섞여 있어도 무시하지 않는다.
+const TRANSACTION_SIGNALS = ["승인", "결제", "출금", "입금", "사용", "이체", "송금", "환급", "취소"];
+
+const hasTransactionSignal = (text) =>
+  TRANSACTION_SIGNALS.some((k) => text.includes(k));
+
 export const parseAndCreateRecord = (text) => {
   if (!text || typeof text !== "string") return null;
 
-  // [추가] 광고 및 무시 키워드 필터링 (최우선 처리)
-  if (IGNORE_KEYWORDS.some(k => text.includes(k))) {
+  // [수정] 광고/무시 키워드 필터링.
+  //  - 기존: 무시 키워드가 하나라도 포함되면 무조건 차단 → "5포인트 적립" 같은 문구가 붙은
+  //    실제 카드 승인 알림(지출)까지 통째로 버려져 자동 기록이 안 되는 버그가 있었음.
+  //  - 변경: 결제/승인/입출금 등 '거래 신호'가 있으면 무시 키워드가 섞여 있어도 정상 처리한다.
+  if (!hasTransactionSignal(text) && IGNORE_KEYWORDS.some((k) => text.includes(k))) {
     return null;
   }
 
@@ -108,7 +118,9 @@ export const parseAndCreateRecord = (text) => {
 
   // 상호명 추출 및 노이즈 제거
   const excludeKeywords = ["승인", "결제", "완료", "입금", "출금", "원", "KRW", "Web발신", "잔액", "카드", "뱅크", "취소", "이체", "송금"];
-  const noiseRegex = /(\d{1,2}:\d{1,2})|(\d{1,2}\/\d{1,2})|(\d{4})|(\*+)/g;
+  // 주의: g 플래그를 쓰면 RegExp.lastIndex 상태가 남아 .test() 결과가 호출마다 달라진다.
+  // 단어별로 매번 새로 검사하므로 g 플래그를 제거한다.
+  const noiseRegex = /(\d{1,2}:\d{1,2})|(\d{1,2}\/\d{1,2})|(\d{4})|(\*+)/;
 
   const words = cleanText.split(" ");
   const titleParts = words.filter((word) => {
@@ -122,7 +134,7 @@ export const parseAndCreateRecord = (text) => {
   const finalTitle = titleParts.join(" ").trim() || (isTransfer ? "계좌 이체" : isIncome ? "입금 내역" : "지출 내역");
 
   const now = new Date();
-  const dateStr = now.toISOString().split('T')[0];
+  const dateStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 
   return {
     title: finalTitle,

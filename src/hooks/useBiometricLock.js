@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
-import { useSettings } from "../context/SettingsContext"; // Context 훅 임포트
+import { useSettings } from "../context/SettingsContext";
 import {
   isNativePlatform,
   isBiometricAvailable,
@@ -8,37 +8,62 @@ import {
 } from "../services/biometricService";
 
 export default function useBiometricLock() {
-  const { settings } = useSettings(); // 중앙 설정값 가져오기
+  const { settings } = useSettings();
   const [isLocked, setIsLocked] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
-  
+  const [needsPinFallback, setNeedsPinFallback] = useState(false);
+
   const isAuthenticatingRef = useRef(false);
   const lastAuthTime = useRef(0);
+  // 사용자가 명시적으로 취소했는지 추적 — appStateChange 루프 방지용
+  const userCancelledRef = useRef(false);
+  const needsPinFallbackRef = useRef(false);
 
-  // 생체 인증 실행 함수
+  const setPin = (val) => {
+    setNeedsPinFallback(val);
+    needsPinFallbackRef.current = val;
+  };
+
   const authenticate = useCallback(async () => {
     if (isAuthenticatingRef.current) return;
 
+    userCancelledRef.current = false;
     isAuthenticatingRef.current = true;
+    setPin(false);
     try {
       const available = await isBiometricAvailable();
       if (!available) {
-        setIsLocked(false);
+        // 생체 인식 불가 → PIN 폴백
+        setPin(true);
         return;
       }
 
       await verifyBiometric();
       setIsLocked(false);
       lastAuthTime.current = Date.now();
-    } catch (error) {
-      console.error("인증 실패:", error);
-      setIsLocked(true);
+    } catch {
+      // 취소 or 실패 → PIN 창으로 전환, appStateChange 루프 차단
+      userCancelledRef.current = true;
+      setPin(true);
     } finally {
       isAuthenticatingRef.current = false;
     }
   }, []);
 
-  // 앱 최초 실행 시
+  const verifyPin = useCallback(
+    (pin) => {
+      if (pin === settings.lockPin) {
+        setIsLocked(false);
+        setPin(false);
+        userCancelledRef.current = false;
+        lastAuthTime.current = Date.now();
+        return true;
+      }
+      return false;
+    },
+    [settings.lockPin]
+  );
+
   useEffect(() => {
     if (!isNativePlatform()) {
       setIsLocked(false);
@@ -54,30 +79,31 @@ export default function useBiometricLock() {
     }
 
     setIsChecking(false);
-  }, [authenticate, settings.useBiometric]); // 설정이 바뀌면 재판단
+  }, [authenticate, settings.useBiometric]);
 
-  // 앱 상태 변경 시 (Background -> Foreground)
   useEffect(() => {
     if (!isNativePlatform()) return;
 
     const listener = CapacitorApp.addListener("appStateChange", ({ isActive }) => {
-      // 인증한지 1초 이내라면 무시 (중복 팝업 방지)
       if (Date.now() - lastAuthTime.current < 1000) return;
+      // 사용자가 취소해서 PIN 창이 떠 있는 상태면 자동 재시도하지 않음
+      if (userCancelledRef.current || needsPinFallbackRef.current) return;
 
-      // 잠금 설정이 되어있고, 현재 잠긴 상태일 때만 인증 시도
       if (isActive && settings.useBiometric && isLocked) {
         authenticate();
       }
     });
 
     return () => {
-      listener.then(l => l.remove());
+      listener.then((l) => l.remove());
     };
-  }, [isLocked, authenticate, settings.useBiometric]); // 의존성 추가
+  }, [isLocked, authenticate, settings.useBiometric]);
 
   return {
     isLocked,
     isChecking,
     authenticate,
+    needsPinFallback,
+    verifyPin,
   };
 }

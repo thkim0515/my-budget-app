@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useTheme } from "styled-components";
 import Header from "../../components/UI/Header";
 import GoogleAuth from "../../components/Auth/GoogleAuth";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
 
-// 중앙 설정 컨텍스트 임포트
 import { useSettings } from "../../context/SettingsContext";
 
 import SyncAction from "../../components/Data/SyncAction";
@@ -18,11 +19,97 @@ import * as S from "./SettingsPage.styles";
 import { db as firestore, auth } from "../../db/firebase";
 import { collection, getDocs, writeBatch } from "firebase/firestore";
 
+const PIN_LENGTH = 4;
+
+function PinSetupModal({ existingPin, onSave, onClose }) {
+  const theme = useTheme();
+  const [step, setStep] = useState(existingPin ? "verify" : "enter");
+  const [digits, setDigits] = useState([]);
+  const [firstPin, setFirstPin] = useState("");
+  const [error, setError] = useState("");
+
+  const label = {
+    verify: "기존 PIN을 입력하세요",
+    enter: "새 PIN 4자리를 입력하세요",
+    confirm: "PIN을 한 번 더 입력하세요",
+  }[step];
+
+  const handleDigit = (d) => {
+    if (digits.length >= PIN_LENGTH) return;
+    const next = [...digits, d];
+    setDigits(next);
+    setError("");
+
+    if (next.length < PIN_LENGTH) return;
+    const entered = next.join("");
+
+    setTimeout(() => {
+      if (step === "verify") {
+        if (entered !== existingPin) {
+          setDigits([]);
+          setError("기존 PIN이 틀렸습니다");
+        } else {
+          setStep("enter");
+          setDigits([]);
+        }
+      } else if (step === "enter") {
+        setFirstPin(entered);
+        setStep("confirm");
+        setDigits([]);
+      } else {
+        if (entered !== firstPin) {
+          setDigits([]);
+          setError("PIN이 일치하지 않습니다");
+          setStep("enter");
+          setFirstPin("");
+        } else {
+          onSave(entered);
+        }
+      }
+    }, 200);
+  };
+
+  const handleDelete = () => { setDigits((p) => p.slice(0, -1)); setError(""); };
+
+  const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 };
+  const box = { background: theme.card, color: theme.text, borderRadius: 16, padding: 28, display: "flex", flexDirection: "column", alignItems: "center", gap: 20, minWidth: 280, border: `1px solid ${theme.border}` };
+  const btnStyle = { width: 64, height: 64, borderRadius: "50%", border: `1px solid ${theme.border}`, background: theme.activeBg, color: theme.text, fontSize: 22, fontWeight: 600, cursor: "pointer" };
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={box} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: 0 }}>PIN 설정</h3>
+        <p style={{ margin: 0, fontSize: 15, opacity: 0.7 }}>{label}</p>
+
+        <div style={{ display: "flex", gap: 16 }}>
+          {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+            <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: i < digits.length ? theme.primary : "transparent", border: `2px solid ${theme.primary}`, transition: "background 0.15s" }} />
+          ))}
+        </div>
+
+        {error && <p style={{ margin: 0, color: theme.errorText, fontSize: 13, fontWeight: 600 }}>{error}</p>}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 64px)", gap: 12 }}>
+          {[1,2,3,4,5,6,7,8,9].map((n) => (
+            <button key={n} onClick={() => handleDigit(String(n))} style={btnStyle}>{n}</button>
+          ))}
+          <div />
+          <button onClick={() => handleDigit("0")} style={btnStyle}>0</button>
+          <button onClick={handleDelete} style={{ ...btnStyle, background: "transparent", color: "#888", fontSize: 20 }}>⌫</button>
+        </div>
+
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#888", fontSize: 14, cursor: "pointer" }}>취소</button>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { db, clear } = useBudgetDB();
+  const [pinModalMode, setPinModalMode] = useState(null);
 
-  // 중앙 설정 본부에서 값(settings)과 변경 함수(updateSetting)
   const { settings, updateSetting } = useSettings();
 
   const toggleBiometric = async (e) => {
@@ -126,11 +213,25 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSavePin = (pin) => {
+    updateSetting("lockPin", pin);
+    setPinModalMode(null);
+    alert("PIN이 설정되었습니다.");
+  };
+
   return (
     <S.PageWrap>
       <S.HeaderFix>
         <Header title="설정" />
       </S.HeaderFix>
+
+      {pinModalMode && (
+        <PinSetupModal
+          existingPin={pinModalMode === "change" ? settings.lockPin : ""}
+          onSave={handleSavePin}
+          onClose={() => setPinModalMode(null)}
+        />
+      )}
 
       <S.Content>
         <S.SectionTitle>앱 설정</S.SectionTitle>
@@ -143,28 +244,37 @@ export default function SettingsPage() {
           </S.ToggleSwitch>
         </S.ToggleRow>
 
+        {settings.lockPin ? (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <S.Btn style={{ marginBottom: 0, textAlign: "center" }} onClick={() => setPinModalMode("change")}>PIN 변경</S.Btn>
+            <S.Btn style={{ marginBottom: 0, textAlign: "center", background: "#F5455C", color: "#fff", border: "none" }} onClick={() => { if (window.confirm("PIN을 삭제하시겠습니까?")) updateSetting("lockPin", ""); }}>PIN 삭제</S.Btn>
+          </div>
+        ) : (
+          <S.Btn onClick={() => setPinModalMode("set")}>PIN 잠금 설정 (지문 실패 시 폴백)</S.Btn>
+        )}
+
         <S.Btn onClick={() => navigate("/settings/currency")}>금액 기호 설정하기</S.Btn>
         <S.Btn onClick={() => navigate("/settings/text-color")}>글자 색상 설정하기</S.Btn>
         <S.Btn onClick={() => navigate("/settings/categories")}>카테고리 관리</S.Btn>
 
         <S.Btn onClick={() => updateSetting("mode", settings.mode === "light" ? "dark" : "light")}>테마 변경 (현재 {settings.mode === "light" ? "라이트" : "다크"})</S.Btn>
 
-        <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
+        <hr style={{ margin: "20px 0", border: 0, borderTop: `1px solid ${theme.border}` }} />
 
         <NotificationSettings />
 
-        <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid #ddd" }} />
+        <hr style={{ margin: "20px 0", border: 0, borderTop: `1px solid ${theme.border}` }} />
 
         <S.SectionTitle>데이터 관리</S.SectionTitle>
         <GoogleAuth />
         <SyncAction />
         <BackupAction />
 
-        <S.Btn onClick={() => navigate("/settings/privacy")} style={{ background: "#6c757d", marginTop: "10px" }}>
+        <S.Btn onClick={() => navigate("/settings/privacy")} style={{ marginTop: "10px" }}>
           개인정보 처리방침 확인
         </S.Btn>
 
-        <S.Btn onClick={resetAll} style={{ background: "#d9534f", marginTop: "20px" }}>
+        <S.Btn onClick={resetAll} style={{ background: "#F5455C", color: "#fff", border: "none", textAlign: "center", marginTop: "20px" }}>
           전체 데이터 초기화
         </S.Btn>
       </S.Content>

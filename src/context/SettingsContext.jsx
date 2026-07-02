@@ -13,6 +13,7 @@ export function SettingsProvider({ children }) {
     // 앱 기능 관련
     currencyUnit: localStorage.getItem("currencyUnit") || "원",
     useBiometric: localStorage.getItem("useBiometric") === "true",
+    lockPin: localStorage.getItem("lockPin") || "",
     
     // 자동 기록(알림) 관련
     autoSaveIncome: localStorage.getItem("autoSaveIncome") !== "false",
@@ -30,6 +31,7 @@ export function SettingsProvider({ children }) {
     localStorage.setItem("darkTextColor", settings.darkTextColor);
     localStorage.setItem("currencyUnit", settings.currencyUnit);
     localStorage.setItem("useBiometric", String(settings.useBiometric));
+    localStorage.setItem("lockPin", settings.lockPin);
     localStorage.setItem("autoSaveIncome", String(settings.autoSaveIncome));
     localStorage.setItem("autoSaveExpense", String(settings.autoSaveExpense));
     localStorage.setItem("isIncomeGrouped", String(settings.isIncomeGrouped));

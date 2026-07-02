@@ -96,16 +96,30 @@ export const useNativeSync = () => {
         }
 
         // 4. 챕터 매핑 (없으면 생성)
-        let targetChapter = chapters.find((c) => c.title === recordData.chapterTitle);
+        // 인메모리 캐시 먼저 확인 후 DB 재조회로 race condition 방지
+        let targetChapter = chapters.find(
+          (c) => c.title === recordData.chapterTitle && !c.isTemporary
+        );
+
+        if (!targetChapter) {
+          const freshChapters = await getAll("chapters");
+          targetChapter = freshChapters.find(
+            (c) => c.title === recordData.chapterTitle && !c.isTemporary
+          );
+          if (targetChapter && !chapters.some((c) => c.chapterId === targetChapter.chapterId)) {
+            chapters.push(targetChapter);
+          }
+        }
 
         let targetChapterId;
         if (targetChapter) {
           targetChapterId = targetChapter.chapterId;
         } else {
+          const allChapters = await getAll("chapters");
           targetChapterId = await add("chapters", {
             title: recordData.chapterTitle,
             createdAt: new Date(recordData.date),
-            order: chapters.length,
+            order: allChapters.filter((c) => !c.isTemporary).length,
             isTemporary: false,
           });
           // 메모리 상 챕터 목록 갱신

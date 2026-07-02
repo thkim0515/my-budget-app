@@ -29,7 +29,7 @@ export const Content = styled.div`
   overflow-y: auto;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
 
   width: 100%;
   max-width: 480px;
@@ -50,13 +50,54 @@ export const Content = styled.div`
   }
 `;
 
+export const SummaryCard = styled.div`
+  display: flex;
+  align-items: stretch;
+  background: ${({ theme }) => theme.card};
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: ${({ theme }) => theme.radius.md};
+  box-shadow: ${({ theme }) => theme.shadowSm};
+  padding: 16px 8px;
+  margin-bottom: 4px;
+`;
+
+export const SummaryCell = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border-right: 1px solid ${({ theme }) => theme.border};
+  &:last-child { border-right: none; }
+
+  span {
+    font-size: 12px;
+    font-weight: 600;
+    color: ${({ theme }) => theme.subText};
+  }
+  strong {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: ${({ theme, $tone }) =>
+      $tone === "income" ? theme.incomeColor : $tone === "expense" ? theme.expenseColor : theme.text};
+  }
+`;
+
 export const ChartBox = styled.div`
-  /* 차트를 감싸는 카드 스타일입니다. */
-  margin-top: 20px;
+  margin-top: 16px;
   background: ${({ theme }) => theme.card};
   padding: 20px;
-  border-radius: 10px;
+  border-radius: ${({ theme }) => theme.radius.md};
   border: 1px solid ${({ theme }) => theme.border};
+  box-shadow: ${({ theme }) => theme.shadowSm};
+`;
+
+export const ChartTitle = styled.h3`
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.text};
 `;
 
 export const Table = styled.table`
@@ -66,17 +107,18 @@ export const Table = styled.table`
   border-collapse: collapse;
   background: ${({ theme }) => theme.card};
   border: 1px solid ${({ theme }) => theme.border};
-  border-radius: 8px;
+  border-radius: ${({ theme }) => theme.radius.sm};
   overflow: hidden;
+  box-shadow: ${({ theme }) => theme.shadowSm};
 `;
 
 export const Th = styled.th`
   /* 테이블 헤더 스타일입니다. */
-  padding: 12px 8px;
-  background: ${({ theme }) => theme.headerBg};
-  color: ${({ theme }) => theme.headerText};
+  padding: 13px 8px;
+  background: ${({ theme }) => theme.primary};
+  color: ${({ theme }) => theme.onPrimary};
+  font-weight: 700;
   text-align: center;
-  border-bottom: 1px solid ${({ theme }) => theme.border};
 `;
 
 export const Td = styled.td`
@@ -95,18 +137,28 @@ export const MonthSelector = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  font-size: 18px;
-  font-weight: bold;
+  margin: 16px 0 4px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: ${({ theme }) => theme.text};
 `;
 
 export const ArrowBtn = styled.button`
   /* 월 이동 버튼 스타일입니다. */
-  background: transparent;
-  border: none;
-  font-size: 22px;
-  color: ${({ theme }) => theme.text};
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${({ theme }) => theme.card};
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: 50%;
+  font-size: 16px;
+  color: ${({ theme }) => theme.subText};
   cursor: pointer;
+  box-shadow: ${({ theme }) => theme.shadowSm};
+  &:active { transform: scale(0.92); }
 `;
 
 // 기간 선택 버튼을 위한 스타일 추가
@@ -120,13 +172,13 @@ export const RangeSelector = styled.div`
 
 export const RangeButton = styled.button`
   /* 기간 선택 버튼의 기본 스타일 및 활성화 상태 스타일입니다. */
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid ${({ theme }) => theme.border};
+  padding: 9px 12px;
+  border-radius: ${({ theme }) => theme.radius.pill};
+  border: 1px solid ${({ theme, $active }) => ($active ? "transparent" : theme.border)};
   /* $active는 styled-components에서 transient prop으로 처리되어 DOM에 전달되지 않습니다. */
-  background: ${({ theme, $active }) => ($active ? theme.headerBg : theme.card)};
-  color: ${({ theme, $active }) => ($active ? theme.headerText : theme.text)};
-  font-weight: bold;
+  background: ${({ theme, $active }) => ($active ? theme.primary : theme.card)};
+  color: ${({ theme, $active }) => ($active ? theme.onPrimary : theme.subText)};
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   flex: 1;

@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react"; 
+import { useEffect, useState, useMemo } from "react";
+import { useTheme } from "styled-components";
 import Header from "../../components/UI/Header";
 import { formatCompact } from "../../utils/numberFormat";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
@@ -12,6 +13,7 @@ import { Bar, Pie } from "react-chartjs-2";
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 export default function StatsPage() {
+  const theme = useTheme();
   const [chapters, setChapters] = useState([]);
   const [records, setRecords] = useState([]);
   const { unit } = useCurrencyUnit();
@@ -46,8 +48,9 @@ export default function StatsPage() {
   // 기록 필터링 최적화 (useMemo)
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
-      if (!r.date) return false;
-      const rDate = new Date(r.date);
+      const rawDate = r.date || r.createdAt;
+      if (!rawDate) return false;
+      const rDate = new Date(rawDate);
       const recordDateOnly = new Date(rDate.getFullYear(), rDate.getMonth(), rDate.getDate());
       return recordDateOnly >= startDate && recordDateOnly <= endDate;
     });
@@ -57,6 +60,7 @@ export default function StatsPage() {
   const summaryList = useMemo(() => {
     const chapterMap = new Map();
     filteredRecords.forEach((r) => {
+      if (r.excludedFromCalc) return;
       const key = r.chapterId;
       if (!chapterMap.has(key)) {
         chapterMap.set(key, { income: 0, expense: 0 });
@@ -87,20 +91,33 @@ export default function StatsPage() {
     });
   }, [filteredRecords, chapters]);
 
+  // 기간 합계 (수입/지출/잔액)
+  const periodTotals = useMemo(() => {
+    let income = 0, expense = 0;
+    filteredRecords.forEach((r) => {
+      if (r.excludedFromCalc) return;
+      if (r.type === "income") income += r.amount;
+      else expense += r.amount;
+    });
+    return { income, expense, balance: income - expense };
+  }, [filteredRecords]);
+
   // 차트 객체 메모이제이션 (차트 깜빡임 및 성능 저하 방지)
   const barData = useMemo(() => ({
     labels: summaryList.map((s) => s.title),
     datasets: [{
       label: "잔액",
       data: summaryList.map((s) => s.balance),
-      backgroundColor: "rgba(25, 118, 210, 0.6)",
-      borderColor: "rgba(25, 118, 210, 1)",
-      borderWidth: 1,
+      backgroundColor: summaryList.map((s) => (s.balance < 0 ? "rgba(245, 69, 92, 0.75)" : "rgba(76, 111, 255, 0.75)")),
+      borderColor: summaryList.map((s) => (s.balance < 0 ? "#F5455C" : "#4C6FFF")),
+      borderWidth: 1.5,
+      borderRadius: 8,
+      maxBarThickness: 48,
     }],
   }), [summaryList]);
 
   const pieData = useMemo(() => {
-    const expenseList = filteredRecords.filter((r) => r.type === "expense");
+    const expenseList = filteredRecords.filter((r) => r.type === "expense" && !r.excludedFromCalc);
     const categorySum = {};
     expenseList.forEach((r) => {
       const key = r.category || "기타";
@@ -108,12 +125,14 @@ export default function StatsPage() {
     });
 
     const labels = Object.keys(categorySum);
+    const palette = ["#4C6FFF", "#6F5BFF", "#12B76A", "#F5455C", "#F59E0B", "#22C3E6", "#FF8A5B", "#9B6DFF", "#2BD67B", "#FF6B9D"];
     return {
       labels,
       datasets: [{
         label: "지출 합계",
         data: Object.values(categorySum),
-        backgroundColor: labels.map((_, i) => `hsl(${(i * 360) / labels.length}, 65%, 60%)`),
+        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+        borderWidth: 0,
       }],
     };
   }, [filteredRecords]);
@@ -159,18 +178,33 @@ export default function StatsPage() {
           </S.RangeSelector>
 
           <S.MonthSelector>
-            <S.ArrowBtn onClick={() => moveMonth(-range)}>◀</S.ArrowBtn>
+            <S.ArrowBtn onClick={() => moveMonth(-range)}>‹</S.ArrowBtn>
             <span>{monthDisplay}</span>
-            <S.ArrowBtn onClick={() => moveMonth(range)}>▶</S.ArrowBtn>
+            <S.ArrowBtn onClick={() => moveMonth(range)}>›</S.ArrowBtn>
           </S.MonthSelector>
 
+          <S.SummaryCard>
+            <S.SummaryCell $tone="income">
+              <span>수입</span>
+              <strong>{formatCompact(periodTotals.income)} {unit}</strong>
+            </S.SummaryCell>
+            <S.SummaryCell $tone="expense">
+              <span>지출</span>
+              <strong>{formatCompact(periodTotals.expense)} {unit}</strong>
+            </S.SummaryCell>
+            <S.SummaryCell>
+              <span>잔액</span>
+              <strong>{formatCompact(periodTotals.balance)} {unit}</strong>
+            </S.SummaryCell>
+          </S.SummaryCard>
+
           <S.ChartBox>
-            <h3>제목별 잔액 (Bar)</h3>
-            <Bar data={barData} options={barOptions} />
+            <S.ChartTitle>제목별 잔액</S.ChartTitle>
+            <Bar data={barData} options={barOptions(theme)} />
           </S.ChartBox>
 
           <S.ChartBox>
-            <h3>카테고리별 지출 (Pie)</h3>
+            <S.ChartTitle>카테고리별 지출</S.ChartTitle>
             <div style={{ height: "260px", display: "flex", justifyContent: "center" }}>
               <Pie data={pieData} options={{ responsive: true, maintainAspectRatio: false }} />
             </div>
@@ -203,11 +237,11 @@ export default function StatsPage() {
 }
 
 
-const barOptions = {
+const barOptions = (theme) => ({
   responsive: true,
-  plugins: { legend: { labels: { color: "#aaa" } } },
+  plugins: { legend: { labels: { color: theme.text } } },
   scales: {
-    x: { ticks: { color: "#aaa" }, grid: { color: "#444" } },
-    y: { ticks: { color: "#aaa" }, grid: { color: "#444" } },
+    x: { ticks: { color: theme.text }, grid: { color: theme.border } },
+    y: { ticks: { color: theme.text }, grid: { color: theme.border } },
   },
-};
+});

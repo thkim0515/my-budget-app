@@ -2,32 +2,21 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "styled-components";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { FiEdit3, FiCopy, FiCheckCircle, FiTrash2 } from "react-icons/fi";
+import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
+import { formatNumber } from "../../utils/numberFormat";
+import { FiEdit3, FiCopy, FiCheckCircle, FiTrash2, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import * as S from "./MainPage.styles";
 
-const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
-
-const SWIPE_ACTION_WIDTH = 228;
-const SWIPE_TRIGGER_OFFSET = -56;
-const SWIPE_ACTION_WIDTH_PX = `${SWIPE_ACTION_WIDTH}px`;
-const SWIPE_DIRECTION_LOCK_THRESHOLD = 10;
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 const buildYearOptions = (centerYear, minYear = 1970, maxYear = 2999) => {
   const safeCenter = Number.isInteger(centerYear) ? centerYear : new Date().getFullYear();
-  const startYear = Math.max(minYear, safeCenter - 10);
-  const endYear = Math.min(maxYear, safeCenter + 10);
-
-  return Array.from({ length: endYear - startYear + 1 }, (_, i) => String(startYear + i));
-};
-
-const reorder = (list, startIndex, endIndex) => {
-  const result = Array.from(list);
-  const [removed] = result.splice(startIndex, 1);
-  result.splice(endIndex, 0, removed);
-  return result;
+  const start = Math.max(minYear, safeCenter - 10);
+  const end = Math.min(maxYear, safeCenter + 10);
+  return Array.from({ length: end - start + 1 }, (_, i) => String(start + i));
 };
 
 const toDateSafe = (value) => {
@@ -38,12 +27,9 @@ const toDateSafe = (value) => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
-const monthName = (month) => `${String(month).padStart(2, "0")}`;
+const monthName = (month) => String(month).padStart(2, "0");
 
-const getChapterYear = (chapter) => {
-  const sourceDate = toDateSafe(chapter?.createdAt || new Date());
-  return sourceDate.getFullYear();
-};
+const getChapterYear = (chapter) => toDateSafe(chapter?.createdAt || new Date()).getFullYear();
 
 const replaceMonthWithClamp = (sourceDate, targetYear, targetMonth) => {
   const date = toDateSafe(sourceDate);
@@ -59,94 +45,43 @@ const isIncomeOrBudgetRecord = (record) => {
   return false;
 };
 
-const MODAL_OVERLAY_STYLE = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0, 0, 0, 0.45)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 20,
-  zIndex: 250,
+const MODAL_OVERLAY = {
+  position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+  display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 250,
 };
-
-const MODAL_STYLE = {
-  width: "100%",
-  maxWidth: 360,
-  background: "#fff",
-  borderRadius: 12,
-  border: "1px solid #ddd",
-  padding: 16,
-  color: "#222",
-};
-
-const MODAL_ROW_STYLE = {
-  display: "flex",
-  gap: 10,
-  marginTop: 16,
-};
-
-const MODAL_BUTTON = (bg) => ({
-  flex: 1,
-  border: "none",
-  color: "#fff",
-  padding: "10px 12px",
-  borderRadius: 8,
-  cursor: "pointer",
-  background: bg,
+const MODAL_ROW = { display: "flex", gap: 10, marginTop: 16 };
+const MODAL_BTN = (bg) => ({
+  flex: 1, border: "none", color: "#fff", padding: "10px 12px",
+  borderRadius: 8, cursor: "pointer", background: bg, fontSize: 15, fontWeight: 600,
 });
 
-const EDIT_BUTTON_STYLE = {
-  background: "#6f42c1",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "6px 10px",
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  cursor: "pointer",
-  fontSize: 13,
-};
-
-const COPY_BUTTON_STYLE = {
-  ...EDIT_BUTTON_STYLE,
-  background: "#1976d2",
-};
-
-const COMPLETE_BUTTON_STYLE = {
-  ...EDIT_BUTTON_STYLE,
-  background: "#4caf50",
-};
-
-const DELETE_BUTTON_STYLE = {
-  ...EDIT_BUTTON_STYLE,
-  background: "#d9534f",
-};
-
-// 드래그 중인 요소를 Portal로 띄워주기 위한 헬퍼 컴포넌트
-const DraggablePortal = ({ children, snapshot }) => {
-  if (!snapshot.isDragging) return children;
-  return ReactDOM.createPortal(children, document.body);
-};
+const SORT_OPTIONS = [
+  { key: "order", label: "기본순" },
+  { key: "newest", label: "최신순" },
+  { key: "oldest", label: "오래된순" },
+];
 
 export default function MainPage() {
+  const theme = useTheme();
+  const { unit } = useCurrencyUnit();
   const [chapters, setChapters] = useState([]);
+  const [balanceByChapter, setBalanceByChapter] = useState({});
+  const [sortKey, setSortKey] = useState("newest");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(
+    () => localStorage.getItem("mainpage_hide_completed") === "true"
+  );
+
+  useEffect(() => {
+    localStorage.setItem("mainpage_hide_completed", String(hideCompleted));
+  }, [hideCompleted]);
+
   const [copyTargetChapter, setCopyTargetChapter] = useState(null);
   const [copyTargetMonth, setCopyTargetMonth] = useState(String(new Date().getMonth() + 1));
   const [copyTargetYear, setCopyTargetYear] = useState(String(new Date().getFullYear()));
+
   const [editingChapter, setEditingChapter] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [swipedChapterId, setSwipedChapterId] = useState(null);
-  const [swipeState, setSwipeState] = useState({
-    chapterId: null,
-    startX: 0,
-    startY: 0,
-    startOffset: 0,
-    offset: 0,
-    isSwiping: false,
-    isHorizontalSwipe: false,
-  });
 
   const navigate = useNavigate();
   const { db, getAll, getAllFromIndex, add, addMany, put, deleteItem } = useBudgetDB();
@@ -154,141 +89,53 @@ export default function MainPage() {
   const loadChapters = useCallback(async () => {
     if (!db) return;
     const list = await getAll("chapters");
-    list.sort((a, b) => {
-      if (a.order !== b.order) return (a.order ?? 999) - (b.order ?? 999);
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    });
     setChapters(list);
+
+    // 챕터별 수입 / 예산(직접 입력 지출) / 잔액 계산. 계산 제외 항목은 제외.
+    const records = await getAll("records");
+    const map = {};
+    records.forEach((r) => {
+      if (r.excludedFromCalc || !r.chapterId) return;
+      if (!map[r.chapterId]) map[r.chapterId] = { income: 0, budget: 0, balance: 0 };
+      const m = map[r.chapterId];
+      if (r.type === "income") {
+        m.income += r.amount;
+        m.balance += r.amount;
+      } else {
+        if (r.inputMode === "manual") m.budget += r.amount;
+        m.balance -= r.amount;
+      }
+    });
+    setBalanceByChapter(map);
   }, [db, getAll]);
 
   useEffect(() => {
     loadChapters();
-    const handleSyncUpdate = () => loadChapters();
-    window.addEventListener("budget-db-updated", handleSyncUpdate);
-    return () => window.removeEventListener("budget-db-updated", handleSyncUpdate);
+    const handle = () => loadChapters();
+    window.addEventListener("budget-db-updated", handle);
+    return () => window.removeEventListener("budget-db-updated", handle);
   }, [db, loadChapters]);
 
-  const displayedChapters = useMemo(() => chapters.filter((c) => !c.isTemporary), [chapters]);
+  const displayedChapters = useMemo(() => {
+    const visible = chapters.filter((c) => !c.isTemporary && !(hideCompleted && c.isCompleted));
+    const sorted = [...visible];
+    if (sortKey === "newest") {
+      sorted.sort((a, b) => toDateSafe(b.createdAt) - toDateSafe(a.createdAt));
+    } else if (sortKey === "oldest") {
+      sorted.sort((a, b) => toDateSafe(a.createdAt) - toDateSafe(b.createdAt));
+    } else {
+      sorted.sort((a, b) => {
+        if (a.order !== b.order) return (a.order ?? 999) - (b.order ?? 999);
+        return toDateSafe(b.createdAt) - toDateSafe(a.createdAt);
+      });
+    }
+    return sorted;
+  }, [chapters, sortKey, hideCompleted]);
+
   const copyYearOptions = useMemo(() => {
     if (!copyTargetChapter) return [];
-    const baseYear = getChapterYear(copyTargetChapter);
-    return buildYearOptions(baseYear);
+    return buildYearOptions(getChapterYear(copyTargetChapter));
   }, [copyTargetChapter]);
-
-  const resetSwipeState = () => {
-    setSwipeState({ chapterId: null, startX: 0, startY: 0, startOffset: 0, offset: 0, isSwiping: false, isHorizontalSwipe: false });
-  };
-
-  const getSwipeOffset = (chapterId) => {
-    if (swipeState.isSwiping && swipeState.chapterId === chapterId) return swipeState.offset;
-    if (swipedChapterId === chapterId) return -SWIPE_ACTION_WIDTH;
-    return 0;
-  };
-
-  const mergeDragTransform = (dragTransform, swipeOffset) => {
-    if (!dragTransform && !swipeOffset) return undefined;
-    if (!dragTransform) return `translateX(${swipeOffset}px)`;
-    if (!swipeOffset) return dragTransform;
-    return `${dragTransform} translateX(${swipeOffset}px)`;
-  };
-
-  const hideSwipe = () => setSwipedChapterId(null);
-  const cancelSwipeState = () => {
-    resetSwipeState();
-  };
-  const closeSwipeIfOpen = () => {
-    if (swipedChapterId) hideSwipe();
-  };
-
-  const handleSwipeStart = (chapterId, e) => {
-    const touch = e.touches?.[0];
-    if (!touch) return;
-
-    if (swipedChapterId && swipedChapterId !== chapterId) hideSwipe();
-
-    const baseOffset = swipedChapterId === chapterId ? -SWIPE_ACTION_WIDTH : 0;
-    setSwipeState({
-      chapterId,
-      startX: touch.clientX,
-      startY: touch.clientY,
-      startOffset: baseOffset,
-      offset: baseOffset,
-      isSwiping: true,
-      isHorizontalSwipe: false,
-    });
-  };
-
-  const handleSwipeMove = (chapterId, e) => {
-    if (!swipeState.isSwiping || swipeState.chapterId !== chapterId) return;
-    const touch = e.touches?.[0];
-    if (!touch) return;
-
-    const moveX = touch.clientX - swipeState.startX;
-    const moveY = touch.clientY - swipeState.startY;
-
-    if (!swipeState.isHorizontalSwipe) {
-      const absX = Math.abs(moveX);
-      const absY = Math.abs(moveY);
-
-      // 세로 스크롤 우선인 터치 동작은 스와이프 취소
-      if (absY > absX * 1.5 && absY > SWIPE_DIRECTION_LOCK_THRESHOLD) {
-        cancelSwipeState();
-        return;
-      }
-
-      // 미세 이동은 대기
-      if (absX < SWIPE_DIRECTION_LOCK_THRESHOLD) {
-        return;
-      }
-
-      if (absX <= absY * 1.2) {
-        return;
-      }
-
-      setSwipeState((prev) => ({ ...prev, isHorizontalSwipe: true }));
-    }
-
-    const nextOffset = Math.min(0, Math.max(-SWIPE_ACTION_WIDTH, swipeState.startOffset + moveX));
-
-    setSwipeState((prev) => ({ ...prev, offset: nextOffset }));
-  };
-
-  const handleSwipeEnd = (chapterId) => {
-    if (!swipeState.isSwiping || swipeState.chapterId !== chapterId) {
-      resetSwipeState();
-      return;
-    }
-
-    if (!swipeState.isHorizontalSwipe) {
-      resetSwipeState();
-      return;
-    }
-
-    if (swipeState.offset <= SWIPE_TRIGGER_OFFSET) {
-      setSwipedChapterId(chapterId);
-    } else {
-      if (swipedChapterId === chapterId) hideSwipe();
-    }
-
-    resetSwipeState();
-  };
-
-  const handleDragStart = () => {
-    closeSwipeIfOpen();
-    resetSwipeState();
-  };
-
-  const onDragEnd = async (result) => {
-    if (!result.destination) return;
-    const visibleChapters = chapters.filter((c) => !c.isTemporary);
-    const reorderedList = reorder(visibleChapters, result.source.index, result.destination.index);
-    const tempChapters = chapters.filter((c) => c.isTemporary);
-    const nextChapters = [...reorderedList, ...tempChapters];
-    setChapters(nextChapters);
-    for (let i = 0; i < reorderedList.length; i++) {
-      await put("chapters", { ...reorderedList[i], order: i });
-    }
-  };
 
   const createTemporaryChapter = async () => {
     const now = new Date();
@@ -306,10 +153,8 @@ export default function MainPage() {
   const deleteChapter = async (chapterId) => {
     if (!window.confirm("해당 기록을 삭제하시겠습니까?")) return;
     await deleteItem("chapters", chapterId);
-    const recordsInChapter = await getAllFromIndex("records", "chapterId", chapterId);
-    for (let r of recordsInChapter) {
-      await deleteItem("records", r.id);
-    }
+    const records = await getAllFromIndex("records", "chapterId", chapterId);
+    for (const r of records) await deleteItem("records", r.id);
     loadChapters();
   };
 
@@ -339,7 +184,6 @@ export default function MainPage() {
       alert("1~12 사이의 월만 입력할 수 있습니다.");
       return;
     }
-
     const targetYear = Number(copyTargetYear);
     if (!Number.isInteger(targetYear) || targetYear < 1970 || targetYear > 2999) {
       alert("유효한 연도를 입력해 주세요.");
@@ -347,10 +191,8 @@ export default function MainPage() {
     }
 
     const targetTitle = makeChapterTitle(targetYear, targetMonth);
-
     const allChapters = await getAll("chapters");
-    const titleAlreadyExists = allChapters.some((item) => item.title === targetTitle);
-    if (titleAlreadyExists) {
+    if (allChapters.some((c) => c.title === targetTitle)) {
       alert("이미 존재하는 챕터입니다.");
       return;
     }
@@ -360,7 +202,7 @@ export default function MainPage() {
       .filter(isIncomeOrBudgetRecord)
       .sort((a, b) => {
         if (a.order !== b.order) return (a.order ?? 999) - (b.order ?? 999);
-        return (toDateSafe(a.date || a.createdAt) - toDateSafe(b.date || b.createdAt));
+        return toDateSafe(a.date || a.createdAt) - toDateSafe(b.date || b.createdAt);
       })
       .map((r, index) => {
         const newDate = replaceMonthWithClamp(r.date || r.createdAt, targetYear, targetMonth);
@@ -376,7 +218,7 @@ export default function MainPage() {
         };
       });
 
-    const nextOrder = chapters.filter((c) => !c.isTemporary).length;
+    const nextOrder = allChapters.filter((c) => !c.isTemporary).length;
     const newChapterId = await add("chapters", {
       title: targetTitle,
       createdAt: new Date(`${targetYear}-${monthName(targetMonth)}-01`),
@@ -385,19 +227,8 @@ export default function MainPage() {
       isCompleted: false,
     });
 
-    if (!newChapterId) {
-      loadChapters();
-      closeCopyModal();
-      return;
-    }
-
-    const recordsToInsert = targetRecords.map((record) => ({
-      ...record,
-      chapterId: newChapterId,
-    }));
-
-    if (recordsToInsert.length > 0) {
-      await addMany("records", recordsToInsert, true);
+    if (newChapterId && targetRecords.length > 0) {
+      await addMany("records", targetRecords.map((r) => ({ ...r, chapterId: newChapterId })), true);
     }
 
     window.dispatchEvent(new CustomEvent("budget-db-updated"));
@@ -411,247 +242,220 @@ export default function MainPage() {
     setEditingTitle(chapter.title || "");
   };
 
-  const cancelRenameChapter = () => {
+  const cancelRename = () => {
     setEditingChapter(null);
     setEditingTitle("");
   };
 
   const executeRename = async () => {
     if (!editingChapter) return;
-
     const nextTitle = editingTitle.trim();
-    if (!nextTitle) {
-      alert("제목을 입력해 주세요.");
-      return;
+    if (!nextTitle) { alert("제목을 입력해 주세요."); return; }
+    if (chapters.some((c) => c.chapterId !== editingChapter.chapterId && c.title === nextTitle)) {
+      alert("이미 존재하는 챕터입니다."); return;
     }
-
-    const duplicated = chapters.some((c) => c.chapterId !== editingChapter.chapterId && c.title === nextTitle);
-    if (duplicated) {
-      alert("이미 존재하는 챕터입니다.");
-      return;
-    }
-
-    await put("chapters", {
-      ...editingChapter,
-      title: nextTitle,
-    });
-
-    cancelRenameChapter();
+    await put("chapters", { ...editingChapter, title: nextTitle });
+    cancelRename();
     window.dispatchEvent(new CustomEvent("budget-db-updated"));
     loadChapters();
   };
 
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? "정렬";
+
   return (
     <S.PageWrap>
       <S.HeaderFix>
-        <Header title="가계부" rightButton={<S.CreateBtn onClick={createTemporaryChapter}>새 내역 추가</S.CreateBtn>} />
+        <Header
+          title="가계부"
+          rightButton={
+            <S.HeaderButtons>
+              <S.HideCompletedBtn
+                type="button"
+                $on={hideCompleted}
+                aria-pressed={hideCompleted}
+                onClick={() => setHideCompleted((v) => !v)}
+              >
+                완료 항목 숨기기
+              </S.HideCompletedBtn>
+              <div style={{ position: "relative" }}>
+                <S.SortBtn onClick={() => setSortMenuOpen((v) => !v)}>
+                  {sortKey === "newest" ? <FiArrowDown size={13} /> : sortKey === "oldest" ? <FiArrowUp size={13} /> : null}
+                  {currentSortLabel}
+                </S.SortBtn>
+                {sortMenuOpen && (
+                  <div
+                    style={{
+                      position: "absolute", top: "100%", right: 0, marginTop: 4,
+                      background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 8,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)", zIndex: 100, minWidth: 110,
+                    }}
+                  >
+                    {SORT_OPTIONS.map((o) => (
+                      <button
+                        key={o.key}
+                        onClick={() => { setSortKey(o.key); setSortMenuOpen(false); }}
+                        style={{
+                          display: "block", width: "100%", padding: "10px 14px",
+                          background: sortKey === o.key ? theme.activeBg : "transparent",
+                          border: "none", textAlign: "left", fontSize: 14,
+                          fontWeight: sortKey === o.key ? 700 : 400,
+                          cursor: "pointer", color: theme.text,
+                        }}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <S.CreateBtn onClick={createTemporaryChapter}>새 내역 추가</S.CreateBtn>
+            </S.HeaderButtons>
+          }
+        />
       </S.HeaderFix>
 
-      <S.ListWrap onClick={closeSwipeIfOpen} onTouchStart={closeSwipeIfOpen}>
-        <DragDropContext onDragEnd={onDragEnd} onDragStart={handleDragStart}>
-          <Droppable droppableId="chapterList">
-            {(provided) => (
-              <div ref={provided.innerRef} {...provided.droppableProps}>
-                {displayedChapters.map((c, index) => (
-                  <Draggable key={c.chapterId} draggableId={String(c.chapterId)} index={index}>
-                    {(p, snapshot) => (
-                      <DraggablePortal snapshot={snapshot}>
-                        <S.SwipeContainer>
-                            <S.SwipeContent
-                              data-swipe-content="true"
-                              ref={p.innerRef}
-                              {...p.draggableProps}
-                              {...p.dragHandleProps}
-                            $isDragging={snapshot.isDragging}
-                            $offset={getSwipeOffset(c.chapterId)}
-                            style={{
-                              ...p.draggableProps.style,
-                              // 포탈로 빠져나갔을 때 너비가 0이 되지 않도록 고정 (앱 최대 너비 480px 고려)
-                              transform: mergeDragTransform(
-                                p.draggableProps.style?.transform,
-                                getSwipeOffset(c.chapterId),
-                              ),
-                              width: snapshot.isDragging ? "calc(100% - 32px)" : "100%",
-                              maxWidth: snapshot.isDragging ? "448px" : "none",
-                              opacity: c.isCompleted ? 0.65 : 1,
-                            }}
-                            onTouchStart={(e) => handleSwipeStart(c.chapterId, e)}
-                            onTouchMove={(e) => handleSwipeMove(c.chapterId, e)}
-                            onTouchEnd={() => handleSwipeEnd(c.chapterId)}
-                            onTouchCancel={() => handleSwipeEnd(c.chapterId)}
-                            onClick={() => {
-                              if (swipedChapterId === c.chapterId) {
-                                hideSwipe();
-                                return;
-                              }
-                              if (swipeState.isSwiping && swipeState.chapterId === c.chapterId) return;
-                              navigate(`/detail/chapter/${c.chapterId}`);
-                            }}
-                          >
-                            <S.ChapterItem $completed={c.isCompleted}>
-                              <S.ChapterLink>{c.title}</S.ChapterLink>
-                            </S.ChapterItem>
-                          </S.SwipeContent>
+      <S.ListWrap onClick={() => setSortMenuOpen(false)}>
+        {displayedChapters.length === 0 && (
+          <S.EmptyState>
+            <p>아직 내역이 없습니다.</p>
+            <p>우측 상단 "새 내역 추가"를 눌러 시작하세요.</p>
+          </S.EmptyState>
+        )}
+        {displayedChapters.map((c) => (
+          <S.ChapterRow key={c.chapterId} $completed={c.isCompleted}>
+            <S.ChapterMain onClick={() => navigate(`/detail/chapter/${c.chapterId}`)}>
+              <S.ChapterTitle>{c.title}</S.ChapterTitle>
+              {(() => {
+                const m = balanceByChapter[c.chapterId] || { income: 0, budget: 0, balance: 0 };
+                return (
+                  <S.StatRow>
+                    <S.StatItem $tone="income">
+                      <small>수입</small>
+                      <strong>{m.income > 0 ? "+" : ""}{formatNumber(m.income)} {unit}</strong>
+                    </S.StatItem>
+                    <S.StatItem $tone="expense">
+                      <small>예산</small>
+                      <strong>{m.budget > 0 ? "-" : ""}{formatNumber(m.budget)} {unit}</strong>
+                    </S.StatItem>
+                    <S.StatItem $tone={m.balance < 0 ? "expense" : "income"}>
+                      <small>잔액</small>
+                      <strong>{m.balance > 0 ? "+" : ""}{formatNumber(m.balance)} {unit}</strong>
+                    </S.StatItem>
+                  </S.StatRow>
+                );
+              })()}
+            </S.ChapterMain>
 
-                            <S.ActionGroup
-                              $isVisible={
-                                swipedChapterId === c.chapterId ||
-                                (swipeState.chapterId === c.chapterId && swipeState.isSwiping && swipeState.isHorizontalSwipe)
-                              }
-                              style={{ width: SWIPE_ACTION_WIDTH_PX }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                            <button
-                              style={{ ...COMPLETE_BUTTON_STYLE, minWidth: 36, justifyContent: "center" }}
-                              title={c.isCompleted ? "완료 취소" : "완료 처리"}
-                              onClick={() => {
-                                hideSwipe();
-                                toggleComplete(c);
-                              }}
-                            >
-                              <FiCheckCircle size={12} />
-                              {c.isCompleted ? "해제" : "완료"}
-                            </button>
+            <S.ActionGroup>
+              <S.ActionBtn
+                $bg={c.isCompleted ? "#9098A8" : "#12B76A"}
+                title={c.isCompleted ? "완료 취소" : "완료 처리"}
+                onClick={(e) => { e.stopPropagation(); toggleComplete(c); }}
+              >
+                <FiCheckCircle size={11} />
+                {c.isCompleted ? "해제" : "완료"}
+              </S.ActionBtn>
 
-                            <button
-                              style={{ ...EDIT_BUTTON_STYLE, minWidth: 36, justifyContent: "center" }}
-                              title="챕터 제목 수정"
-                              onClick={() => {
-                                hideSwipe();
-                                openRenameChapter(c);
-                              }}
-                            >
-                              <FiEdit3 size={12} />
-                              편집
-                            </button>
+              <S.ActionBtn
+                $bg="#6F5BFF"
+                title="챕터 제목 수정"
+                onClick={(e) => { e.stopPropagation(); openRenameChapter(c); }}
+              >
+                <FiEdit3 size={11} />
+                편집
+              </S.ActionBtn>
 
-                            <button
-                              style={{ ...COPY_BUTTON_STYLE, minWidth: 36, justifyContent: "center" }}
-                              title="챕터 복사"
-                              onClick={() => {
-                                hideSwipe();
-                                openCopyModal(c);
-                              }}
-                            >
-                              <FiCopy size={12} />
-                              복사
-                            </button>
+              <S.ActionBtn
+                $bg="#4C6FFF"
+                title="챕터 복사"
+                onClick={(e) => { e.stopPropagation(); openCopyModal(c); }}
+              >
+                <FiCopy size={11} />
+                복사
+              </S.ActionBtn>
 
-                            <button
-                              style={{ ...DELETE_BUTTON_STYLE, minWidth: 36, justifyContent: "center" }}
-                              title="삭제"
-                              onClick={() => {
-                                hideSwipe();
-                                deleteChapter(c.chapterId);
-                              }}
-                            >
-                              <FiTrash2 size={12} />
-                              삭제
-                            </button>
-                          </S.ActionGroup>
-                        </S.SwipeContainer>
-                      </DraggablePortal>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+              <S.ActionBtn
+                $bg="#F5455C"
+                title="삭제"
+                onClick={(e) => { e.stopPropagation(); deleteChapter(c.chapterId); }}
+              >
+                <FiTrash2 size={11} />
+                삭제
+              </S.ActionBtn>
+            </S.ActionGroup>
+          </S.ChapterRow>
+        ))}
       </S.ListWrap>
 
+      {/* 복사 모달 */}
       {copyTargetChapter &&
         ReactDOM.createPortal(
-          <div style={MODAL_OVERLAY_STYLE} onClick={closeCopyModal}>
-            <div style={MODAL_STYLE} onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ margin: 0, marginBottom: 12, textAlign: "center" }}>챕터 복사</h3>
-              <p style={{ margin: "0 0 12px", fontSize: 14, lineHeight: 1.5 }}>{copyTargetChapter.title}</p>
+          <div style={MODAL_OVERLAY} onClick={closeCopyModal}>
+            <div
+              style={{
+                width: "100%", maxWidth: 360,
+                background: theme.card, borderRadius: 12,
+                border: `1px solid ${theme.border}`, padding: 20, color: theme.text,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: 0, marginBottom: 12, textAlign: "center", color: theme.text }}>챕터 복사</h3>
+              <p style={{ margin: "0 0 12px", fontSize: 14, color: theme.text, opacity: 0.7 }}>{copyTargetChapter.title}</p>
 
-              <label style={{ display: "block", marginBottom: 8, fontSize: 14 }}>복사할 월</label>
+              <label style={{ display: "block", marginBottom: 8, fontSize: 14, color: theme.text }}>복사할 월</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <select
                   value={copyTargetYear}
                   onChange={(e) => setCopyTargetYear(e.target.value)}
-                  style={{
-                    width: "38%",
-                    borderRadius: 6,
-                    border: "1px solid #ddd",
-                    padding: 10,
-                    fontSize: 14,
-                    boxSizing: "border-box",
-                  }}
+                  style={{ width: "38%", borderRadius: 6, border: `1px solid ${theme.border}`, padding: 10, fontSize: 14, boxSizing: "border-box", background: theme.card, color: theme.text }}
                 >
-                  {copyYearOptions.length > 0 ? (
-                    copyYearOptions.map((year) => (
-                      <option key={year} value={year}>
-                        {year}년
-                      </option>
-                    ))
-                  ) : (
-                    <option value={copyTargetYear}>{copyTargetYear}년</option>
-                  )}
+                  {copyYearOptions.length > 0
+                    ? copyYearOptions.map((y) => <option key={y} value={y}>{y}년</option>)
+                    : <option value={copyTargetYear}>{copyTargetYear}년</option>}
                 </select>
                 <select
                   value={copyTargetMonth}
                   onChange={(e) => setCopyTargetMonth(e.target.value)}
-                  style={{
-                    width: "62%",
-                    padding: 10,
-                    borderRadius: 6,
-                    border: "1px solid #ddd",
-                    fontSize: 14,
-                    boxSizing: "border-box",
-                  }}
+                  style={{ width: "62%", padding: 10, borderRadius: 6, border: `1px solid ${theme.border}`, fontSize: 14, boxSizing: "border-box", background: theme.card, color: theme.text }}
                 >
-                  {MONTH_OPTIONS.map((month) => (
-                    <option key={month} value={month}>
-                      {month}월
-                    </option>
-                  ))}
+                  {MONTH_OPTIONS.map((m) => <option key={m} value={m}>{m}월</option>)}
                 </select>
               </div>
 
-              <div style={{ ...MODAL_ROW_STYLE, marginTop: 16 }}>
-                <button style={MODAL_BUTTON("#1976d2")} onClick={executeCopy}>
-                  복사하기
-                </button>
-                <button style={MODAL_BUTTON("#6c757d")} onClick={closeCopyModal}>
-                  취소
-                </button>
+              <div style={MODAL_ROW}>
+                <button style={MODAL_BTN("#4C6FFF")} onClick={executeCopy}>복사하기</button>
+                <button style={MODAL_BTN("#6c757d")} onClick={closeCopyModal}>취소</button>
               </div>
             </div>
           </div>,
           document.body,
         )}
 
+      {/* 이름 변경 모달 */}
       {editingChapter &&
         ReactDOM.createPortal(
-          <div style={MODAL_OVERLAY_STYLE} onClick={cancelRenameChapter}>
-            <div style={MODAL_STYLE} onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ margin: 0, marginBottom: 12, textAlign: "center" }}>챕터 제목 수정</h3>
-              <p style={{ margin: "0 0 12px", fontSize: 13, lineHeight: 1.5 }}>{editingChapter.title} →</p>
+          <div style={MODAL_OVERLAY} onClick={cancelRename}>
+            <div
+              style={{
+                width: "100%", maxWidth: 360,
+                background: theme.card, borderRadius: 12,
+                border: `1px solid ${theme.border}`, padding: 20, color: theme.text,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: 0, marginBottom: 12, textAlign: "center", color: theme.text }}>챕터 제목 수정</h3>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: theme.text, opacity: 0.7 }}>{editingChapter.title} →</p>
               <input
                 value={editingTitle}
                 onChange={(e) => setEditingTitle(e.target.value)}
-                style={{
-                  width: "100%",
-                  border: "1px solid #ddd",
-                  borderRadius: 6,
-                  padding: 10,
-                  marginBottom: 12,
-                  boxSizing: "border-box",
-                }}
+                onKeyDown={(e) => e.key === "Enter" && executeRename()}
+                style={{ width: "100%", border: `1px solid ${theme.border}`, borderRadius: 6, padding: 10, marginBottom: 12, boxSizing: "border-box", background: theme.card, color: theme.text, fontSize: 15 }}
                 placeholder="새 제목 입력"
+                autoFocus
               />
-
-              <div style={MODAL_ROW_STYLE}>
-                <button style={MODAL_BUTTON("#1976d2")} onClick={executeRename}>
-                  저장
-                </button>
-                <button style={MODAL_BUTTON("#6c757d")} onClick={cancelRenameChapter}>
-                  취소
-                </button>
+              <div style={MODAL_ROW}>
+                <button style={MODAL_BTN("#4C6FFF")} onClick={executeRename}>저장</button>
+                <button style={MODAL_BTN("#6c757d")} onClick={cancelRename}>취소</button>
               </div>
             </div>
           </div>,

@@ -1,8 +1,7 @@
 /* src/components/DataList/DataList.jsx */
 import React, { useState, useRef } from "react";
-import ReactDOM from "react-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { FiTrash2, FiGrid, FiCoffee, FiTruck, FiPhone, FiShoppingBag, FiMusic, FiCreditCard, FiRefreshCw, FiChevronDown, FiChevronUp } from "react-icons/fi";
+import { FiGrid, FiCoffee, FiTruck, FiPhone, FiShoppingBag, FiMusic, FiCreditCard, FiRefreshCw, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import * as S from "./DataList.styles";
 import { formatNumber } from "../../utils/numberFormat";
 
@@ -17,17 +16,16 @@ const categoryIconMap = {
   기타: FiGrid,
 };
 
-const DraggablePortal = ({ children, snapshot }) => {
-  if (!snapshot.isDragging) return children;
-  // 포탈을 사용해 드래그 중인 항목이 기존 레이아웃(z-index 등)에 갇히지 않게 함
-  return ReactDOM.createPortal(children, document.body);
+const EMPTY_MSG = {
+  income: "수입 내역이 없습니다",
+  budget: "예산 항목이 없습니다",
+  expense: "지출 내역이 없습니다",
 };
 
 export default function RecordList({
   incomeList = [],
   budgetList = [],
   expenseList = [],
-  isReorderMode = false,
   settings = {},
   editId,
   unit,
@@ -37,7 +35,6 @@ export default function RecordList({
   onToggleExpenseGroup,
   onDragEnd,
   onEdit,
-  onDelete,
   onRefresh,
   enablePullToRefresh = true,
 }) {
@@ -48,7 +45,6 @@ export default function RecordList({
 
   const handleTouchStart = (e) => {
     if (!enablePullToRefresh) return;
-    // 드래그 중이거나 스크롤이 맨 위가 아니면 새로고침 무시
     if (isDragActive || window.scrollY !== 0) return;
     startY.current = e.touches[0].pageY;
   };
@@ -58,9 +54,7 @@ export default function RecordList({
     if (startY.current === 0 || isRefreshing || isDragActive) return;
     const currentY = e.touches[0].pageY;
     const distance = currentY - startY.current;
-    if (distance > 0) {
-      setPullDistance(distance * 0.4);
-    }
+    if (distance > 0) setPullDistance(distance * 0.4);
   };
 
   const handleTouchEnd = async () => {
@@ -68,94 +62,78 @@ export default function RecordList({
     if (pullDistance > 50 && !isRefreshing) {
       setIsRefreshing(true);
       setPullDistance(50);
-      if (onRefresh) {
-        await onRefresh();
-      }
-      setTimeout(() => {
-        setIsRefreshing(false);
-        setPullDistance(0);
-      }, 500);
+      if (onRefresh) await onRefresh();
+      setTimeout(() => { setIsRefreshing(false); setPullDistance(0); }, 500);
     } else {
       setPullDistance(0);
     }
     startY.current = 0;
   };
 
-  const handleBeforeDragStart = () => {
-    if (!isReorderMode) return;
-    setIsDragActive(true);
-  };
+  const handleBeforeDragStart = () => setIsDragActive(true);
+  const handleDragEndAction = (result) => { setIsDragActive(false); onDragEnd(result); };
 
-  const handleDragEndAction = (result) => {
-    setIsDragActive(false);
-    onDragEnd(result);
-  };
-
-  const renderItems = (list, droppableId, isGrouped) => (
+  const renderItems = (list, droppableId, isGrouped, emptyKey) => (
     <Droppable droppableId={droppableId}>
       {(provided) => (
         <S.List ref={provided.innerRef} {...provided.droppableProps}>
+          {list.length === 0 && (
+            <S.EmptyState>{EMPTY_MSG[emptyKey]}</S.EmptyState>
+          )}
           {list.map((r, index) => {
             const CategoryIcon = categoryIconMap[r.category] || FiGrid;
-            const isDragDisabled = !isReorderMode || isGrouped || (r.isAggregated && r.count > 1);
+            const isDragDisabled = isGrouped || (r.isAggregated && r.count > 1);
+            const tone = r.type === "income" ? "income" : "expense";
+            const sign = r.type === "income" ? "+" : "-";
+            const excluded = !!r.excludedFromCalc;
             return (
               <Draggable key={r.id} draggableId={String(r.id)} index={index} isDragDisabled={isDragDisabled}>
                 {(p, snapshot) => (
-                  <DraggablePortal snapshot={snapshot}>
-                    <S.ListItem
-                      ref={p.innerRef}
-                      {...p.draggableProps}
-                      {...(!isDragDisabled ? p.dragHandleProps : {})}
+                  <S.ListItem
+                    ref={p.innerRef}
+                    {...p.draggableProps}
+                    {...(!isDragDisabled ? p.dragHandleProps : {})}
+                    $isDragging={snapshot.isDragging}
+                    $isReorderMode={true}
+                    id={`record-${r.id}`}
+                    style={{
+                      ...p.draggableProps.style,
+                      margin: snapshot.isDragging ? 0 : "0 0 10px 0",
+                    }}
+                  >
+                    <S.ItemCard
+                      onClick={() => !snapshot.isDragging && onEdit(r)}
+                      $isEditing={r.id === editId}
                       $isDragging={snapshot.isDragging}
-                      $isReorderMode={isReorderMode}
-                      id={`record-${r.id}`}
-                      style={{
-                        ...p.draggableProps.style,
-                        // 포탈 안에서도 너비를 유지하기 위한 계산
-                        width: snapshot.isDragging ? "calc(100% - 32px)" : "100%",
-                        maxWidth: snapshot.isDragging ? "448px" : "none",
-                        margin: snapshot.isDragging ? 0 : "0 0 12px 0",
-                      }}
+                      $isPaid={r.isPaid}
+                      $excluded={excluded}
                     >
-                        <S.ItemCard
-                          onClick={() => !snapshot.isDragging && onEdit(r)}
-                          $isEditing={r.id === editId}
-                        $isDragging={snapshot.isDragging}
-                        $isPaid={r.isPaid}
-                        $isAggregated={r.isAggregated && r.count > 1}
-                      >
+                      <S.CardLeft>
+                        <S.CategoryIconWrap $tone={tone}>
+                          <CategoryIcon />
+                        </S.CategoryIconWrap>
                         <S.CardInfo>
+                          <S.CardTitle title={r.title}>
+                            {r.title}
+                            {r.isAggregated && r.count > 1 && (
+                              <S.Badge $kind="count">{r.count}건</S.Badge>
+                            )}
+                          </S.CardTitle>
                           <S.CardMetaRow>
-                            <S.CategoryIconWrap>
-                              <CategoryIcon />
-                            </S.CategoryIconWrap>
-                            <span>
-                              {r.category} · {String(r.date || r.createdAt).split("T")[0]}
-                            </span>
-                            {r.isPaid && <S.PaidBadge style={{ marginLeft: "8px" }}>납부완료</S.PaidBadge>}
-                            {r.isAggregated && r.count > 1 && <span style={{ color: "#2196F3", fontWeight: 600, marginLeft: 6 }}>[{r.count}건 합산]</span>}
+                            <span>{r.category} · {String(r.date || r.createdAt).split("T")[0]}</span>
+                            {r.isPaid && <S.PaidBadge>납부완료</S.PaidBadge>}
+                            {excluded && <S.Badge $kind="excluded">계산 제외</S.Badge>}
                           </S.CardMetaRow>
-                          <S.CardTitle title={r.title}>{r.title}</S.CardTitle>
                         </S.CardInfo>
-                        <S.CardRight>
-                          <S.CardAmount>
-                            {formatNumber(r.amount)}
-                            {unit}
-                          </S.CardAmount>
-                          {(!r.isAggregated || r.count === 1) && (
-                            <S.CardAction
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(r.id, false);
-                              }}
-                            >
-                              <FiTrash2 />
-                            </S.CardAction>
-                          )}
-                        </S.CardRight>
-                      </S.ItemCard>
-                    </S.ListItem>
-                  </DraggablePortal>
+                      </S.CardLeft>
+                      <S.CardRight>
+                        <S.CardAmount $tone={tone} $excluded={excluded}>
+                          {sign}{formatNumber(r.amount)}{unit}
+                        </S.CardAmount>
+                        {r.id === editId && <S.EditingDot title="수정 중" />}
+                      </S.CardRight>
+                    </S.ItemCard>
+                  </S.ListItem>
                 )}
               </Draggable>
             );
@@ -178,72 +156,45 @@ export default function RecordList({
         </S.RefreshIndicator>
       )}
 
-      <S.RefreshContent
-        $pullDistance={enablePullToRefresh ? pullDistance : 0}
-        $isRefreshing={enablePullToRefresh ? isRefreshing : false}
-      >
+      <S.RefreshContent $pullDistance={enablePullToRefresh ? pullDistance : 0} $isRefreshing={enablePullToRefresh ? isRefreshing : false}>
         <DragDropContext onBeforeDragStart={handleBeforeDragStart} onDragEnd={handleDragEndAction}>
           <S.SectionHeader>
-            <h3>수입 내역</h3>
+            <h3><S.SectionDot $tone="income" />수입 내역</h3>
             <S.HeaderActions>
               <S.ToggleLabel onClick={onToggleIncomeGroup}>
                 <span>모아보기</span>
                 <S.ToggleSwitch $isOn={settings.isIncomeGrouped} />
               </S.ToggleLabel>
               <S.CollapseBtn onClick={() => onToggleSection("income")}>
-                {collapsedState.income ? (
-                  <>
-                    <FiChevronDown /> 펼치기
-                  </>
-                ) : (
-                  <>
-                    <FiChevronUp /> 접기
-                  </>
-                )}
+                {collapsedState.income ? <><FiChevronDown /> 펼치기</> : <><FiChevronUp /> 접기</>}
               </S.CollapseBtn>
             </S.HeaderActions>
           </S.SectionHeader>
-          {!collapsedState.income && renderItems(incomeList, "incomeList", settings.isIncomeGrouped)}
+          {!collapsedState.income && renderItems(incomeList, "incomeList", settings.isIncomeGrouped, "income")}
 
           <S.SectionHeader>
-            <h3>예산 목록 (직접 입력)</h3>
+            <h3><S.SectionDot $tone="primary" />예산 목록 (직접 입력)</h3>
             <S.HeaderActions>
               <S.CollapseBtn onClick={() => onToggleSection("budget")}>
-                {collapsedState.budget ? (
-                  <>
-                    <FiChevronDown /> 펼치기
-                  </>
-                ) : (
-                  <>
-                    <FiChevronUp /> 접기
-                  </>
-                )}
+                {collapsedState.budget ? <><FiChevronDown /> 펼치기</> : <><FiChevronUp /> 접기</>}
               </S.CollapseBtn>
             </S.HeaderActions>
           </S.SectionHeader>
-          {!collapsedState.budget && renderItems(budgetList, "budgetList", false)}
+          {!collapsedState.budget && renderItems(budgetList, "budgetList", false, "budget")}
 
           <S.SectionHeader>
-            <h3>지출 목록 (자동 기록)</h3>
+            <h3><S.SectionDot $tone="expense" />지출 목록 (자동 기록)</h3>
             <S.HeaderActions>
               <S.ToggleLabel onClick={onToggleExpenseGroup}>
                 <span>모아보기</span>
                 <S.ToggleSwitch $isOn={settings.isExpenseGrouped} />
               </S.ToggleLabel>
               <S.CollapseBtn onClick={() => onToggleSection("expense")}>
-                {collapsedState.expense ? (
-                  <>
-                    <FiChevronDown /> 펼치기
-                  </>
-                ) : (
-                  <>
-                    <FiChevronUp /> 접기
-                  </>
-                )}
+                {collapsedState.expense ? <><FiChevronDown /> 펼치기</> : <><FiChevronUp /> 접기</>}
               </S.CollapseBtn>
             </S.HeaderActions>
           </S.SectionHeader>
-          {!collapsedState.expense && renderItems(expenseList, "expenseList", settings.isExpenseGrouped)}
+          {!collapsedState.expense && renderItems(expenseList, "expenseList", settings.isExpenseGrouped, "expense")}
         </DragDropContext>
       </S.RefreshContent>
     </S.PullToRefreshContainer>

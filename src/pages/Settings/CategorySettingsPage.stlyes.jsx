@@ -6,7 +6,8 @@ export const PageWrap = styled.div`
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: ${({ theme }) => theme.background};
+  background: ${({ theme }) => theme.bg};
+  color: ${({ theme }) => theme.text};
 `;
 
 export const HeaderFix = styled.div`
@@ -51,19 +52,21 @@ export const InputBox = styled.input`
   font-size: 14px;
   outline: none;
   &:focus {
-    border-color: #1976d2;
+    border-color: ${({ theme }) => theme.primary};
+    box-shadow: 0 0 0 4px ${({ theme }) => theme.primarySoft};
   }
 `;
 
 export const AddBtn = styled.button`
   padding: 0 20px;
-  background: #1976d2;
+  background: ${({ theme }) => theme.gradientPrimary};
   color: white;
   border: none;
-  border-radius: 8px;
-  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
+  &:active { transform: scale(0.97); }
 `;
 
 export const DefaultGrid = styled.div`
@@ -105,18 +108,19 @@ export const Item = styled.li`
 
 export const DeleteBtn = styled.button`
   padding: 6px 12px;
-  background: #fee2e2;
-  color: #ef4444;
-  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.errorText};
+  border: 1px solid ${({ theme }) => theme.errorText};
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  &:active { opacity: 0.7; }
 `;
 
 export const EmptyMsg = styled.p`
   text-align: center;
-  color: #999;
+  color: ${({ theme }) => theme.mutedText};
   font-size: 13px;
   margin-top: 20px;
 `;
