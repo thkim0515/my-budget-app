@@ -65,26 +65,48 @@ public final class NotificationListener extends NotificationListenerService {
                     textChar = sb.toString();
                 }
             }
+            // [보강] 문자 앱은 대화형(MessagingStyle) 알림을 쓰는 경우가 많아
+            // EXTRA_TEXT가 비어있고 EXTRA_MESSAGES 안에 실제 문자 내용이 들어있는 경우가 있다.
+            if (textChar == null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                try {
+                    android.os.Parcelable[] messagesBundle = extras.getParcelableArray(Notification.EXTRA_MESSAGES);
+                    if (messagesBundle != null && messagesBundle.length > 0) {
+                        java.util.List<Notification.MessagingStyle.Message> messages =
+                                Notification.MessagingStyle.Message.getMessagesFromBundleArray(messagesBundle);
+                        if (!messages.isEmpty()) {
+                            StringBuilder sb = new StringBuilder();
+                            for (Notification.MessagingStyle.Message m : messages) {
+                                if (m.getText() != null) sb.append(m.getText()).append(" ");
+                            }
+                            if (sb.length() > 0) textChar = sb.toString();
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
             String text = (textChar != null) ? textChar.toString() : "내용 없음";
 
-            // [핵심 1] 시스템 고유 키(Key) 사용 - 물리적 중복 방지
-            // sbn.getKey()는 알림마다 부여되는 고유값입니다. 앱을 껐다 켜도 유지됩니다.
-            String uniqueKey = sbn.getKey(); 
-            
+            // [핵심 1] 시스템 고유 키(Key) + 내용 해시를 함께 사용해 중복을 판단한다.
+            // 카카오톡처럼 같은 대화방 알림을 "새로 만들지 않고 기존 알림을 업데이트"하는
+            // 앱은 sbn.getKey()가 계속 동일하게 유지된다. 키만으로 판단하면 내용이 완전히
+            // 바뀐 새 알림(예: 카드 결제 알림톡)도 "예전에 처리한 알림"으로 오인해 영구히
+            // 무시해버리는 문제가 있었다. 그래서 키와 내용 해시를 함께 묶어서 식별한다.
+            String uniqueKey = sbn.getKey();
+            String contentHash = sha256(title + text);
+            String identity = uniqueKey + "|" + contentHash;
+
             SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-            
-            // A. 이미 처리한 알림 객체인지 확인 (ID 기반)
+
+            // A. 이미 처리한 알림 객체인지 확인 (ID + 내용 기반)
             JSONArray processedIds = new JSONArray(prefs.getString(KEY_PROCESSED_IDS, "[]"));
             for (int i = 0; i < processedIds.length(); i++) {
-                if (uniqueKey.equals(processedIds.getString(i))) {
-                    // Log.d(TAG, "🚫 이미 처리된 알림 ID입니다. (시스템 중복)");
+                if (identity.equals(processedIds.getString(i))) {
+                    // Log.d(TAG, "🚫 이미 처리된 알림입니다. (동일 키 + 동일 내용)");
                     return;
                 }
             }
 
             // [핵심 3] 교차 알림(카뱅+카톡) 방어 로직
-            // 패키지명을 제외하고 내용만으로 해시를 생성
-            String contentHash = sha256(title + text);
+            // 패키지명을 제외하고 내용만으로 해시를 생성 (contentHash는 위에서 이미 계산됨)
             long now = System.currentTimeMillis();
             
             JSONArray recentContents = new JSONArray(prefs.getString(KEY_RECENT_CONTENTS, "[]"));
@@ -105,7 +127,7 @@ public final class NotificationListener extends NotificationListenerService {
                         Log.d(TAG, "🚫 타 앱 중복 알림 차단 (" + hPkg + " vs " + pkg + ")");
                         
                         // ID는 처리된 것으로 기록해두어야 다음에 또 검사 안함
-                        saveProcessedId(prefs, processedIds, uniqueKey);
+                        saveProcessedId(prefs, processedIds, identity);
                         return;
                     }
                 }
@@ -115,7 +137,7 @@ public final class NotificationListener extends NotificationListenerService {
             Log.d(TAG, "📩 새 알림 저장: [" + pkg + "] " + text);
 
             // 1. 처리된 ID 저장 (재부팅 시 중복 방지)
-            saveProcessedId(prefs, processedIds, uniqueKey);
+            saveProcessedId(prefs, processedIds, identity);
 
             // 2. 최근 내용 기록 (타 앱 중복 방지용)
             JSONObject historyObj = new JSONObject();

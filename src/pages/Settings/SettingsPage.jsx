@@ -12,6 +12,7 @@ import { useSettings } from "../../context/SettingsContext";
 import SyncAction from "../../components/Data/SyncAction";
 import BackupAction from "../../components/Data/BackupAction";
 import NotificationSettings from "../../components/Info/NotificationSettings";
+import CardLimitSettings from "../../components/Info/CardLimitSettings";
 
 import * as S from "./SettingsPage.styles";
 
@@ -262,6 +263,10 @@ export default function SettingsPage() {
         <hr style={{ margin: "20px 0", border: 0, borderTop: `1px solid ${theme.border}` }} />
 
         <NotificationSettings />
+
+        <hr style={{ margin: "20px 0", border: 0, borderTop: `1px solid ${theme.border}` }} />
+
+        <CardLimitSettings />
 
         <hr style={{ margin: "20px 0", border: 0, borderTop: `1px solid ${theme.border}` }} />
 

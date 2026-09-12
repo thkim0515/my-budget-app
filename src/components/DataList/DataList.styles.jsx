@@ -45,6 +45,23 @@ export const ItemCard = styled.div`
   &:active { cursor: grabbing; }
 `;
 
+export const SelectCheckbox = styled.div`
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid ${({ theme, $checked }) => ($checked ? theme.primary : theme.border)};
+  background: ${({ theme, $checked }) => ($checked ? theme.primary : "transparent")};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  transition: background 0.15s, border-color 0.15s;
+  opacity: ${({ $disabled }) => ($disabled ? 0.35 : 1)};
+`;
+
 export const CardLeft = styled.div`
   display: flex;
   align-items: center;

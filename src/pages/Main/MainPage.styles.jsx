@@ -38,12 +38,59 @@ export const ListWrap = styled.div`
   -webkit-overflow-scrolling: touch;
   padding: 18px 16px;
   padding-top: calc(env(safe-area-inset-top) + 96px);
-  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  padding-bottom: calc(${({ $withCardLimit }) => ($withCardLimit ? "168px" : "100px")} + env(safe-area-inset-bottom));
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
   box-sizing: border-box;
   overscroll-behavior: contain;
+`;
+
+// 하단 탭바(72px) 바로 위에 고정되는 카드 한도 표시 영역.
+// 리스트 스크롤을 가리지 않도록 ListWrap 쪽 padding-bottom을 함께 늘려준다.
+export const CardLimitBar = styled.div`
+  position: fixed;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  z-index: 15;
+  padding: 12px 16px;
+  background: ${({ theme }) => theme.card};
+  border-top: 1px solid ${({ theme }) => theme.border};
+  box-shadow: 0 -4px 12px rgba(20, 30, 60, 0.06);
+`;
+
+export const CardLimitTitle = styled.div`
+  font-size: 12px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.subText};
+  margin-bottom: 4px;
+`;
+
+export const CardLimitAmount = styled.div`
+  font-size: 18px;
+  font-weight: 800;
+  color: ${({ $color }) => $color};
+  margin-bottom: 8px;
+`;
+
+export const CardLimitTrack = styled.div`
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: ${({ theme }) => theme.border};
+  overflow: hidden;
+`;
+
+export const CardLimitFill = styled.div`
+  height: 100%;
+  border-radius: 3px;
+  background: ${({ $color }) => $color};
+  width: ${({ $ratio }) => `${$ratio * 100}%`};
+  transition: width 0.3s ease, background 0.3s ease;
 `;
 
 export const CreateBtn = styled.button`

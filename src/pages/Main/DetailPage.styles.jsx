@@ -26,6 +26,78 @@ export const ExcludePaidToggleBtn = styled.button`
   &:active { transform: scale(0.95); }
 `;
 
+/* 헤더 우측: 여러 항목을 체크박스로 골라 한 번에 삭제하는 모드 진입 토글 */
+export const SelectModeToggleBtn = styled.button`
+  background: ${({ $on, theme }) => ($on ? theme.expenseColor : theme.cardAlt)};
+  color: ${({ $on, theme }) => ($on ? "#fff" : theme.subText)};
+  padding: 8px 12px;
+  border-radius: ${({ theme }) => theme.radius.pill};
+  border: 1px solid ${({ $on, theme }) => ($on ? theme.expenseColor : theme.border)};
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  &:active { transform: scale(0.95); }
+`;
+
+export const HeaderButtonRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+/* 선택 삭제 모드일 때 FAB 자리에 뜨는 하단 액션 바 */
+export const SelectionBar = styled.div`
+  position: fixed;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 448px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: ${({ theme }) => theme.card};
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  box-shadow: ${({ theme }) => theme.shadowLg};
+  z-index: 30;
+`;
+
+export const SelectionCount = styled.div`
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.text};
+`;
+
+export const SelectionCancelBtn = styled.button`
+  background: ${({ theme }) => theme.cardAlt};
+  color: ${({ theme }) => theme.subText};
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  &:active { transform: scale(0.96); }
+`;
+
+export const SelectionDeleteBtn = styled.button`
+  background: ${({ theme, disabled }) => (disabled ? theme.borderStrong : theme.expenseColor)};
+  color: #fff;
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: ${({ disabled }) => (disabled ? "default" : "pointer")};
+  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
+  &:active { transform: ${({ disabled }) => (disabled ? "none" : "scale(0.96)")}; }
+`;
+
 export const HeaderFix = styled.div`
   position: fixed;
   top: 0;

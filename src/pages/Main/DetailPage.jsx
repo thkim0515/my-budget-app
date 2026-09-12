@@ -81,6 +81,10 @@ export default function DetailPage() {
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
+  // 여러 항목을 체크박스로 골라 한 번에 삭제하는 모드
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+
   // 바텀시트 아래로 스와이프(드래그)하여 닫기
   const sheetRef = useRef(null);
   const sheetDragStart = useRef(null);
@@ -243,6 +247,7 @@ export default function DetailPage() {
       date: recordDate,
       source: title,
       isPaid: editRecord?.isPaid || false,
+      excludedFromCalc: editRecord?.excludedFromCalc || false,
       createdAt: editRecord?.createdAt || new Date(),
       updatedAt: Date.now(),
       inputMode: isEditing ? editRecord?.inputMode || "manual" : "manual",
@@ -412,6 +417,39 @@ export default function DetailPage() {
     window.dispatchEvent(new CustomEvent("budget-db-updated"));
   };
 
+  const toggleSelectMode = () => {
+    setSelectMode((v) => !v);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelectItem = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const deleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) return;
+
+    for (const id of selectedIds) {
+      const target = records.find((r) => r.id === id);
+      if (target) {
+        await put("records", { ...target, isDeleted: true, updatedAt: Date.now() }, true);
+      } else {
+        await deleteItem("records", id, true);
+      }
+    }
+
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    await loadData();
+    window.dispatchEvent(new CustomEvent("budget-db-updated"));
+  };
+
   const onDragEnd = async (result) => {
     const { source, destination } = result;
     if (!destination) return;
@@ -452,14 +490,24 @@ export default function DetailPage() {
         <Header
           title={isChapterMode ? (chapter?.isTemporary ? "내역 입력" : chapter?.title) : `${date} 상세 내역`}
           rightButton={
-            <S.ExcludePaidToggleBtn
-              type="button"
-              $on={excludePaidFromCalc}
-              aria-pressed={excludePaidFromCalc}
-              onClick={() => setExcludePaidFromCalc((v) => !v)}
-            >
-              납부완료 제외
-            </S.ExcludePaidToggleBtn>
+            <S.HeaderButtonRow>
+              <S.ExcludePaidToggleBtn
+                type="button"
+                $on={excludePaidFromCalc}
+                aria-pressed={excludePaidFromCalc}
+                onClick={() => setExcludePaidFromCalc((v) => !v)}
+              >
+                납부완료 제외
+              </S.ExcludePaidToggleBtn>
+              <S.SelectModeToggleBtn
+                type="button"
+                $on={selectMode}
+                aria-pressed={selectMode}
+                onClick={toggleSelectMode}
+              >
+                {selectMode ? "선택 취소" : "선택 삭제"}
+              </S.SelectModeToggleBtn>
+            </S.HeaderButtonRow>
           }
         />
       </S.HeaderFix>
@@ -510,11 +558,23 @@ export default function DetailPage() {
           onDragEnd={onDragEnd}
           onEdit={startEdit}
           enablePullToRefresh={false}
+          selectMode={selectMode}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelectItem}
         />
       </S.Content>
 
-      {/* FAB */}
-      <S.FAB onClick={openNewSheet}>+</S.FAB>
+      {selectMode ? (
+        <S.SelectionBar>
+          <S.SelectionCount>{selectedIds.size}개 선택됨</S.SelectionCount>
+          <S.SelectionCancelBtn onClick={toggleSelectMode}>취소</S.SelectionCancelBtn>
+          <S.SelectionDeleteBtn onClick={deleteSelected} disabled={selectedIds.size === 0}>
+            삭제
+          </S.SelectionDeleteBtn>
+        </S.SelectionBar>
+      ) : (
+        <S.FAB onClick={openNewSheet}>+</S.FAB>
+      )}
 
       {/* Bottom sheet */}
       {isSheetOpen &&

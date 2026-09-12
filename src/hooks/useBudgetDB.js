@@ -45,7 +45,11 @@ export function useBudgetDB() {
 
   const mapRecord = (store, data, providedId) => {
     const now = Date.now();
-    const id = providedId || data.id || data.chapterId || crypto.randomUUID();
+    // [수정] data.chapterId는 records의 외래키(어느 챕터에 속하는지)로도 함께 넘어오는 값이라
+    // 여기서 곧바로 id 후보로 쓰면 같은 챕터에 속한 여러 레코드가 전부 같은 id를 갖게 되어
+    // 두 번째 레코드부터 저장이 ConstraintError로 실패하는 문제가 있었다.
+    // chapterId를 id로 재사용하는 건 chapters 스토어 자체를 저장할 때만 의미가 있다.
+    const id = providedId || data.id || (store === "chapters" ? data.chapterId : undefined) || crypto.randomUUID();
     const item = {
       ...data,
       updatedAt: now,

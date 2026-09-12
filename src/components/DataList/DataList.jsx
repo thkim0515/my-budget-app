@@ -1,5 +1,5 @@
 /* src/components/DataList/DataList.jsx */
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { FiGrid, FiCoffee, FiTruck, FiPhone, FiShoppingBag, FiMusic, FiCreditCard, FiRefreshCw, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import * as S from "./DataList.styles";
@@ -37,11 +37,79 @@ export default function RecordList({
   onEdit,
   onRefresh,
   enablePullToRefresh = true,
+  selectMode = false,
+  selectedIds = null,
+  onToggleSelect = () => {},
 }) {
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const startY = useRef(0);
+
+  const selectDragRef = useRef({ active: false, mode: null, visited: new Set(), startX: 0, startY: 0, moved: false, startKey: null });
+  const selectedIdsRef = useRef(selectedIds);
+  const itemLookupRef = useRef(new Map());
+  const suppressClickRef = useRef(false);
+
+  useEffect(() => {
+    selectedIdsRef.current = selectedIds;
+  }, [selectedIds]);
+
+  const registerSelectItem = (r, isSelectDisabled) => {
+    itemLookupRef.current.set(String(r.id), { id: r.id, disabled: isSelectDisabled });
+  };
+
+  const applyDragSelect = (key) => {
+    const st = selectDragRef.current;
+    if (!key || st.visited.has(key)) return;
+    const entry = itemLookupRef.current.get(key);
+    if (!entry || entry.disabled) return;
+    st.visited.add(key);
+    const isSelected = !!(selectedIdsRef.current && selectedIdsRef.current.has(entry.id));
+    if ((st.mode === "select" && !isSelected) || (st.mode === "deselect" && isSelected)) {
+      onToggleSelect(entry.id);
+    }
+  };
+
+  const handleItemPointerDown = (e, r, isSelectDisabled) => {
+    if (!selectMode || isSelectDisabled) return;
+    const isChecked = !!(selectedIds && selectedIds.has(r.id));
+    selectDragRef.current = {
+      active: true,
+      mode: isChecked ? "deselect" : "select",
+      visited: new Set(),
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+      startKey: String(r.id),
+    };
+  };
+
+  const handleContainerPointerMove = (e) => {
+    const st = selectDragRef.current;
+    if (!st.active) return;
+    if (!st.moved) {
+      const dx = e.clientX - st.startX;
+      const dy = e.clientY - st.startY;
+      if (Math.hypot(dx, dy) < 10) return;
+      st.moved = true;
+      applyDragSelect(st.startKey);
+    }
+    e.preventDefault();
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const itemEl = el && el.closest("[data-select-id]");
+    if (!itemEl) return;
+    applyDragSelect(itemEl.dataset.selectId);
+  };
+
+  const handleContainerPointerUp = () => {
+    const st = selectDragRef.current;
+    if (st.moved) {
+      suppressClickRef.current = true;
+      setTimeout(() => { suppressClickRef.current = false; }, 300);
+    }
+    selectDragRef.current = { active: false, mode: null, visited: new Set(), startX: 0, startY: 0, moved: false, startKey: null };
+  };
 
   const handleTouchStart = (e) => {
     if (!enablePullToRefresh) return;
@@ -82,10 +150,13 @@ export default function RecordList({
           )}
           {list.map((r, index) => {
             const CategoryIcon = categoryIconMap[r.category] || FiGrid;
-            const isDragDisabled = isGrouped || (r.isAggregated && r.count > 1);
+            const isSelectDisabled = r.isAggregated && r.count > 1;
+            const isDragDisabled = isGrouped || (r.isAggregated && r.count > 1) || selectMode;
             const tone = r.type === "income" ? "income" : "expense";
             const sign = r.type === "income" ? "+" : "-";
             const excluded = !!r.excludedFromCalc;
+            const isChecked = !!(selectedIds && selectedIds.has(r.id));
+            if (selectMode) registerSelectItem(r, isSelectDisabled);
             return (
               <Draggable key={r.id} draggableId={String(r.id)} index={index} isDragDisabled={isDragDisabled}>
                 {(p, snapshot) => (
@@ -102,13 +173,35 @@ export default function RecordList({
                     }}
                   >
                     <S.ItemCard
-                      onClick={() => !snapshot.isDragging && onEdit(r)}
+                      data-select-id={String(r.id)}
+                      onPointerDown={(e) => handleItemPointerDown(e, r, isSelectDisabled)}
+                      onClick={() => {
+                        if (suppressClickRef.current) {
+                          suppressClickRef.current = false;
+                          return;
+                        }
+                        if (snapshot.isDragging) return;
+                        if (selectMode) {
+                          if (isSelectDisabled) {
+                            alert("모아보기 상태에서는 개별 항목을 선택할 수 없습니다.");
+                            return;
+                          }
+                          onToggleSelect(r.id);
+                          return;
+                        }
+                        onEdit(r);
+                      }}
                       $isEditing={r.id === editId}
                       $isDragging={snapshot.isDragging}
                       $isPaid={r.isPaid}
                       $excluded={excluded}
                     >
                       <S.CardLeft>
+                        {selectMode && (
+                          <S.SelectCheckbox $checked={isChecked} $disabled={isSelectDisabled}>
+                            {isChecked ? "✓" : ""}
+                          </S.SelectCheckbox>
+                        )}
                         <S.CategoryIconWrap $tone={tone}>
                           <CategoryIcon />
                         </S.CategoryIconWrap>
@@ -156,7 +249,13 @@ export default function RecordList({
         </S.RefreshIndicator>
       )}
 
-      <S.RefreshContent $pullDistance={enablePullToRefresh ? pullDistance : 0} $isRefreshing={enablePullToRefresh ? isRefreshing : false}>
+      <S.RefreshContent
+        $pullDistance={enablePullToRefresh ? pullDistance : 0}
+        $isRefreshing={enablePullToRefresh ? isRefreshing : false}
+        onPointerMove={selectMode ? handleContainerPointerMove : undefined}
+        onPointerUp={selectMode ? handleContainerPointerUp : undefined}
+        onPointerCancel={selectMode ? handleContainerPointerUp : undefined}
+      >
         <DragDropContext onBeforeDragStart={handleBeforeDragStart} onDragEnd={handleDragEndAction}>
           <S.SectionHeader>
             <h3><S.SectionDot $tone="income" />수입 내역</h3>

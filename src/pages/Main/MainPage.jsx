@@ -6,7 +6,9 @@ import { useTheme } from "styled-components";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
-import { formatNumber } from "../../utils/numberFormat";
+import { useSettings } from "../../context/SettingsContext";
+import { formatNumber, unformatNumber } from "../../utils/numberFormat";
+import { computeCardUsage, getLimitColor, getCurrentYm } from "../../utils/cardLimit";
 import { FiEdit3, FiCopy, FiCheckCircle, FiTrash2, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import * as S from "./MainPage.styles";
 
@@ -64,8 +66,12 @@ const SORT_OPTIONS = [
 export default function MainPage() {
   const theme = useTheme();
   const { unit } = useCurrencyUnit();
+  const { settings, updateSetting } = useSettings();
   const [chapters, setChapters] = useState([]);
   const [balanceByChapter, setBalanceByChapter] = useState({});
+  const [cardUsedRaw, setCardUsedRaw] = useState(0);
+  const [cardLimitModalOpen, setCardLimitModalOpen] = useState(false);
+  const [cardLimitManualInput, setCardLimitManualInput] = useState("");
   const [sortKey, setSortKey] = useState("newest");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [hideCompleted, setHideCompleted] = useState(
@@ -107,7 +113,8 @@ export default function MainPage() {
       }
     });
     setBalanceByChapter(map);
-  }, [db, getAll]);
+    setCardUsedRaw(computeCardUsage(records, settings.cardLimitProvider));
+  }, [db, getAll, settings.cardLimitProvider]);
 
   useEffect(() => {
     loadChapters();
@@ -262,6 +269,55 @@ export default function MainPage() {
 
   const currentSortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? "정렬";
 
+  const showCardLimit = settings.cardLimitEnabled && settings.cardLimitProvider && settings.cardLimitAmount > 0;
+  // 이번 달이 아니면(달이 바뀌었으면) 지난 보정값은 자동으로 무시한다.
+  const cardAdjustment = settings.cardLimitAdjustmentMonth === getCurrentYm() ? settings.cardLimitAdjustment : 0;
+  // 카드 승인 문자의 "누적OOO원"을 이번 달 선택된 카드사 기준으로 받아둔 게 있으면
+  // (지출 자동저장이 꺼져 있어도 항상 갱신됨) 그 값을 그대로 사용액으로 쓴다.
+  // 아직 문자를 못 받았다면 기존 방식(로컬에 저장된 지출 내역 합계 + 수동 보정값)으로 대체한다.
+  const hasAccumulated =
+    !!settings.cardLimitProvider &&
+    settings.cardLimitAccumulatedProvider === settings.cardLimitProvider &&
+    settings.cardLimitAccumulatedYm === getCurrentYm();
+  const cardUsed = hasAccumulated
+    ? Math.max(0, settings.cardLimitAccumulated)
+    : Math.max(0, cardUsedRaw + cardAdjustment);
+  const cardRemaining = settings.cardLimitAmount - cardUsed;
+  const cardRatio = showCardLimit ? Math.min(1, Math.max(0, cardUsed / settings.cardLimitAmount)) : 0;
+  const cardColor = getLimitColor(cardRatio);
+
+  const openCardLimitModal = () => {
+    setCardLimitManualInput(cardRemaining > 0 ? String(Math.round(cardRemaining)) : "0");
+    setCardLimitModalOpen(true);
+  };
+  const closeCardLimitModal = () => setCardLimitModalOpen(false);
+
+  // 한도 리셋: 이번 달 사용액을 0으로 되돌린다.
+  // - 문자 기반 누적값을 쓰는 중이면 누적값 자체를 0으로.
+  // - 아니면 기존 방식대로 보정값으로 상쇄(실제 자동 계산치는 그대로 둠).
+  const resetCardLimit = () => {
+    if (hasAccumulated) {
+      updateSetting("cardLimitAccumulated", 0);
+    } else {
+      updateSetting("cardLimitAdjustment", -cardUsedRaw);
+      updateSetting("cardLimitAdjustmentMonth", getCurrentYm());
+    }
+    closeCardLimitModal();
+  };
+
+  // 남은 한도를 사용자가 직접 입력한 값으로 맞춘다.
+  const applyManualCardLimit = () => {
+    const desiredRemaining = unformatNumber(cardLimitManualInput);
+    const desiredUsed = settings.cardLimitAmount - desiredRemaining;
+    if (hasAccumulated) {
+      updateSetting("cardLimitAccumulated", Math.max(0, desiredUsed));
+    } else {
+      updateSetting("cardLimitAdjustment", desiredUsed - cardUsedRaw);
+      updateSetting("cardLimitAdjustmentMonth", getCurrentYm());
+    }
+    closeCardLimitModal();
+  };
+
   return (
     <S.PageWrap>
       <S.HeaderFix>
@@ -314,7 +370,7 @@ export default function MainPage() {
         />
       </S.HeaderFix>
 
-      <S.ListWrap onClick={() => setSortMenuOpen(false)}>
+      <S.ListWrap $withCardLimit={showCardLimit} onClick={() => setSortMenuOpen(false)}>
         {displayedChapters.length === 0 && (
           <S.EmptyState>
             <p>아직 내역이 없습니다.</p>
@@ -387,6 +443,18 @@ export default function MainPage() {
         ))}
       </S.ListWrap>
 
+      {showCardLimit && (
+        <S.CardLimitBar onClick={openCardLimitModal}>
+          <S.CardLimitTitle>현재 {settings.cardLimitProvider} 한도</S.CardLimitTitle>
+          <S.CardLimitAmount $color={cardColor}>
+            {formatNumber(cardRemaining)} {unit} 남음
+          </S.CardLimitAmount>
+          <S.CardLimitTrack>
+            <S.CardLimitFill $ratio={cardRatio} $color={cardColor} />
+          </S.CardLimitTrack>
+        </S.CardLimitBar>
+      )}
+
       {/* 복사 모달 */}
       {copyTargetChapter &&
         ReactDOM.createPortal(
@@ -456,6 +524,52 @@ export default function MainPage() {
               <div style={MODAL_ROW}>
                 <button style={MODAL_BTN("#4C6FFF")} onClick={executeRename}>저장</button>
                 <button style={MODAL_BTN("#6c757d")} onClick={cancelRename}>취소</button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* 카드 한도 리셋 / 직접 수정 모달 */}
+      {cardLimitModalOpen &&
+        ReactDOM.createPortal(
+          <div style={MODAL_OVERLAY} onClick={closeCardLimitModal}>
+            <div
+              style={{
+                width: "100%", maxWidth: 360,
+                background: theme.card, borderRadius: 12,
+                border: `1px solid ${theme.border}`, padding: 20, color: theme.text,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: 0, marginBottom: 4, textAlign: "center", color: theme.text }}>
+                {settings.cardLimitProvider} 한도 관리
+              </h3>
+              <p style={{ margin: "0 0 16px", fontSize: 12, color: theme.subText, textAlign: "center" }}>
+                현재 {formatNumber(cardRemaining)} {unit} 남음 (한도 {formatNumber(settings.cardLimitAmount)} {unit})
+              </p>
+
+              <button
+                style={{ ...MODAL_BTN("#6F5BFF"), width: "100%", marginBottom: 16 }}
+                onClick={resetCardLimit}
+              >
+                한도 리셋 (사용액 0으로)
+              </button>
+
+              <label style={{ display: "block", marginBottom: 8, fontSize: 13, color: theme.text }}>
+                남은 한도 직접 입력 ({unit})
+              </label>
+              <input
+                inputMode="numeric"
+                value={cardLimitManualInput === "" ? "" : formatNumber(cardLimitManualInput)}
+                onChange={(e) => setCardLimitManualInput(e.target.value.replace(/[^0-9]/g, ""))}
+                style={{ width: "100%", border: `1px solid ${theme.border}`, borderRadius: 6, padding: 10, marginBottom: 12, boxSizing: "border-box", background: theme.card, color: theme.text, fontSize: 15 }}
+                placeholder="예: 1900000"
+              />
+
+              <div style={MODAL_ROW}>
+                <button style={MODAL_BTN("#4C6FFF")} onClick={applyManualCardLimit}>적용</button>
+                <button style={MODAL_BTN("#6c757d")} onClick={closeCardLimitModal}>취소</button>
               </div>
             </div>
           </div>,

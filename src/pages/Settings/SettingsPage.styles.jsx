@@ -151,6 +151,38 @@ export const ConfigTitle = styled.p`
   color: ${({ theme }) => theme.text}; /* 테마 글자색 적용 */
 `;
 
+export const FieldLabelStandalone = styled.label`
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.subText};
+  margin-bottom: 6px;
+`;
+
+export const SelectInline = styled.select`
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ theme }) => theme.card};
+  color: ${({ theme }) => theme.text};
+  font-size: 14px;
+  box-sizing: border-box;
+`;
+
+export const InputInline = styled.input`
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid ${({ theme }) => theme.border};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ theme }) => theme.card};
+  color: ${({ theme }) => theme.text};
+  font-size: 14px;
+  box-sizing: border-box;
+`;
+
 export const ResetSubBtn = styled.button`
   background: transparent;
   color: ${({ theme }) => theme.text};

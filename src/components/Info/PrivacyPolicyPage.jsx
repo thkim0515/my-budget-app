@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useRef } from "react";
 import Header from "../UI/Header";
 import styled from "styled-components";
+
+const DEBUG_UNLOCK_KEY = "notiDebugUnlockUntil";
+const DEBUG_UNLOCK_DURATION_MS = 30 * 60 * 1000;
 
 const PageWrap = styled.div`
   display: flex;
@@ -67,6 +70,25 @@ const Content = styled.div`
 `;
 
 export default function PrivacyPolicyPage() {
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef(null);
+
+  // 5초 안에 5번 연속으로 눌러야 인정. 성공 시 디버그 메뉴를 30분간 노출한다.
+  const handleSecretTap = () => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+    }, 5000);
+
+    if (tapCountRef.current >= 5) {
+      tapCountRef.current = 0;
+      clearTimeout(tapTimerRef.current);
+      localStorage.setItem(DEBUG_UNLOCK_KEY, String(Date.now() + DEBUG_UNLOCK_DURATION_MS));
+      alert("디버그 메뉴가 30분간 활성화되었습니다.");
+    }
+  };
+
   return (
     <PageWrap>
       <HeaderFix>
@@ -118,7 +140,22 @@ export default function PrivacyPolicyPage() {
         <h2>6. 문의처</h2>
         <p>개인정보 보호 관련 문의 및 불만 처리는 아래 연락처로 문의해 주시기 바랍니다.</p>
         <p>이메일: <strong>starblogk@gmail.com</strong></p>
-        
+
+        <div
+          onClick={handleSecretTap}
+          style={{
+            userSelect: "none",
+            WebkitUserSelect: "none",
+            cursor: "default",
+            padding: "24px 0",
+            opacity: 0.3,
+            textAlign: "center",
+            letterSpacing: "2px",
+          }}
+        >
+          --------------------------------
+        </div>
+
         <div className="footer-date">최종 수정일: 2025년 12월 29일</div>
       </Content>
     </PageWrap>

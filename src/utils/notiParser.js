@@ -47,6 +47,28 @@ let bankMap = [
 ];
 
 /**
+ * 카드 한도 기능에서 사용할 결제 수단(카드사) 목록.
+ * parseAndCreateRecord가 실제로 채워 넣는 source 값과 반드시 일치해야
+ * 사용자가 고른 카드사로 알림을 정확히 매칭할 수 있다.
+ */
+export const getKnownSources = () => [...new Set(bankMap.map((b) => b.name))];
+
+/**
+ * 카드 승인 문자에 함께 오는 "누적OOO원" 형태의 당월 누적 사용액을 추출한다.
+ * 카드 한도 표시 기능에서 사용하며, 지출 자동저장 설정과 무관하게 항상 파싱되어야 한다.
+ * 예) "삼성5215승인 김*헌 29,000원 일시불 09/11 23:50 무바 누적1,236,294원" → 1236294
+ */
+export const parseAccumulatedAmount = (text) => {
+  if (!text || typeof text !== "string") return null;
+  const cleanText = text.replace(/\n+/g, " ").replace(/[()[\]]/g, " ").replace(/\s+/g, " ").trim();
+  const match = cleanText.match(/누적[^0-9]{0,15}([\d][\d,]*)\s*원/);
+  if (!match) return null;
+  const amount = parseInt(match[1].replace(/,/g, ""), 10);
+  if (isNaN(amount) || amount < 0) return null;
+  return amount;
+};
+
+/**
  * 2. Firestore 실시간 동기화 (onSnapshot)
  * 관리자가 파이어스토어에서 규칙을 바꾸면 앱 재시작 없이 즉시 반영
  */

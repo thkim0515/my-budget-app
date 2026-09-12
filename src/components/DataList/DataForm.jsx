@@ -23,10 +23,32 @@ export default function RecordForm({
   onDelete,
 }) {
   const handleAmountChange = (e) => {
-    const v = e.target.value.replace(/[^0-9.]/g, "");
+    const input = e.target;
+    const rawValue = input.value;
+    const cursorPos = input.selectionStart ?? rawValue.length;
+    // 커서 이전에 있던 "숫자(콤마 제외)" 개수를 세어, 재포맷 후에도 같은 자리를 찾아갈 수 있게 한다.
+    const digitsBeforeCursor = rawValue.slice(0, cursorPos).replace(/[^0-9.]/g, "").length;
+
+    const v = rawValue.replace(/[^0-9.]/g, "");
     const fixed = v.replace(/(\..*)\./g, "$1");
     if (Number(fixed.replace(/,/g, "")) > 1_000_000_000) return;
-    setAmount(fixed);
+
+    const formatted = fixed ? formatNumber(fixed) : "";
+    setAmount(formatted);
+
+    requestAnimationFrame(() => {
+      let count = 0;
+      let pos = formatted.length;
+      for (let i = 0; i < formatted.length; i++) {
+        if (/[0-9.]/.test(formatted[i])) count++;
+        if (count === digitsBeforeCursor) {
+          pos = i + 1;
+          break;
+        }
+      }
+      if (digitsBeforeCursor === 0) pos = 0;
+      input.setSelectionRange(pos, pos);
+    });
   };
 
   const amountRef = useRef(null);
