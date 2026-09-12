@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useTheme } from "styled-components";
 import { useSettings } from "../../context/SettingsContext";
@@ -12,9 +12,29 @@ export default function CardLimitSettings() {
   const sources = getKnownSources();
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  // 입력 중에는 임시값(draft)만 바꾸고, "저장" 버튼을 눌러야 실제 설정에 반영한다.
+  const [amountDraft, setAmountDraft] = useState(
+    settings.cardLimitAmount ? String(settings.cardLimitAmount) : ""
+  );
+
+  // 다른 화면/기기에서 값이 바뀌어 settings가 갱신되면 임시값도 함께 맞춘다.
+  useEffect(() => {
+    setAmountDraft(settings.cardLimitAmount ? String(settings.cardLimitAmount) : "");
+  }, [settings.cardLimitAmount]);
+
   const handleAmountChange = (e) => {
     const raw = e.target.value.replace(/[^0-9]/g, "");
-    updateSetting("cardLimitAmount", raw ? Number(raw) : 0);
+    setAmountDraft(raw);
+  };
+
+  const draftAmount = amountDraft ? Number(amountDraft) : 0;
+  const isAmountDirty = draftAmount !== (settings.cardLimitAmount || 0);
+
+  const saveAmount = () => {
+    if (!isAmountDirty) return;
+    if (!window.confirm(`카드 한도를 ${formatNumber(draftAmount)}원으로 저장하시겠습니까?`)) return;
+    updateSetting("cardLimitAmount", draftAmount);
+    alert("한도가 저장되었습니다.");
   };
 
   const selectProvider = (s) => {
@@ -102,9 +122,13 @@ export default function CardLimitSettings() {
           <S.InputInline
             inputMode="numeric"
             placeholder="예: 2000000"
-            value={settings.cardLimitAmount ? formatNumber(settings.cardLimitAmount) : ""}
+            value={amountDraft ? formatNumber(amountDraft) : ""}
             onChange={handleAmountChange}
           />
+
+          <S.PrimarySaveBtn type="button" onClick={saveAmount} disabled={!isAmountDirty}>
+            저장
+          </S.PrimarySaveBtn>
 
           {!settings.cardLimitProvider && (
             <p style={{ fontSize: "12px", color: "#F5455C", marginTop: "-4px", marginBottom: "10px" }}>

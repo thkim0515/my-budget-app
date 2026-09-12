@@ -183,6 +183,24 @@ export const InputInline = styled.input`
   box-sizing: border-box;
 `;
 
+// 입력값 저장 확정용 강조 버튼 (예: 카드 한도 저장)
+export const PrimarySaveBtn = styled.button`
+  width: 100%;
+  padding: 13px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ theme, disabled }) => (disabled ? theme.borderStrong : theme.primary)};
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  cursor: ${({ disabled }) => (disabled ? "default" : "pointer")};
+  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
+  transition: transform 0.1s, opacity 0.15s;
+  &:active { transform: ${({ disabled }) => (disabled ? "none" : "scale(0.98)")}; }
+`;
+
 export const ResetSubBtn = styled.button`
   background: transparent;
   color: ${({ theme }) => theme.text};
