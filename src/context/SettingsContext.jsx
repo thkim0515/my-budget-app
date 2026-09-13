@@ -32,6 +32,9 @@ export function SettingsProvider({ children }) {
     // 위 보정값이 적용되는 달("YYYY-MM"). 달이 바뀌면 보정값은 자동으로 무시된다.
     cardLimitAdjustmentMonth: localStorage.getItem("cardLimitAdjustmentMonth") || "",
 
+    // 상태바 고정(스와이프로 안 지워지는) 알림에 남은 한도를 표시할지 여부.
+    stickyNotificationEnabled: localStorage.getItem("stickyNotificationEnabled") === "true",
+
     // 카드 승인 문자의 "누적OOO원"에서 직접 읽어온 당월 누적 사용액.
     // 지출 자동저장 설정과 무관하게 알림이 오는 즉시 항상 갱신된다.
     cardLimitAccumulated: Number(localStorage.getItem("cardLimitAccumulated")) || 0,
@@ -53,6 +56,7 @@ export function SettingsProvider({ children }) {
     localStorage.setItem("autoSaveExpense", String(settings.autoSaveExpense));
     localStorage.setItem("isIncomeGrouped", String(settings.isIncomeGrouped));
     localStorage.setItem("isExpenseGrouped", String(settings.isExpenseGrouped));
+    localStorage.setItem("stickyNotificationEnabled", String(settings.stickyNotificationEnabled));
     localStorage.setItem("cardLimitEnabled", String(settings.cardLimitEnabled));
     localStorage.setItem("cardLimitProvider", settings.cardLimitProvider);
     localStorage.setItem("cardLimitAmount", String(settings.cardLimitAmount));

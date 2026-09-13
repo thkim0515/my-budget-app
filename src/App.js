@@ -25,6 +25,7 @@ import {
 
 import { useNativeSync } from "./hooks/useNativeSync";
 import { useSync } from "./hooks/useSync";
+import { useStickyCardLimitNotification } from "./hooks/useStickyCardLimitNotification";
 import { syncParsingRules } from "./utils/notiParser";
 
 function AppContent() {
@@ -33,6 +34,7 @@ function AppContent() {
 
   useAndroidBackHandler();
   useNativeSync();
+  useStickyCardLimitNotification();
   const { syncWithFirestore } = useSync();
 
   // [핵심 수정] syncWithFirestore 함수가 재생성되더라도 useEffect를 다시 실행시키지 않기 위해 Ref 사용

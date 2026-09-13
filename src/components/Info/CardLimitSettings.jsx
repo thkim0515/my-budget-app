@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useTheme } from "styled-components";
+import { Capacitor } from "@capacitor/core";
 import { useSettings } from "../../context/SettingsContext";
 import { getKnownSources } from "../../utils/notiParser";
 import { formatNumber } from "../../utils/numberFormat";
+import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 import * as S from "../../pages/Settings/SettingsPage.styles";
 
 export default function CardLimitSettings() {
@@ -40,6 +42,17 @@ export default function CardLimitSettings() {
   const selectProvider = (s) => {
     updateSetting("cardLimitProvider", s);
     setPickerOpen(false);
+  };
+
+  // 토글을 끄면 상태바 알림을 즉시 제거한다(다시 생기지 않음).
+  const toggleStickyNotification = () => {
+    const next = !settings.stickyNotificationEnabled;
+    updateSetting("stickyNotificationEnabled", next);
+    if (!next && Capacitor.getPlatform() === "android") {
+      BudgetPlugin.hideStickyNotification().catch((error) =>
+        console.error("고정 알림 제거 실패:", error)
+      );
+    }
   };
 
   return (
@@ -129,6 +142,27 @@ export default function CardLimitSettings() {
           <S.PrimarySaveBtn type="button" onClick={saveAmount} disabled={!isAmountDirty}>
             저장
           </S.PrimarySaveBtn>
+
+          {settings.cardLimitProvider && settings.cardLimitAmount > 0 && (
+            <>
+              <S.ToggleRow>
+                <span>상태바에 남은 한도 고정 알림 표시</span>
+                <S.ToggleSwitch>
+                  <input
+                    type="checkbox"
+                    checked={settings.stickyNotificationEnabled}
+                    onChange={toggleStickyNotification}
+                  />
+                  <span></span>
+                </S.ToggleSwitch>
+              </S.ToggleRow>
+              {settings.stickyNotificationEnabled && (
+                <p style={{ fontSize: "12px", color: theme.subText, marginTop: "-4px", marginBottom: "10px" }}>
+                  * 켜져 있는 동안은 알림을 지워도 남은 한도가 다시 표시됩니다. 끄면 완전히 사라집니다.
+                </p>
+              )}
+            </>
+          )}
 
           {!settings.cardLimitProvider && (
             <p style={{ fontSize: "12px", color: "#F5455C", marginTop: "-4px", marginBottom: "10px" }}>
