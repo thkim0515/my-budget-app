@@ -213,9 +213,13 @@ export default function RecordList({
                             )}
                           </S.CardTitle>
                           <S.CardMetaRow>
-                            <span>{r.category} · {String(r.date || r.createdAt).split("T")[0]}</span>
-                            {r.isPaid && <S.PaidBadge>납부완료</S.PaidBadge>}
-                            {excluded && <S.Badge $kind="excluded">계산 제외</S.Badge>}
+                            <S.CardMetaText>{r.category} · {String(r.date || r.createdAt).split("T")[0]}</S.CardMetaText>
+                            {(r.isPaid || excluded) && (
+                              <S.BadgeGroup>
+                                {r.isPaid && <S.PaidBadge>납부완료</S.PaidBadge>}
+                                {excluded && <S.Badge $kind="excluded">계산 제외</S.Badge>}
+                              </S.BadgeGroup>
+                            )}
                           </S.CardMetaRow>
                         </S.CardInfo>
                       </S.CardLeft>

@@ -66,6 +66,7 @@ export const CardLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1 1 auto;
   min-width: 0;
 `;
 
@@ -103,13 +104,29 @@ export const CardTitle = styled.div`
   text-overflow: ellipsis;
 `;
 
+/* 날짜 + 배지 줄: 공간이 부족하면 배지 묶음 전체가 다음 줄로 내려가고, 글자 단위로 깨지지 않는다 */
 export const CardMetaRow = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px 6px;
   font-size: 12px;
   color: ${({ theme }) => theme.mutedText};
   font-weight: 500;
+  min-width: 0;
+`;
+
+export const CardMetaText = styled.span`
+  white-space: nowrap;
+  flex-shrink: 0;
+`;
+
+export const BadgeGroup = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
 `;
 
 export const CardRight = styled.div`
@@ -134,6 +151,9 @@ export const Badge = styled.span`
   padding: 2px 7px;
   border-radius: ${({ theme }) => theme.radius.pill};
   font-weight: 800;
+  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   background: ${({ theme, $kind }) =>
