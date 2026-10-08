@@ -91,6 +91,9 @@ function getBundle(m) {
 // 들어가고, 받던 것은 끝나는 대로 next() 로 걸어 다음 백그라운드/재시작 때 적용한다.
 const MANIFEST_TIMEOUT = 4000;
 const DOWNLOAD_TIMEOUT = 10000;
+// 100% 를 표시한 뒤 막대가 끝까지 차오를 시간(OtaGate 막대 transition 보다 길게) — 바로 재시작하면
+// 막대가 70% 쯤에서 끊긴 채 사라진다.
+const FINISH_HOLD_MS = 400;
 
 export async function startupUpdate(hooks) {
   if (!Capacitor.isNativePlatform()) return;
@@ -111,6 +114,7 @@ export async function startupUpdate(hooks) {
     }
     if (!result) return;
     hooks.onProgress(100);
+    await new Promise((r) => setTimeout(r, FINISH_HOLD_MS));
     // 즉시 새 번들로 재시작 — 이후 코드는 실행되지 않는다. 새 번들이 notifyAppReady() 를
     // 못 부르면 appReadyTimeout 뒤 이전 번들로 자동 롤백된다.
     await CapacitorUpdater.set({ id: result.id });

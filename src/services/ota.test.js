@@ -55,6 +55,21 @@ test("새 번들이 있으면 안내를 띄우고 받은 즉시 적용한다", a
   expect(mockUpdater.set).toHaveBeenCalledWith({ id: "id1" });
 });
 
+test("100% 를 보여 준 뒤 막대가 다 차오를 시간을 두고 나서 적용한다", async () => {
+  mockHttpGet.mockResolvedValue(manifest());
+  mockUpdater.download.mockResolvedValue({ id: "id1" });
+  mockUpdater.list
+    .mockResolvedValueOnce({ bundles: [] })
+    .mockResolvedValue({ bundles: [{ id: "id1", version: "101", status: "pending" }] });
+  let shownAt = 0;
+  let setAt = 0;
+  const h = { onUpdating: jest.fn(), onProgress: jest.fn((p) => { if (p === 100) shownAt = Date.now(); }) };
+  mockUpdater.set.mockImplementation(() => { setAt = Date.now(); return Promise.resolve(); });
+  await startupUpdate(h);
+  expect(shownAt).toBeGreaterThan(0);
+  expect(setAt - shownAt).toBeGreaterThanOrEqual(350);
+});
+
 test("매니페스트 요청 주소는 올바른 쿼리(?t=) 형식이다", async () => {
   mockHttpGet.mockResolvedValue(manifest({ bundleNo: 100 }));
   await startupUpdate(hooks());

@@ -75,7 +75,7 @@ export default function OtaGate({ children }) {
           <div style={{ fontSize: 18, fontWeight: 700 }}>업데이트 중...</div>
           <div style={{ fontSize: 12, color: c.sub, marginTop: 4 }}>{updating} 으로 업데이트하고 있어요</div>
           <div style={{ width: "100%", maxWidth: 220, height: 8, background: c.track, borderRadius: 999, marginTop: 20, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.max(percent, 5)}%`, background: "#3b82f6", borderRadius: 999, transition: "width 0.3s" }} />
+            <div style={{ height: "100%", width: `${Math.max(percent, 3)}%`, background: "#3b82f6", borderRadius: 999, transition: "width 0.2s ease-out" }} />
           </div>
           <div style={{ fontSize: 11, color: c.sub, marginTop: 8 }}>{percent}%</div>
         </div>
