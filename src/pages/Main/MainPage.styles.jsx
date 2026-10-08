@@ -26,9 +26,10 @@ export const HeaderFix = styled.div`
   background: ${({ theme }) => theme.headerBg};
 `;
 
+// 제목과 한 줄에 놓이도록 버튼을 작게 잡았다(360px 폭 기준) — 홈 헤더 버튼 3개가 줄바꿈 없이 들어간다.
 export const HeaderButtons = styled.div`
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
 `;
 
@@ -38,7 +39,7 @@ export const ListWrap = styled.div`
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 18px 16px;
-  padding-top: calc(env(safe-area-inset-top) + 124px);
+  padding-top: calc(env(safe-area-inset-top) + 96px);
   padding-bottom: calc(${({ $withCardLimit }) => (($withCardLimit ? 96 : 28) + BOTTOM_NAV_HEIGHT)}px + env(safe-area-inset-bottom));
   width: 100%;
   max-width: 480px;
@@ -97,10 +98,10 @@ export const CardLimitFill = styled.div`
 export const CreateBtn = styled.button`
   background: ${({ theme }) => theme.gradientPrimary};
   color: white;
-  padding: 9px 16px;
+  padding: 8px 9px;
   border-radius: ${({ theme }) => theme.radius.pill};
   border: none;
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 700;
   box-shadow: ${({ theme }) => theme.shadowPrimary};
   cursor: pointer;
@@ -111,10 +112,10 @@ export const CreateBtn = styled.button`
 export const SortBtn = styled.button`
   background: ${({ theme }) => theme.cardAlt};
   color: ${({ theme }) => theme.subText};
-  padding: 9px 13px;
+  padding: 8px 7px;
   border-radius: ${({ theme }) => theme.radius.pill};
   border: 1px solid ${({ theme }) => theme.border};
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -127,10 +128,10 @@ export const SortBtn = styled.button`
 export const HideCompletedBtn = styled.button`
   background: ${({ $on, theme }) => ($on ? theme.primary : theme.cardAlt)};
   color: ${({ $on, theme }) => ($on ? "#fff" : theme.subText)};
-  padding: 9px 13px;
+  padding: 8px 7px;
   border-radius: ${({ theme }) => theme.radius.pill};
   border: 1px solid ${({ $on, theme }) => ($on ? theme.primary : theme.border)};
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;

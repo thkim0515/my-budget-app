@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { AiOutlineArrowLeft, AiOutlineSetting } from "react-icons/ai";
+import { AiOutlineArrowLeft } from "react-icons/ai";
 
 const HeaderWrap = styled.div`
   width: 100%;
@@ -23,18 +23,11 @@ const HeaderWrap = styled.div`
   box-sizing: border-box;
   min-height: 84px;
 
-  /* stack: 오른쪽 영역(버튼들)을 제목 아래 둘째 줄로 내린다 — 좁은 폰 화면에서 제목과 겹치지 않게 */
-  ${({ $stack }) =>
-    $stack &&
-    `
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    row-gap: 6px;
-    padding-top: calc(env(safe-area-inset-top) + 8px);
-    padding-bottom: 12px;
-    min-height: 0;
-  `}
+  /* 좁은 폰 화면에서는 좌우 여백을 줄여 제목과 버튼이 한 줄에 들어가게 한다 */
+  @media (max-width: 440px) {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
 `;
 
 const Title = styled.h1`
@@ -72,7 +65,7 @@ const BackBtn = styled.button`
   &:active { background: ${({ theme }) => theme.activeBg}; }
 `;
 
-// 제목을 눌러 이동하는 형태 — 옆의 작은 톱니바퀴가 "누를 수 있음"을 알려 주고, 눌리면 살짝 어두워진다.
+// 제목을 눌러 이동하는 형태 — 눌리는 동안 배경이 살짝 진해지고 글자가 눌린다(별도 아이콘 없음).
 const TitleBtn = styled.button`
   display: flex;
   align-items: center;
@@ -88,8 +81,7 @@ const TitleBtn = styled.button`
   cursor: pointer;
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
-  & > svg { opacity: 0.55; flex-shrink: 0; }
-  &:active { background: ${({ theme }) => theme.activeBg}; }
+  &:active { background: ${({ theme }) => theme.activeBg}; transform: scale(0.97); }
 `;
 
 const RightArea = styled.div`
@@ -98,14 +90,12 @@ const RightArea = styled.div`
   justify-content: flex-end;
   align-items: center;
 
-  ${({ $stack }) => $stack && `width: 100%; min-width: 0; justify-content: flex-start;`}
 `;
 
-// stackRight: 오른쪽 버튼들을 제목 아래 둘째 줄에 둔다(홈 화면).
 // onBack: 왼쪽에 뒤로가기 버튼을 둔다. onTitleClick: 제목 자체를 눌러 이동하는 버튼으로 만든다(홈 → 설정).
-export default function Header({ title, rightButton, onBack, onTitleClick, stackRight = false }) {
+export default function Header({ title, rightButton, onBack, onTitleClick }) {
   return (
-    <HeaderWrap $stack={stackRight && !!rightButton}>
+    <HeaderWrap>
       <Left>
         {onBack && (
           <BackBtn type="button" aria-label="뒤로가기" onClick={onBack}>
@@ -115,13 +105,12 @@ export default function Header({ title, rightButton, onBack, onTitleClick, stack
         {onTitleClick ? (
           <TitleBtn type="button" aria-label={`${title} — 설정 열기`} onClick={onTitleClick}>
             <Title>{title}</Title>
-            <AiOutlineSetting size={17} />
           </TitleBtn>
         ) : (
           <Title>{title}</Title>
         )}
       </Left>
-      <RightArea $stack={stackRight && !!rightButton}>{rightButton ? rightButton : null}</RightArea>
+      <RightArea>{rightButton ? rightButton : null}</RightArea>
     </HeaderWrap>
   );
 }
