@@ -59,13 +59,17 @@ const Tab = styled(Link)`
   transition: color 0.2s, opacity 0.2s;
 `;
 
+// hidden: true 인 탭은 하단 내비게이션에 표시하지 않는다(페이지 코드와 라우트는 App.js 에 그대로 있다).
+// 다시 보이게 하려면 해당 줄의 hidden: true 만 지우면 된다.
 const TABS = [
   { to: "/", icon: AiFillHome, label: "홈" },
-  { to: "/stats", icon: AiOutlineBarChart, label: "통계" },
-  { to: "/calendar-stats", icon: MdCalendarToday, label: "캘린더" },
-  { to: "/source-stats", icon: MdListAlt, label: "출처" },
+  { to: "/stats", icon: AiOutlineBarChart, label: "통계", hidden: true },
+  { to: "/calendar-stats", icon: MdCalendarToday, label: "캘린더", hidden: true },
+  { to: "/source-stats", icon: MdListAlt, label: "출처", hidden: true },
   { to: "/settings", icon: AiOutlineSetting, label: "설정" },
 ];
+
+const VISIBLE_TABS = TABS.filter((tab) => !tab.hidden);
 
 export default function BottomTabBar() {
   const location = useLocation();
@@ -73,7 +77,7 @@ export default function BottomTabBar() {
 
   return (
     <Bar>
-      {TABS.map(({ to, icon: Icon, label }) => {
+      {VISIBLE_TABS.map(({ to, icon: Icon, label }) => {
         const isActive = path === to;
         return (
           <TabWrapper key={to}>
