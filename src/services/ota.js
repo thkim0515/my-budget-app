@@ -98,7 +98,7 @@ export async function startupUpdate(hooks) {
     const m = await withTimeout(fetchManifest(), MANIFEST_TIMEOUT);
     if (m === TIMEOUT || !m || !(await nativeCompatible(m))) return;
 
-    hooks.onUpdating(m.version);
+    hooks.onUpdating(`${m.version} (${m.bundleNo})`);
     const listener = await CapacitorUpdater.addListener("download", (e) => hooks.onProgress(e.percent));
     const pending = getBundle(m);
     const result = await withTimeout(pending, DOWNLOAD_TIMEOUT).catch(() => null);

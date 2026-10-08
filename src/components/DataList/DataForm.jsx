@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import * as S from "./DataForm.styles"
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
+import { useFormattedNumberInput } from "../../hooks/useFormattedNumberInput";
 
 export default function RecordForm({
   isEditing,
@@ -22,34 +23,8 @@ export default function RecordForm({
   onCopy,
   onDelete,
 }) {
-  const handleAmountChange = (e) => {
-    const input = e.target;
-    const rawValue = input.value;
-    const cursorPos = input.selectionStart ?? rawValue.length;
-    // 커서 이전에 있던 "숫자(콤마 제외)" 개수를 세어, 재포맷 후에도 같은 자리를 찾아갈 수 있게 한다.
-    const digitsBeforeCursor = rawValue.slice(0, cursorPos).replace(/[^0-9.]/g, "").length;
-
-    const v = rawValue.replace(/[^0-9.]/g, "");
-    const fixed = v.replace(/(\..*)\./g, "$1");
-    if (Number(fixed.replace(/,/g, "")) > 1_000_000_000) return;
-
-    const formatted = fixed ? formatNumber(fixed) : "";
-    setAmount(formatted);
-
-    requestAnimationFrame(() => {
-      let count = 0;
-      let pos = formatted.length;
-      for (let i = 0; i < formatted.length; i++) {
-        if (/[0-9.]/.test(formatted[i])) count++;
-        if (count === digitsBeforeCursor) {
-          pos = i + 1;
-          break;
-        }
-      }
-      if (digitsBeforeCursor === 0) pos = 0;
-      input.setSelectionRange(pos, pos);
-    });
-  };
+  // 콤마 포맷을 유지하면서 커서 위치를 보존한다(중간 숫자를 지워도 커서가 끝으로 튀지 않음).
+  const amountInput = useFormattedNumberInput({ onChange: setAmount, allowDecimal: true, max: 1_000_000_000 });
 
   const amountRef = useRef(null);
 
@@ -99,7 +74,7 @@ export default function RecordForm({
           placeholder="0"
           inputMode="decimal"
           value={amount}
-          onChange={handleAmountChange}
+          onChange={amountInput.onChange}
           style={{ paddingRight: "44px" }}
         />
         {unformatNumber(amount) > 0 && <S.ClearBtn onClick={() => setAmount("")}>×</S.ClearBtn>}

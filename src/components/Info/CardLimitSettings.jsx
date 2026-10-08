@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import { useSettings } from "../../context/SettingsContext";
 import { getKnownSources } from "../../utils/notiParser";
 import { formatNumber } from "../../utils/numberFormat";
+import { useFormattedNumberInput } from "../../hooks/useFormattedNumberInput";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 import * as S from "../../pages/Settings/SettingsPage.styles";
 
@@ -24,10 +25,8 @@ export default function CardLimitSettings() {
     setAmountDraft(settings.cardLimitAmount ? String(settings.cardLimitAmount) : "");
   }, [settings.cardLimitAmount]);
 
-  const handleAmountChange = (e) => {
-    const raw = e.target.value.replace(/[^0-9]/g, "");
-    setAmountDraft(raw);
-  };
+  // 콤마 포맷을 유지하면서 커서 위치를 보존한다(중간 숫자를 지워도 커서가 끝으로 튀지 않음).
+  const amountInput = useFormattedNumberInput({ onChange: (f) => setAmountDraft(f.replace(/,/g, "")) });
 
   const draftAmount = amountDraft ? Number(amountDraft) : 0;
   const isAmountDirty = draftAmount !== (settings.cardLimitAmount || 0);
@@ -136,7 +135,7 @@ export default function CardLimitSettings() {
             inputMode="numeric"
             placeholder="예: 2000000"
             value={amountDraft ? formatNumber(amountDraft) : ""}
-            onChange={handleAmountChange}
+            onChange={amountInput.onChange}
           />
 
           <S.PrimarySaveBtn type="button" onClick={saveAmount} disabled={!isAmountDirty}>

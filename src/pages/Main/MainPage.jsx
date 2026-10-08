@@ -8,6 +8,7 @@ import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useSettings } from "../../context/SettingsContext";
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
+import { useFormattedNumberInput } from "../../hooks/useFormattedNumberInput";
 import { computeCardUsage, getLimitColor, getCurrentYm } from "../../utils/cardLimit";
 import { FiEdit3, FiCopy, FiCheckCircle, FiTrash2, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import * as S from "./MainPage.styles";
@@ -72,6 +73,8 @@ export default function MainPage() {
   const [cardUsedRaw, setCardUsedRaw] = useState(0);
   const [cardLimitModalOpen, setCardLimitModalOpen] = useState(false);
   const [cardLimitManualInput, setCardLimitManualInput] = useState("");
+  // 콤마 포맷을 유지하면서 커서 위치를 보존한다(중간 숫자를 지워도 커서가 끝으로 튀지 않음).
+  const manualLimitInput = useFormattedNumberInput({ onChange: (f) => setCardLimitManualInput(f.replace(/,/g, "")) });
   const [sortKey, setSortKey] = useState("newest");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [hideCompleted, setHideCompleted] = useState(
@@ -562,7 +565,7 @@ export default function MainPage() {
               <input
                 inputMode="numeric"
                 value={cardLimitManualInput === "" ? "" : formatNumber(cardLimitManualInput)}
-                onChange={(e) => setCardLimitManualInput(e.target.value.replace(/[^0-9]/g, ""))}
+                onChange={manualLimitInput.onChange}
                 style={{ width: "100%", border: `1px solid ${theme.border}`, borderRadius: 6, padding: 10, marginBottom: 12, boxSizing: "border-box", background: theme.card, color: theme.text, fontSize: 15 }}
                 placeholder="예: 1900000"
               />
