@@ -50,22 +50,61 @@ export const ListWrap = styled.div`
 
 // 하단 탭바(BOTTOM_NAV_HEIGHT, 숨기면 0) 바로 위에 고정되는 카드 한도 표시 영역.
 // 리스트 스크롤을 가리지 않도록 ListWrap 쪽 padding-bottom을 함께 늘려준다.
+// 하단 바를 숨기면(BOTTOM_NAV_HEIGHT = 0) 화면 맨 아래에 붙이고 제스처 바 영역(safe-area)만큼 안쪽 여백을 더한다.
+const limitBottom = BOTTOM_NAV_HEIGHT > 0 ? `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))` : "0";
+const limitPadBottom = BOTTOM_NAV_HEIGHT > 0 ? "12px" : "calc(12px + env(safe-area-inset-bottom))";
+
+// 누르면 한도 설정 바텀시트가 열린다 — 눌림 효과와 제목 옆 연필 아이콘으로 "누를 수 있음"을 알린다.
 export const CardLimitBar = styled.div`
   position: fixed;
-  bottom: calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom));
+  bottom: ${limitBottom};
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
   box-sizing: border-box;
   z-index: 15;
-  padding: 12px 16px;
+  padding: 12px 16px ${limitPadBottom};
   background: ${({ theme }) => theme.card};
   border-top: 1px solid ${({ theme }) => theme.border};
   box-shadow: 0 -4px 12px rgba(20, 30, 60, 0.06);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+  &:active { background: ${({ theme }) => theme.activeBg}; }
+`;
+
+// 한도를 아직 설정하지 않았을 때 보이는 얇은 안내 줄(누르면 같은 바텀시트가 열린다)
+export const CardLimitHint = styled.button`
+  position: fixed;
+  bottom: ${limitBottom};
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  min-height: 48px;
+  box-sizing: border-box;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px ${limitPadBottom};
+  background: ${({ theme }) => theme.card};
+  color: ${({ theme }) => theme.subText};
+  border: none;
+  border-top: 1px solid ${({ theme }) => theme.border};
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  &:active { background: ${({ theme }) => theme.activeBg}; }
 `;
 
 export const CardLimitTitle = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 12px;
   font-weight: 700;
   color: ${({ theme }) => theme.subText};

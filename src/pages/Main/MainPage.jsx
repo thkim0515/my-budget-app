@@ -7,8 +7,9 @@ import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useSettings } from "../../context/SettingsContext";
-import { formatNumber, unformatNumber } from "../../utils/numberFormat";
-import { useFormattedNumberInput } from "../../hooks/useFormattedNumberInput";
+import { formatNumber } from "../../utils/numberFormat";
+import CardLimitSheet from "../../components/Info/CardLimitSheet";
+import { SHOW_CARD_LIMIT_SETUP_HINT } from "../../constants/ui";
 import { computeCardUsage, getLimitColor, getCurrentYm } from "../../utils/cardLimit";
 import { FiEdit3, FiCopy, FiCheckCircle, FiTrash2, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import * as S from "./MainPage.styles";
@@ -67,14 +68,11 @@ const SORT_OPTIONS = [
 export default function MainPage() {
   const theme = useTheme();
   const { unit } = useCurrencyUnit();
-  const { settings, updateSetting } = useSettings();
+  const { settings } = useSettings();
   const [chapters, setChapters] = useState([]);
   const [balanceByChapter, setBalanceByChapter] = useState({});
   const [cardUsedRaw, setCardUsedRaw] = useState(0);
-  const [cardLimitModalOpen, setCardLimitModalOpen] = useState(false);
-  const [cardLimitManualInput, setCardLimitManualInput] = useState("");
-  // 콤마 포맷을 유지하면서 커서 위치를 보존한다(중간 숫자를 지워도 커서가 끝으로 튀지 않음).
-  const manualLimitInput = useFormattedNumberInput({ onChange: (f) => setCardLimitManualInput(f.replace(/,/g, "")) });
+  const [cardLimitSheetOpen, setCardLimitSheetOpen] = useState(false);
   const [sortKey, setSortKey] = useState("newest");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [hideCompleted, setHideCompleted] = useState(
@@ -289,37 +287,9 @@ export default function MainPage() {
   const cardRatio = showCardLimit ? Math.min(1, Math.max(0, cardUsed / settings.cardLimitAmount)) : 0;
   const cardColor = getLimitColor(cardRatio);
 
-  const openCardLimitModal = () => {
-    setCardLimitManualInput(cardRemaining > 0 ? String(Math.round(cardRemaining)) : "0");
-    setCardLimitModalOpen(true);
-  };
-  const closeCardLimitModal = () => setCardLimitModalOpen(false);
-
-  // 한도 리셋: 이번 달 사용액을 0으로 되돌린다.
-  // - 문자 기반 누적값을 쓰는 중이면 누적값 자체를 0으로.
-  // - 아니면 기존 방식대로 보정값으로 상쇄(실제 자동 계산치는 그대로 둠).
-  const resetCardLimit = () => {
-    if (hasAccumulated) {
-      updateSetting("cardLimitAccumulated", 0);
-    } else {
-      updateSetting("cardLimitAdjustment", -cardUsedRaw);
-      updateSetting("cardLimitAdjustmentMonth", getCurrentYm());
-    }
-    closeCardLimitModal();
-  };
-
-  // 남은 한도를 사용자가 직접 입력한 값으로 맞춘다.
-  const applyManualCardLimit = () => {
-    const desiredRemaining = unformatNumber(cardLimitManualInput);
-    const desiredUsed = settings.cardLimitAmount - desiredRemaining;
-    if (hasAccumulated) {
-      updateSetting("cardLimitAccumulated", Math.max(0, desiredUsed));
-    } else {
-      updateSetting("cardLimitAdjustment", desiredUsed - cardUsedRaw);
-      updateSetting("cardLimitAdjustmentMonth", getCurrentYm());
-    }
-    closeCardLimitModal();
-  };
+  // 한도 영역을 누르면 카드사·한도 설정과 남은 한도 조정을 한 곳에서 하는 바텀시트가 열린다.
+  const openCardLimitSheet = () => setCardLimitSheetOpen(true);
+  const closeCardLimitSheet = () => setCardLimitSheetOpen(false);
 
   return (
     <S.PageWrap>
@@ -375,7 +345,7 @@ export default function MainPage() {
         />
       </S.HeaderFix>
 
-      <S.ListWrap $withCardLimit={showCardLimit} onClick={() => setSortMenuOpen(false)}>
+      <S.ListWrap $withCardLimit={showCardLimit || SHOW_CARD_LIMIT_SETUP_HINT} onClick={() => setSortMenuOpen(false)}>
         {displayedChapters.length === 0 && (
           <S.EmptyState>
             <p>아직 내역이 없습니다.</p>
@@ -449,8 +419,11 @@ export default function MainPage() {
       </S.ListWrap>
 
       {showCardLimit && (
-        <S.CardLimitBar onClick={openCardLimitModal}>
-          <S.CardLimitTitle>현재 {settings.cardLimitProvider} 한도</S.CardLimitTitle>
+        <S.CardLimitBar role="button" tabIndex={0} aria-label={`${settings.cardLimitProvider} 한도 설정 열기`} onClick={openCardLimitSheet}>
+          <S.CardLimitTitle>
+            <span>현재 {settings.cardLimitProvider} 한도</span>
+            <FiEdit3 size={13} aria-hidden="true" />
+          </S.CardLimitTitle>
           <S.CardLimitAmount $color={cardColor}>
             {formatNumber(cardRemaining)} {unit} 남음
           </S.CardLimitAmount>
@@ -458,6 +431,12 @@ export default function MainPage() {
             <S.CardLimitFill $ratio={cardRatio} $color={cardColor} />
           </S.CardLimitTrack>
         </S.CardLimitBar>
+      )}
+      {!showCardLimit && SHOW_CARD_LIMIT_SETUP_HINT && (
+        <S.CardLimitHint type="button" onClick={openCardLimitSheet}>
+          <FiEdit3 size={14} aria-hidden="true" />
+          <span>카드 한도 설정</span>
+        </S.CardLimitHint>
       )}
 
       {/* 복사 모달 */}
@@ -535,51 +514,12 @@ export default function MainPage() {
           document.body,
         )}
 
-      {/* 카드 한도 리셋 / 직접 수정 모달 */}
-      {cardLimitModalOpen &&
-        ReactDOM.createPortal(
-          <div style={MODAL_OVERLAY} onClick={closeCardLimitModal}>
-            <div
-              style={{
-                width: "100%", maxWidth: 360,
-                background: theme.card, borderRadius: 12,
-                border: `1px solid ${theme.border}`, padding: 20, color: theme.text,
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ margin: 0, marginBottom: 4, textAlign: "center", color: theme.text }}>
-                {settings.cardLimitProvider} 한도 관리
-              </h3>
-              <p style={{ margin: "0 0 16px", fontSize: 12, color: theme.subText, textAlign: "center" }}>
-                현재 {formatNumber(cardRemaining)} {unit} 남음 (한도 {formatNumber(settings.cardLimitAmount)} {unit})
-              </p>
-
-              <button
-                style={{ ...MODAL_BTN("#6F5BFF"), width: "100%", marginBottom: 16 }}
-                onClick={resetCardLimit}
-              >
-                한도 리셋 (사용액 0으로)
-              </button>
-
-              <label style={{ display: "block", marginBottom: 8, fontSize: 13, color: theme.text }}>
-                남은 한도 직접 입력 ({unit})
-              </label>
-              <input
-                inputMode="numeric"
-                value={cardLimitManualInput === "" ? "" : formatNumber(cardLimitManualInput)}
-                onChange={manualLimitInput.onChange}
-                style={{ width: "100%", border: `1px solid ${theme.border}`, borderRadius: 6, padding: 10, marginBottom: 12, boxSizing: "border-box", background: theme.card, color: theme.text, fontSize: 15 }}
-                placeholder="예: 1900000"
-              />
-
-              <div style={MODAL_ROW}>
-                <button style={MODAL_BTN("#4C6FFF")} onClick={applyManualCardLimit}>적용</button>
-                <button style={MODAL_BTN("#6c757d")} onClick={closeCardLimitModal}>취소</button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {/* 카드 한도 설정 바텀시트 — 카드사·한도 저장, 남은 한도 직접 입력·리셋, 상태바 고정 알림 */}
+      <CardLimitSheet
+        open={cardLimitSheetOpen}
+        onClose={closeCardLimitSheet}
+        usage={{ remaining: cardRemaining, usedRaw: cardUsedRaw, hasAccumulated, unit }}
+      />
     </S.PageWrap>
   );
 }

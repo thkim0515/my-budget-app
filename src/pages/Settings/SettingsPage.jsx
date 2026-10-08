@@ -13,6 +13,7 @@ import SyncAction from "../../components/Data/SyncAction";
 import BackupAction from "../../components/Data/BackupAction";
 import NotificationSettings from "../../components/Info/NotificationSettings";
 import CardLimitSettings from "../../components/Info/CardLimitSettings";
+import { SHOW_CARD_LIMIT_IN_SETTINGS } from "../../constants/ui";
 
 import * as S from "./SettingsPage.styles";
 
@@ -268,9 +269,13 @@ export default function SettingsPage() {
 
         <hr style={{ margin: "20px 0", border: 0, borderTop: `1px solid ${theme.border}` }} />
 
-        <CardLimitSettings />
+        {SHOW_CARD_LIMIT_IN_SETTINGS && (
+          <>
+            <CardLimitSettings />
 
-        <hr style={{ margin: "20px 0", border: 0, borderTop: `1px solid ${theme.border}` }} />
+            <hr style={{ margin: "20px 0", border: 0, borderTop: `1px solid ${theme.border}` }} />
+          </>
+        )}
 
         <S.SectionTitle>데이터 관리</S.SectionTitle>
         <GoogleAuth />
