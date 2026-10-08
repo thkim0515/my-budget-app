@@ -55,6 +55,16 @@ test("새 번들이 있으면 안내를 띄우고 받은 즉시 적용한다", a
   expect(mockUpdater.set).toHaveBeenCalledWith({ id: "id1" });
 });
 
+test("매니페스트 요청 주소는 올바른 쿼리(?t=) 형식이다", async () => {
+  mockHttpGet.mockResolvedValue(manifest({ bundleNo: 100 }));
+  await startupUpdate(hooks());
+  const { url } = mockHttpGet.mock.calls[0][0];
+  const u = new URL(url);
+  // 예전에 '&t=' 만 붙어 경로가 latest.json&t=... 가 되어 404 가 났다
+  expect(u.pathname.endsWith("/releases/download/ota/latest.json")).toBe(true);
+  expect(u.searchParams.get("t")).toMatch(/^\d+$/);
+});
+
 test("같거나 낮은 번들 번호면 아무것도 하지 않는다", async () => {
   mockHttpGet.mockResolvedValue(manifest({ bundleNo: 100 }));
   const h = hooks();

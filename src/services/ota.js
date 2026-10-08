@@ -34,7 +34,7 @@ function withTimeout(p, ms) {
 // 캐시하므로 매번 달라지는 쿼리(t)와 no-cache 헤더를 붙여 오래된 latest.json 을 받지 않게 한다.
 async function fetchManifest() {
   const res = await CapacitorHttp.get({
-    url: `${MANIFEST_URL}&t=${Date.now()}`,
+    url: `${MANIFEST_URL}?t=${Date.now()}`,
     headers: { "Cache-Control": "no-cache" },
   });
   if (res.status !== 200) return null;
