@@ -5,8 +5,10 @@ import { DEFAULT_CATEGORIES } from "../../constants/categories";
 import { auth } from "../../db/firebase";
 
 import * as S from "./CategorySettingsPage.stlyes";
+import useGoBack from "../../hooks/useGoBack";
 
 export default function CategorySettingsPage() {
+  const goBack = useGoBack();
   const { db, getAll, add, put, deleteItem } = useBudgetDB();
   const [categories, setCategories] = useState([]);
   const [newCat, setNewCat] = useState("");
@@ -72,7 +74,7 @@ export default function CategorySettingsPage() {
   return (
     <S.PageWrap>
       <S.HeaderFix>
-        <Header title="카테고리 관리" />
+        <Header title="카테고리 관리" onBack={goBack} />
       </S.HeaderFix>
 
       <S.Content>

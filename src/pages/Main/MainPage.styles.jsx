@@ -1,5 +1,6 @@
 /* src/pages/Main/MainPage.styles.jsx */
 import styled from "styled-components";
+import { BOTTOM_NAV_HEIGHT } from "../../constants/ui";
 
 export const PageWrap = styled.div`
   max-width: 480px;
@@ -37,8 +38,8 @@ export const ListWrap = styled.div`
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 18px 16px;
-  padding-top: calc(env(safe-area-inset-top) + 96px);
-  padding-bottom: calc(${({ $withCardLimit }) => ($withCardLimit ? "168px" : "100px")} + env(safe-area-inset-bottom));
+  padding-top: calc(env(safe-area-inset-top) + 124px);
+  padding-bottom: calc(${({ $withCardLimit }) => (($withCardLimit ? 96 : 28) + BOTTOM_NAV_HEIGHT)}px + env(safe-area-inset-bottom));
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
@@ -46,11 +47,11 @@ export const ListWrap = styled.div`
   overscroll-behavior: contain;
 `;
 
-// 하단 탭바(72px) 바로 위에 고정되는 카드 한도 표시 영역.
+// 하단 탭바(BOTTOM_NAV_HEIGHT, 숨기면 0) 바로 위에 고정되는 카드 한도 표시 영역.
 // 리스트 스크롤을 가리지 않도록 ListWrap 쪽 padding-bottom을 함께 늘려준다.
 export const CardLimitBar = styled.div`
   position: fixed;
-  bottom: calc(72px + env(safe-area-inset-bottom));
+  bottom: calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   width: 100%;

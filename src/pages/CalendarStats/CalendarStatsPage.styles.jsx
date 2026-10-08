@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import { BOTTOM_NAV_HEIGHT } from "../../constants/ui";
 
 export const PageWrap = styled.div`
   max-width: 480px;
@@ -22,7 +23,7 @@ export const Content = styled.div`
   flex: 1;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  padding-bottom: calc(${28 + BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom));
 
   overflow-y: auto;
   color: ${({ theme }) => theme.text};

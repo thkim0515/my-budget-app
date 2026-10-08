@@ -2,11 +2,13 @@ import React from "react";
 import Header from "../../components/UI/Header";
 import * as S from "./TextColorSettingsPage.styles";
 import { useSettings } from "../../context/SettingsContext"; // Context 훅 임포트
+import useGoBack from "../../hooks/useGoBack";
 
 /**
  * 글자 색상 설정 페이지 컴포넌트
  */
 export default function TextColorSettingsPage() {
+  const goBack = useGoBack();
   // 중앙 설정 본부에서 현재 값(settings)과 변경 함수(updateSetting)
   const { settings, updateSetting } = useSettings();
 
@@ -29,7 +31,7 @@ export default function TextColorSettingsPage() {
   return (
     <S.PageWrap>
       <S.HeaderFix>
-        <Header title="글자 색상 설정" />
+        <Header title="글자 색상 설정" onBack={goBack} />
       </S.HeaderFix>
 
       <S.Content>

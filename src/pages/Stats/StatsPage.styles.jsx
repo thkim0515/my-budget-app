@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import { BOTTOM_NAV_HEIGHT } from "../../constants/ui";
 
 export const PageWrap = styled.div`
   /* 페이지의 최대 너비를 설정하여 모바일 뷰를 유지합니다. */
@@ -29,7 +30,7 @@ export const Content = styled.div`
   overflow-y: auto;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  padding-bottom: calc(${28 + BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom));
 
   width: 100%;
   max-width: 480px;

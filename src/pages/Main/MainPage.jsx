@@ -326,6 +326,9 @@ export default function MainPage() {
       <S.HeaderFix>
         <Header
           title="가계부"
+          stackRight
+          // 하단 내비게이션을 숨기는 동안(constants/ui.js) 설정 화면은 이 제목을 눌러 들어간다
+          onTitleClick={() => navigate("/settings")}
           rightButton={
             <S.HeaderButtons>
               <S.HideCompletedBtn

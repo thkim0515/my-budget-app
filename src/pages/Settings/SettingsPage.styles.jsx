@@ -1,5 +1,6 @@
 
 import styled from "styled-components";
+import { BOTTOM_NAV_HEIGHT } from "../../constants/ui";
 
 // 기본 페이지 레이아웃
 export const PageWrap = styled.div`
@@ -31,7 +32,7 @@ export const Content = styled.div`
   overflow-y: auto;
   padding: 16px;
   padding-top: 96px;
-  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  padding-bottom: calc(${28 + BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom));
 `;
 
 export const Row50 = styled.div`

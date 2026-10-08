@@ -1,6 +1,8 @@
 import React, { useRef } from "react";
 import Header from "../UI/Header";
 import styled from "styled-components";
+import { BOTTOM_NAV_HEIGHT } from "../../constants/ui";
+import useGoBack from "../../hooks/useGoBack";
 
 const DEBUG_UNLOCK_KEY = "notiDebugUnlockUntil";
 const DEBUG_UNLOCK_DURATION_MS = 30 * 60 * 1000;
@@ -11,7 +13,7 @@ const PageWrap = styled.div`
   min-height: 100vh;
   background: ${({ theme }) => theme.bg};
   color: ${({ theme }) => theme.text};
-  padding-bottom: 80px;
+  padding-bottom: ${8 + BOTTOM_NAV_HEIGHT}px;
   max-width: 480px;
   margin: 0 auto;
   width: 100%;
@@ -70,6 +72,7 @@ const Content = styled.div`
 `;
 
 export default function PrivacyPolicyPage() {
+  const goBack = useGoBack();
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef(null);
 
@@ -92,7 +95,7 @@ export default function PrivacyPolicyPage() {
   return (
     <PageWrap>
       <HeaderFix>
-        <Header title="개인정보 처리방침" />
+        <Header title="개인정보 처리방침" onBack={goBack} />
       </HeaderFix>
 
       <Content>

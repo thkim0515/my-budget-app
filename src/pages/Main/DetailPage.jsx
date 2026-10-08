@@ -14,6 +14,7 @@ import DataList from "../../components/DataList/DataList";
 import { pushBackHandler } from "../../utils/backHandlerStack";
 
 import * as S from "./DetailPage.styles";
+import useGoBack from "../../hooks/useGoBack";
 
 const getTodayKST = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
@@ -54,6 +55,7 @@ const groupRecordsByTitle = (list) => {
 };
 
 export default function DetailPage() {
+  const goBack = useGoBack();
   const { chapterId, date, id: paramId } = useParams();
   const navigate = useNavigate();
   const contentRef = useRef(null);
@@ -488,6 +490,7 @@ export default function DetailPage() {
     <S.PageWrap>
       <S.HeaderFix>
         <Header
+          onBack={goBack}
           title={isChapterMode ? (chapter?.isTemporary ? "내역 입력" : chapter?.title) : `${date} 상세 내역`}
           rightButton={
             <S.HeaderButtonRow>

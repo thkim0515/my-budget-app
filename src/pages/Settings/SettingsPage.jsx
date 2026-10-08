@@ -19,6 +19,7 @@ import * as S from "./SettingsPage.styles";
 // [필수] Firestore 삭제 기능을 위한 임포트
 import { db as firestore, auth } from "../../db/firebase";
 import { collection, getDocs, writeBatch } from "firebase/firestore";
+import useGoBack from "../../hooks/useGoBack";
 
 const PIN_LENGTH = 4;
 
@@ -106,6 +107,7 @@ function PinSetupModal({ existingPin, onSave, onClose }) {
 }
 
 export default function SettingsPage() {
+  const goBack = useGoBack();
   const navigate = useNavigate();
   const theme = useTheme();
   const { db, clear } = useBudgetDB();
@@ -223,7 +225,7 @@ export default function SettingsPage() {
   return (
     <S.PageWrap>
       <S.HeaderFix>
-        <Header title="설정" />
+        <Header title="설정" onBack={goBack} />
       </S.HeaderFix>
 
       {pinModalMode && (

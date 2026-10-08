@@ -1,4 +1,5 @@
 import styled, { keyframes } from "styled-components";
+import { BOTTOM_NAV_HEIGHT } from "../../constants/ui";
 
 export const PageWrap = styled.div`
   max-width: 480px;
@@ -114,7 +115,7 @@ export const Content = styled.div`
   overflow-y: auto;
   padding: 16px;
   padding-top: 92px;
-  padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  padding-bottom: calc(${68 + BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom));
   width: 100%;
   max-width: 480px;
   margin: 0 auto;

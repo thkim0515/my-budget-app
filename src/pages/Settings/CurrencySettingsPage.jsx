@@ -2,9 +2,11 @@ import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import Header from "../../components/UI/Header";
 
 import * as S from './CurrencySettingsPage.styles'
+import useGoBack from "../../hooks/useGoBack";
 
 // 금액 기호 설정 페이지 컴포넌트
 export default function CurrencySettingsPage() {
+  const goBack = useGoBack();
   const { unit, setUnit } = useCurrencyUnit(); // 통화 단위 상태
 
   // 단위 변경 이벤트 처리
@@ -15,7 +17,7 @@ export default function CurrencySettingsPage() {
   return (
     <S.PageWrap>
       <S.HeaderFix>
-        <Header title="금액 기호 설정" />
+        <Header title="금액 기호 설정" onBack={goBack} />
       </S.HeaderFix>
 
       <S.Content>

@@ -28,6 +28,7 @@ import { useSync } from "./hooks/useSync";
 import { useStickyCardLimitNotification } from "./hooks/useStickyCardLimitNotification";
 import { syncParsingRules } from "./utils/notiParser";
 import { ReadySignal } from "./components/OtaGate";
+import { SHOW_BOTTOM_NAV } from "./constants/ui";
 
 function AppContent() {
   const { settings } = useSettings();
@@ -105,7 +106,8 @@ function AppContent() {
           <Route path="/detail/date/:date/:id/:chapterId" element={<DetailPage />} />
           <Route path="/settings/privacy" element={<PrivacyPolicyPage />} />
         </Routes>
-        <BottomTabBar />
+        {/* 하단 내비게이션은 constants/ui.js 의 SHOW_BOTTOM_NAV 로 켜고 끈다(코드는 그대로 둠) */}
+        {SHOW_BOTTOM_NAV && <BottomTabBar />}
         <ReadySignal />
       </div>
     </ThemeProvider>
