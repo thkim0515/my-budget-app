@@ -1,0 +1,115 @@
+name: Publish OTA Web Bundle
+
+# main 에 push 될 때마다 웹을 빌드해 OTA 번들로 게시한다.
+# 공개 저장소의 고정 태그 Release(ota)에 번들 zip 과 latest.json 을 올리면, 설치된 앱이
+# 켤 때 latest.json 을 보고 더 새 번들이면 바로 받아 적용한다. 별도 서버·시크릿은 필요 없다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 연달아 push 하면 이전 실행은 취소하고 최신 커밋만 게시한다.
+concurrency:
+  group: ota-publish
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OTA_TAG: ota
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 번들 번호 = 커밋 개수(git rev-list --count HEAD) 이므로 전체 이력이 필요하다.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Compute bundle info
+        id: info
+        run: |
+          BUNDLE_NO=$(git rev-list --count HEAD)
+          # 이 번들을 돌릴 수 있는 최소 APK = 지금 커밋의 android versionCode.
+          # 네이티브(플러그인·android/)를 바꿨으면 versionCode 를 올려야 옛 APK 에 OTA 가 적용되지 않는다.
+          MIN_NATIVE=$(grep -oP 'versionCode\s+\K[0-9]+' android/app/build.gradle | head -1)
+          VERSION="v$(grep -oP 'versionName\s+"\K[0-9.]+' android/app/build.gradle | head -1)"
+          [ "$VERSION" != "v" ] || VERSION=
+          [ -n "$MIN_NATIVE" ] && [ -n "$VERSION" ] || { echo "::error::versionCode/versionName 을 읽지 못했습니다."; exit 1; }
+          echo "bundle_no=$BUNDLE_NO" >> "$GITHUB_OUTPUT"
+          echo "min_native=$MIN_NATIVE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "번들 $BUNDLE_NO · $VERSION · 최소 APK versionCode $MIN_NATIVE"
+
+      - name: Build web bundle
+        env:
+          CI: "false"
+          GENERATE_SOURCEMAP: "false"
+          REACT_APP_OTA_BUNDLE_NO: ${{ steps.info.outputs.bundle_no }}
+        run: npm run build
+
+      - name: Zip bundle and write manifest
+        env:
+          BUNDLE_NO: ${{ steps.info.outputs.bundle_no }}
+          MIN_NATIVE: ${{ steps.info.outputs.min_native }}
+          VERSION: ${{ steps.info.outputs.version }}
+        run: |
+          (cd build && zip -qr ../bundle.zip .)
+          # 앱의 capgo 7.x 는 체크섬을 SHA-256(소문자 hex)으로 비교한다.
+          SHA=$(sha256sum bundle.zip | cut -d' ' -f1)
+          ZIP_NAME="bundle-${BUNDLE_NO}-${SHA:0:8}.zip"
+          mv bundle.zip "$ZIP_NAME"
+          echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
+          jq -n \
+            --argjson bundleNo "$BUNDLE_NO" \
+            --arg version "$VERSION" \
+            --argjson minNativeBuild "$MIN_NATIVE" \
+            --arg url "https://github.com/${{ github.repository }}/releases/download/${OTA_TAG}/${ZIP_NAME}" \
+            --arg sha "$SHA" \
+            --arg commit "${{ github.sha }}" \
+            --argjson publishedAt "$(date +%s000)" \
+            '{bundleNo:$bundleNo, version:$version, minNativeBuild:$minNativeBuild, url:$url, checksum:$sha, sha256:$sha, commit:$commit, publishedAt:$publishedAt}' > latest.json
+          cat latest.json
+          ls -l "$ZIP_NAME"
+
+      - name: Publish to release
+        env:
+          BUNDLE_NO: ${{ steps.info.outputs.bundle_no }}
+        run: |
+          # 릴리스(태그 ota)가 없으면 만든다. 앱 설치 파일 릴리스로 보이지 않게 prerelease 로 둔다.
+          gh release view "$OTA_TAG" >/dev/null 2>&1 || \
+            gh release create "$OTA_TAG" --title "OTA 웹 번들" --notes "앱이 자동 업데이트에 쓰는 웹 번들입니다. 직접 받을 필요 없습니다." --prerelease --target "${{ github.sha }}"
+
+          # 늦게 끝난 예전 실행이 최신 번들을 덮어쓰지 않게 — 같은 번호(재실행)는 허용, 더 낮으면 건너뜀.
+          if gh release download "$OTA_TAG" --pattern latest.json --output current.json --clobber 2>/dev/null; then
+            CUR=$(jq -r '.bundleNo // 0' current.json)
+            if [ "$BUNDLE_NO" -lt "$CUR" ]; then
+              echo "::warning::이미 더 새 번들($CUR)이 게시되어 있어 건너뜁니다."
+              exit 0
+            fi
+          fi
+
+          # zip 먼저, 그 다음 latest.json — 앱이 latest.json 을 볼 때는 zip 이 이미 있다.
+          gh release upload "$OTA_TAG" "$ZIP_NAME" --clobber
+          gh release upload "$OTA_TAG" latest.json --clobber
+
+          # 오래된 번들 정리 — 최근 5개만 남긴다(이미 받아 둔 기기는 로컬 사본을 쓰므로 영향 없음).
+          gh release view "$OTA_TAG" --json assets --jq '.assets[].name' \
+            | grep -E '^bundle-[0-9]+-' \
+            | sort -t- -k2,2nr \
+            | tail -n +6 \
+            | while read -r name; do gh release delete-asset "$OTA_TAG" "$name" -y; done

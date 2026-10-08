@@ -27,6 +27,7 @@ import { useNativeSync } from "./hooks/useNativeSync";
 import { useSync } from "./hooks/useSync";
 import { useStickyCardLimitNotification } from "./hooks/useStickyCardLimitNotification";
 import { syncParsingRules } from "./utils/notiParser";
+import { ReadySignal } from "./components/OtaGate";
 
 function AppContent() {
   const { settings } = useSettings();
@@ -77,7 +78,14 @@ function AppContent() {
 
   if (isChecking) return null;
 
-  if (isLocked) return <LockScreen onAuthenticate={authenticate} needsPinFallback={needsPinFallback} onVerifyPin={verifyPin} />;
+  if (isLocked) {
+    return (
+      <>
+        <LockScreen onAuthenticate={authenticate} needsPinFallback={needsPinFallback} onVerifyPin={verifyPin} />
+        <ReadySignal />
+      </>
+    );
+  }
 
   const theme = settings.mode === "light" ? getLightTheme(settings.lightTextColor) : getDarkTheme(settings.darkTextColor);
 
@@ -98,6 +106,7 @@ function AppContent() {
           <Route path="/settings/privacy" element={<PrivacyPolicyPage />} />
         </Routes>
         <BottomTabBar />
+        <ReadySignal />
       </div>
     </ThemeProvider>
   );
