@@ -16,8 +16,7 @@
   버전은 android/app/build.gradle 의 versionCode/versionName 에서 읽는다.
   APK 를 지정하지 않으면 android/app/build/outputs/apk/debug/app-debug.apk 를 올린다.
   서명: 폰에 설치된 앱과 같은 키(이 PC 의 debug.keystore)로 서명된 APK 만 덮어쓰기 설치된다. 다른 키로 서명하면 허브 업데이트가 실패한다.
-  업로드 토큰: 환경변수 APP_PUBLISH_TOKEN, 없으면 OTA_UPLOAD_TOKEN, 그것도 없으면 아워데이즈의 functions\.env(같은 키)에서 읽는다.
-    (경로는 환경변수 OURDAYS_FUNCTIONS_ENV 로 바꿀 수 있고, 기본값은 이 저장소와 같은 폴더의 app\functions\.env). 값은 화면·파일에 남기지 않는다.
+  업로드 토큰: 환경변수 → 아워데이즈 functions\.env → Secret Manager 순으로 읽는다(publish-token.ps1). 값은 화면·파일에 남기지 않는다.
   서버는 더 낮은 versionCode 로 최신을 덮어쓰지 않고(409), 앱마다 최신 APK 2개만 남긴다.
 #>
 param(
@@ -40,23 +39,8 @@ if (-not $code -or -not $name) { throw "build.gradle 에서 버전을 읽지 못
 if (-not $Apk) { $Apk = Join-Path $Root "android\app\build\outputs\apk\debug\app-debug.apk" }
 if (-not (Test-Path $Apk)) { throw "APK 가 없어요: $Apk" }
 
-function Read-PublishToken {
-    foreach ($k in @("APP_PUBLISH_TOKEN", "OTA_UPLOAD_TOKEN")) {
-        $v = [Environment]::GetEnvironmentVariable($k)
-        if ($v) { return $v.Trim() }
-    }
-    $envFile = $env:OURDAYS_FUNCTIONS_ENV
-    if (-not $envFile) { $envFile = Join-Path $Root "..\app\functions\.env" }
-    if (Test-Path $envFile) {
-        $text = Get-Content $envFile -Raw -Encoding UTF8
-        foreach ($k in @("APP_PUBLISH_TOKEN", "OTA_UPLOAD_TOKEN")) {
-            $m = [regex]::Match($text, "(?m)^\s*$k\s*=\s*`"?([^`"\r\n]+)`"?")
-            if ($m.Success) { return $m.Groups[1].Value.Trim() }
-        }
-    }
-    throw "업로드 토큰을 찾지 못했어요(환경변수 APP_PUBLISH_TOKEN 또는 OURDAYS_FUNCTIONS_ENV 가 가리키는 .env)"
-}
-$token = Read-PublishToken
+. (Join-Path $PSScriptRoot "publish-token.ps1")
+$token = Read-PublishToken -Root $Root
 $headers = @{ Authorization = "Bearer $token" }
 
 $sha = (Get-FileHash -Algorithm SHA256 $Apk).Hash.ToLower()

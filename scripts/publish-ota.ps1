@@ -1,20 +1,20 @@
 ﻿<#
-  가계부 OTA 웹 번들 게시 스크립트(로컬용).
-  보통은 main 에 push 하면 GitHub Actions(ota-publish.yml)가 같은 일을 한다. 이 스크립트는 Actions 시크릿(APP_PUBLISH_TOKEN)이
-  없거나 급히 다시 올릴 때 쓴다. 웹을 빌드해 zip 으로 묶고 업데이트 서버(아워데이즈 Firebase 의 appOtaPublish → Storage
-  apps/mybudget/ota/)에 올린 뒤, 앱이 읽는 appOtaLatest?app=mybudget 로 다시 확인한다.
+  가계부 OTA 웹 번들 게시 스크립트 — 다른 앱들처럼 PC 에서 바로 업데이트 서버에 올린다(GitHub Actions·저장소 시크릿 없음).
+  웹을 빌드해 zip 으로 묶고 업데이트 서버(아워데이즈 Firebase 의 appOtaPublish → Storage apps/mybudget/ota/)에 올린 뒤,
+  앱이 읽는 appOtaLatest?app=mybudget 로 다시 확인한다. main 에 push 만 해서는 앱에 반영되지 않는다.
+  커밋하지 않은 변경이 있으면 멈춘다(번들 번호 = 커밋 개수라 같은 번호로 다른 내용이 올라가지 않게). 먼저 커밋한 뒤 실행.
 
   사용 예:
     powershell -ExecutionPolicy Bypass -File scripts\publish-ota.ps1
     powershell -ExecutionPolicy Bypass -File scripts\publish-ota.ps1 -SkipBuild   (이미 build/ 가 같은 커밋으로 빌드돼 있을 때)
 
-  번들 번호 = 커밋 개수(git rev-list --count HEAD) — Actions 와 같은 규칙. 최소 APK = android/app/build.gradle 의 versionCode.
-  업로드 토큰: 환경변수 APP_PUBLISH_TOKEN, 없으면 OTA_UPLOAD_TOKEN, 그것도 없으면 아워데이즈의 functions\.env(같은 키)에서 읽는다.
-    (경로는 환경변수 OURDAYS_FUNCTIONS_ENV 로 바꿀 수 있고, 기본값은 이 저장소와 같은 폴더의 app\functions\.env). 값은 화면·파일에 남기지 않는다.
+  번들 번호 = 커밋 개수(git rev-list --count HEAD) — 예전 Actions 와 같은 규칙. 최소 APK = android/app/build.gradle 의 versionCode.
+  업로드 토큰: 환경변수 → 아워데이즈 functions\.env → Secret Manager 순으로 읽는다(publish-token.ps1). 값은 화면·파일에 남기지 않는다.
   서버는 더 낮은 번들 번호로 최신을 덮어쓰지 않고(409), 최근 번들 5개만 남긴다.
 #>
 param(
     [switch]$SkipBuild,
+    [switch]$AllowDirty,
     [string]$FunctionBase = "https://asia-northeast3-our-days-f8384.cloudfunctions.net"
 )
 
@@ -30,6 +30,7 @@ if (-not $minNative -or -not $name) { throw "build.gradle 에서 버전을 읽�
 $version = "v$name"
 $bundleNo = [int](git -C $Root rev-list --count HEAD)
 $commit = (git -C $Root rev-parse HEAD).Trim()
+if (-not $AllowDirty -and (git -C $Root status --porcelain --untracked-files=no)) { throw "커밋하지 않은 변경이 있어요. 먼저 커밋한 뒤 게시하세요(-AllowDirty 로 무시 가능)" }
 
 $Build = Join-Path $Root "build"
 if (-not $SkipBuild) {
@@ -55,23 +56,8 @@ try {
     }
 } finally { $zip.Dispose() }
 
-function Read-PublishToken {
-    foreach ($k in @("APP_PUBLISH_TOKEN", "OTA_UPLOAD_TOKEN")) {
-        $v = [Environment]::GetEnvironmentVariable($k)
-        if ($v) { return $v.Trim() }
-    }
-    $envFile = $env:OURDAYS_FUNCTIONS_ENV
-    if (-not $envFile) { $envFile = Join-Path $Root "..\app\functions\.env" }
-    if (Test-Path $envFile) {
-        $text = Get-Content $envFile -Raw -Encoding UTF8
-        foreach ($k in @("APP_PUBLISH_TOKEN", "OTA_UPLOAD_TOKEN")) {
-            $m = [regex]::Match($text, "(?m)^\s*$k\s*=\s*`"?([^`"\r\n]+)`"?")
-            if ($m.Success) { return $m.Groups[1].Value.Trim() }
-        }
-    }
-    throw "업로드 토큰을 찾지 못했어요(환경변수 APP_PUBLISH_TOKEN 또는 OURDAYS_FUNCTIONS_ENV 가 가리키는 .env)"
-}
-$token = Read-PublishToken
+. (Join-Path $PSScriptRoot "publish-token.ps1")
+$token = Read-PublishToken -Root $Root
 
 $sha = (Get-FileHash -Algorithm SHA256 $zipPath).Hash.ToLower()
 $size = (Get-Item $zipPath).Length

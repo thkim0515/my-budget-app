@@ -4,6 +4,14 @@
 
 ---
 
+## 최근 업데이트 (2026-10-27, 2차) — 업데이트 게시를 PC 스크립트 방식으로 변경
+
+- 🔧 **웹 번들·APK 모두 PC에서 바로 업데이트 서버(Firebase)에 게시** — 다른 앱들처럼 `scripts/publish-ota.ps1`(웹 번들)과 `scripts/publish-update.ps1`(APK)로 올림. GitHub Actions·저장소 시크릿이 더 이상 필요 없음. 방법은 아래 [업데이트 게시 방법](#업데이트-게시-방법) 참고
+- 🗑 **GitHub Actions 워크플로(`ota-publish.yml`) 삭제** — 이제 main에 push해도 앱에 자동 반영되지 않으며, 커밋 후 `publish-ota.ps1`을 실행해야 반영됨
+- 🔧 **업로드 토큰 읽기를 공용 함수로 정리(`scripts/publish-token.ps1`)** — 환경변수 `APP_PUBLISH_TOKEN`/`OTA_UPLOAD_TOKEN` → 아워데이즈 `functions/.env` → Secret Manager(Firebase CLI `functions:secrets:access`) 순으로 읽음. 값은 화면·파일에 남기지 않음
+- 🔒 **웹 번들 게시 전 미커밋 변경 검사** — 번들 번호가 커밋 개수라서, 커밋하지 않은 변경이 있으면 같은 번호로 다른 내용이 올라가지 않도록 게시를 멈춤(`-AllowDirty`로 무시 가능)
+- ⚠️ **GitHub Release(`ota`) 예전 경로는 더 이상 갱신하지 않음** — v1.1.1부터 번들이 최소 APK 3을 요구해서, v1.1 이하 앱은 예전 경로에 새 번들이 올라와도 적용할 수 없음. 이미 올라가 있는 Release는 그대로 두며, 이 앱을 쓰는 폰이 모두 v1.1.1 이상이 되면 저장소를 비공개로 바꿔도 됨
+
 ## 최근 업데이트 (2026-10-27) — v1.1.1, 업데이트를 다른 앱들과 같은 Firebase·앱 허브 방식으로 이전
 
 - 🔧 **OTA 웹 번들을 GitHub Release → 업데이트 서버(Firebase)로 이전** — 앱이 켤 때 읽는 주소를 `appOtaLatest?app=mybudget`(아워데이즈 Firebase, Storage `apps/mybudget/ota/`)로 변경. 번들 zip 주소엔 파일별 무작위 토큰이 붙고, 체크섬은 SHA-256. 저장소를 비공개로 바꿔도 OTA가 끊기지 않음
@@ -126,6 +134,7 @@
 - [환경 변수](#환경-변수)
 - [로컬 실행 방법](#로컬-실행-방법)
 - [Android 빌드 방법](#android-빌드-방법)
+- [업데이트 게시 방법](#업데이트-게시-방법)
 
 ---
 
@@ -491,3 +500,36 @@ APK 경로: `android/app/build/outputs/apk/debug/app-debug.apk`
 # 연결된 기기에 설치
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 ```
+
+---
+
+## 업데이트 게시 방법
+
+업데이트는 PC에서 스크립트로 업데이트 서버(아워데이즈 Firebase `our-days-f8384`)에 바로 올린다. 앱 허브 등 다른 앱들과 같은 방식이며, GitHub Actions나 저장소 시크릿은 쓰지 않는다.
+업로드 토큰은 환경변수 → 아워데이즈 `functions/.env` → Secret Manager 순으로 자동으로 읽는다(`scripts/publish-token.ps1`).
+
+**웹 화면만 바꾼 경우 (OTA, APK 재설치 불필요)**
+
+```powershell
+# 커밋한 뒤 실행 — 웹 빌드 → zip → appOtaPublish 게시 → appOtaLatest 로 확인
+powershell -ExecutionPolicy Bypass -File scripts\publish-ota.ps1
+```
+
+- 번들 번호 = 커밋 개수(`git rev-list --count HEAD`), 최소 APK = `android/app/build.gradle`의 `versionCode`
+- 커밋하지 않은 변경이 있으면 멈춤. 서버는 더 낮은 번들 번호를 거절(409)하고 최근 5개만 남김
+
+**네이티브(플러그인·`android/`)를 바꾼 경우 (새 APK, 앱 허브로 배포)**
+
+```powershell
+# 1. build.gradle 의 versionCode·versionName 을 올리고 커밋
+# 2. 번들 번호를 넣어 APK 빌드 (같은 번들을 다시 받지 않게)
+$env:REACT_APP_OTA_BUNDLE_NO = (git rev-list --count HEAD); $env:GENERATE_SOURCEMAP = "false"
+npm run build; npx cap sync android; cd android; .\gradlew.bat assembleDebug; cd ..
+# 3. APK 게시 (-ForceUpdate 1 이면 강제 릴리스: 설치본이 낮으면 "나중에" 없이 안내)
+powershell -ExecutionPolicy Bypass -File scripts\publish-update.ps1 -Notes "변경 내용" -ForceUpdate 0
+# 4. 같은 커밋의 웹 번들도 게시
+powershell -ExecutionPolicy Bypass -File scripts\publish-ota.ps1 -SkipBuild
+```
+
+- APK는 이 PC의 debug 키로 서명됨. 다른 키로 서명하면 허브에서 덮어쓰기 설치가 안 됨
+- 확인: `https://asia-northeast3-our-days-f8384.cloudfunctions.net/appLatest?app=mybudget`(APK), `.../appOtaLatest?app=mybudget`(웹 번들)

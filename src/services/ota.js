@@ -3,9 +3,8 @@ import { App as CapApp } from "@capacitor/app";
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
 
 // ── OTA 웹 번들 업데이트 (자체 호스팅) ─────────────────────────────────────────
-// main 에 push 하면 GitHub Actions 가 웹을 빌드해 업데이트 서버(아워데이즈 Firebase 의 appOtaPublish →
+// PC 에서 scripts/publish-ota.ps1 로 웹을 빌드해 업데이트 서버(아워데이즈 Firebase 의 appOtaPublish →
 // Storage apps/mybudget/ota/)에 번들 zip 과 latest.json 으로 올린다. 앱은 appOtaLatest 로 최신 정보를 읽는다.
-// (v1.1 이하 APK 는 예전 주소인 GitHub Release(태그 ota)를 읽으므로 워크플로가 당분간 그쪽에도 같이 올린다.)
 // 앱을 켤 때 latest.json 을 보고 더 새 번들이면 "업데이트 중..." 을 띄워 바로 받아 적용하고
 // (startupUpdate), 쓰는 중 새 번들이 나오면 받아 두었다가 다음 백그라운드/재시작 때 적용한다.
 // 새 번들이 시작 직후 notifyAppReady() 를 못 부르면(크래시 등) 플러그인이 이전 번들로
