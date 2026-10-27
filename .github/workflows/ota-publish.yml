@@ -1,8 +1,11 @@
 name: Publish OTA Web Bundle
 
 # main 에 push 될 때마다 웹을 빌드해 OTA 번들로 게시한다.
-# 공개 저장소의 고정 태그 Release(ota)에 번들 zip 과 latest.json 을 올리면, 설치된 앱이
-# 켤 때 latest.json 을 보고 더 새 번들이면 바로 받아 적용한다. 별도 서버·시크릿은 필요 없다.
+#  1) 업데이트 서버(아워데이즈 Firebase appOtaPublish → Storage apps/mybudget/ota/) — v1.1.1(versionCode 3) 이상 앱이 읽는다.
+#     시크릿 APP_PUBLISH_TOKEN(아워데이즈 functions/.env 의 APP_PUBLISH_TOKEN, 없으면 OTA_UPLOAD_TOKEN 과 같은 값)이 필요하다.
+#     시크릿이 없으면 경고만 남기고 건너뛴다(로컬에서 scripts/publish-ota.ps1 로 올릴 수 있다).
+#  2) 고정 태그 Release(ota) — v1.1 이하 앱이 읽는 예전 경로. 저장소를 비공개로 바꾸면 읽을 수 없게 되므로
+#     옛 앱이 모두 v1.1.1 이상으로 넘어갈 때까지만 유지한다.
 on:
   push:
     branches: [main]
@@ -23,6 +26,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       OTA_TAG: ota
+      APP_PUBLISH_TOKEN: ${{ secrets.APP_PUBLISH_TOKEN }}
+      FUNCTION_BASE: https://asia-northeast3-our-days-f8384.cloudfunctions.net
 
     steps:
       - name: Checkout
@@ -86,7 +91,7 @@ jobs:
           cat latest.json
           ls -l "$ZIP_NAME"
 
-      - name: Publish to release
+      - name: Publish to release (old apps, v1.1 and below)
         env:
           BUNDLE_NO: ${{ steps.info.outputs.bundle_no }}
         run: |
@@ -113,3 +118,21 @@ jobs:
             | sort -t- -k2,2nr \
             | tail -n +6 \
             | while read -r name; do gh release delete-asset "$OTA_TAG" "$name" -y; done
+
+      - name: Publish to update server (Firebase)
+        env:
+          BUNDLE_NO: ${{ steps.info.outputs.bundle_no }}
+          MIN_NATIVE: ${{ steps.info.outputs.min_native }}
+          VERSION: ${{ steps.info.outputs.version }}
+        run: |
+          if [ -z "$APP_PUBLISH_TOKEN" ]; then
+            echo "::warning::APP_PUBLISH_TOKEN 시크릿이 없어 업데이트 서버 게시를 건너뜁니다(v1.1.1 이상 앱은 새 번들을 받지 못함)."
+            exit 0
+          fi
+          # 서버가 SHA-256 을 직접 계산해 checksum 에 넣는다. 더 낮은 번호는 409(늦게 끝난 예전 실행) — 실패로 보지 않는다.
+          CODE=$(curl -sS -o resp.json -w '%{http_code}' -X POST             -H "Authorization: Bearer $APP_PUBLISH_TOKEN" -H "Content-Type: application/zip"             --data-binary "@$ZIP_NAME"             "$FUNCTION_BASE/appOtaPublish?app=mybudget&bundleNo=$BUNDLE_NO&minNativeBuild=$MIN_NATIVE&version=$VERSION&commit=${{ github.sha }}")
+          if [ "$CODE" = "409" ]; then echo "::warning::이미 더 새 번들이 게시되어 있어 건너뜁니다."; exit 0; fi
+          [ "$CODE" = "200" ] || { echo "::error::업데이트 서버 게시 실패(HTTP $CODE)"; cat resp.json; exit 1; }
+          SHA=$(sha256sum "$ZIP_NAME" | cut -d' ' -f1)
+          [ "$(jq -r .sha256 resp.json)" = "$SHA" ] || { echo "::error::서버 SHA-256 이 로컬과 다릅니다."; exit 1; }
+          jq '{bundleNo, version, minNativeBuild, size, sha256}' resp.json

@@ -3,8 +3,9 @@ import { App as CapApp } from "@capacitor/app";
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
 
 // ── OTA 웹 번들 업데이트 (자체 호스팅) ─────────────────────────────────────────
-// main 에 push 하면 GitHub Actions 가 웹을 빌드해 GitHub Release(태그 ota)에
-// 번들 zip 과 latest.json 으로 올린다(공개 저장소라 누구나 읽기).
+// main 에 push 하면 GitHub Actions 가 웹을 빌드해 업데이트 서버(아워데이즈 Firebase 의 appOtaPublish →
+// Storage apps/mybudget/ota/)에 번들 zip 과 latest.json 으로 올린다. 앱은 appOtaLatest 로 최신 정보를 읽는다.
+// (v1.1 이하 APK 는 예전 주소인 GitHub Release(태그 ota)를 읽으므로 워크플로가 당분간 그쪽에도 같이 올린다.)
 // 앱을 켤 때 latest.json 을 보고 더 새 번들이면 "업데이트 중..." 을 띄워 바로 받아 적용하고
 // (startupUpdate), 쓰는 중 새 번들이 나오면 받아 두었다가 다음 백그라운드/재시작 때 적용한다.
 // 새 번들이 시작 직후 notifyAppReady() 를 못 부르면(크래시 등) 플러그인이 이전 번들로
@@ -13,8 +14,8 @@ import { CapacitorUpdater } from "@capgo/capacitor-updater";
 // 지금 실행 중인 웹 번들의 번호(빌드 시 커밋 개수로 박힘)
 export const BUNDLE_NO = Number(process.env.REACT_APP_OTA_BUNDLE_NO) || 0;
 
-// 공개 저장소의 고정 태그 Release(ota)에 번들 zip 과 latest.json 이 올라온다(로그인 없이 받을 수 있음).
-const MANIFEST_URL = "https://github.com/thkim0515/my-budget-app/releases/download/ota/latest.json";
+// 업데이트 서버의 최신 번들 정보(로그인 없이 받을 수 있음). zip 주소엔 파일별 무작위 토큰이 붙어 온다.
+export const MANIFEST_URL = "https://asia-northeast3-our-days-f8384.cloudfunctions.net/appOtaLatest?app=mybudget";
 
 // 첫 화면이 오류 없이 그려진 뒤 호출 — 새 번들이 정상 기동했음을 알려 롤백을 막는다.
 // appReadyTimeout(10초) 안에 못 부르면(첫 화면에서 죽는 번들) 플러그인이 이전 번들로 되돌린다.
@@ -30,11 +31,11 @@ function withTimeout(p, ms) {
   return Promise.race([p, new Promise((r) => setTimeout(() => r(TIMEOUT), ms))]);
 }
 
-// 최신 manifest — 네이티브 HTTP 로 받는다(CORS 대상이 아님). GitHub 은 릴리스 자산을 CDN 에
-// 캐시하므로 매번 달라지는 쿼리(t)와 no-cache 헤더를 붙여 오래된 latest.json 을 받지 않게 한다.
+// 최신 manifest — 네이티브 HTTP 로 받는다(CORS 대상이 아님). 중간 캐시가 오래된 정보를 주지 않게
+// 매번 달라지는 쿼리(t)와 no-cache 헤더를 붙인다.
 async function fetchManifest() {
   const res = await CapacitorHttp.get({
-    url: `${MANIFEST_URL}?t=${Date.now()}`,
+    url: `${MANIFEST_URL}&t=${Date.now()}`,
     headers: { "Cache-Control": "no-cache" },
   });
   if (res.status !== 200) return null;

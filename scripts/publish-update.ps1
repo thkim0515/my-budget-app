@@ -8,6 +8,10 @@
   사용 예:
     powershell -ExecutionPolicy Bypass -File scripts\publish-update.ps1 -Notes "변경 내용 한 줄"
     powershell -ExecutionPolicy Bypass -File scripts\publish-update.ps1 -Apk D:\Claude_Dev\mybudgetapp_apk\mybudgetapp-v1.1.apk -Notes "..."
+    powershell -ExecutionPolicy Bypass -File scripts\publish-update.ps1 -Notes "..." -ForceUpdate 1   (강제 릴리스)
+
+  -ForceUpdate: 이 릴리스의 강제 여부(0 = 선택, 1 = 강제). 생략하면 0(같은 번호 재게시면 이전 값 유지).
+    정책: 설치본보다 높은 릴리스 중 강제(1)가 하나라도 있으면 강제 — 서버가 minVersionCode 로 계산하고, 앱은 "나중에" 없이 안내한다.
 
   버전은 android/app/build.gradle 의 versionCode/versionName 에서 읽는다.
   APK 를 지정하지 않으면 android/app/build/outputs/apk/debug/app-debug.apk 를 올린다.
@@ -19,6 +23,7 @@
 param(
     [string]$Apk = "",
     [Parameter(Mandatory = $true)][string]$Notes,
+    [ValidateSet("", "0", "1")][string]$ForceUpdate = "",
     [string]$FunctionBase = "https://asia-northeast3-our-days-f8384.cloudfunctions.net"
 )
 
@@ -59,6 +64,7 @@ $size = (Get-Item $Apk).Length
 Write-Host ("APK {0} · {1:N0} bytes · versionCode {2} · v{3}" -f (Split-Path $Apk -Leaf), $size, $code, $name)
 
 $q = "app=$App&versionCode=$code&versionName=$([uri]::EscapeDataString($name))"
+if ($ForceUpdate) { $q += "&forceUpdate=$ForceUpdate" }
 
 # 1) 이어올리기 주소 받기
 $init = Invoke-RestMethod -Method Post -Uri "$FunctionBase/appPublish?action=init&$q" -Headers $headers
@@ -76,6 +82,6 @@ if ($m.sha256 -ne $sha) { throw "서버가 계산한 SHA-256 이 내 파일과 �
 $latest = Invoke-RestMethod -Uri "$FunctionBase/appLatest?app=$App&t=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
 if ($latest.versionCode -ne $code -or $latest.sha256 -ne $sha) { throw "조회 결과가 방금 올린 버전과 달라요(versionCode $($latest.versionCode))" }
 
-Write-Host "배포 완료: $App v$name (versionCode $code)"
+Write-Host "배포 완료: $App v$name (versionCode $code, 강제 $($latest.forceUpdate) · minVersionCode $($latest.minVersionCode))"
 Write-Host "  조회: $FunctionBase/appLatest?app=$App"
 Write-Host "  SHA : $sha ($size bytes)"

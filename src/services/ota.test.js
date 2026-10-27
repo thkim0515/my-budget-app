@@ -75,8 +75,10 @@ test("매니페스트 요청 주소는 올바른 쿼리(?t=) 형식이다", asyn
   await startupUpdate(hooks());
   const { url } = mockHttpGet.mock.calls[0][0];
   const u = new URL(url);
-  // 예전에 '&t=' 만 붙어 경로가 latest.json&t=... 가 되어 404 가 났다
-  expect(u.pathname.endsWith("/releases/download/ota/latest.json")).toBe(true);
+  // 업데이트 서버(appOtaLatest?app=mybudget)에 캐시를 피하는 t 를 덧붙인다
+  expect(u.hostname).toBe("asia-northeast3-our-days-f8384.cloudfunctions.net");
+  expect(u.pathname).toBe("/appOtaLatest");
+  expect(u.searchParams.get("app")).toBe("mybudget");
   expect(u.searchParams.get("t")).toMatch(/^\d+$/);
 });
 

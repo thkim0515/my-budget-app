@@ -12,6 +12,11 @@
     <!-- Notification Listener 바인딩용 -->
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
 
+    <!-- 업데이트를 앱 허브에서 받도록: 허브 설치 여부와 허브가 처리하는 인텐트만 확인한다 -->
+    <queries>
+        <package android:name="com.thkim.apphub" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

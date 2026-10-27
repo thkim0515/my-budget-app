@@ -4,6 +4,15 @@
 
 ---
 
+## 최근 업데이트 (2026-10-27) — v1.1.1, 업데이트를 다른 앱들과 같은 Firebase·앱 허브 방식으로 이전
+
+- 🔧 **OTA 웹 번들을 GitHub Release → 업데이트 서버(Firebase)로 이전** — 앱이 켤 때 읽는 주소를 `appOtaLatest?app=mybudget`(아워데이즈 Firebase, Storage `apps/mybudget/ota/`)로 변경. 번들 zip 주소엔 파일별 무작위 토큰이 붙고, 체크섬은 SHA-256. 저장소를 비공개로 바꿔도 OTA가 끊기지 않음
+- 🆕 **GitHub Actions에 업데이트 서버 게시 단계 추가** — `ota-publish.yml`이 기존 Release(`ota`) 게시 뒤에 `appOtaPublish`로도 올림. 저장소 시크릿 `APP_PUBLISH_TOKEN`(아워데이즈 `functions/.env`의 같은 값)이 필요하며, 없으면 경고만 남기고 건너뜀. 로컬에서 직접 올리는 `scripts/publish-ota.ps1`도 추가
+- 🆕 **새 APK 안내창 — 앱 허브에서 업데이트** — 켤 때와 30분 간격 복귀 때 `appLatest?app=mybudget`을 확인해 새 APK가 있으면 안내. "앱 허브에서 업데이트"를 누르면 다른 앱들과 같은 `com.thkim.apphub.OPEN_APP` 인텐트(`app_key=mybudget`, `start_update=true`)로 허브의 업데이트 화면을 바로 엶. 허브가 없으면 설치 안내를 표시. 네이티브 플러그인 `AppHubPlugin.java`, 매니페스트에 허브 패키지 조회(`<queries>`) 추가
+- 🆕 **릴리스별 강제 업데이트(forceUpdate 0/1)** — `publish-update.ps1 -ForceUpdate 1`로 게시하면 강제 릴리스. 설치본보다 높은 릴리스 중 강제가 하나라도 있으면(서버의 `minVersionCode`보다 설치본이 낮으면) "나중에" 없이 안내
+- 📦 **버전** — `versionCode` 3 / `versionName` 1.1.1. 네이티브가 바뀌어 이 커밋 이후 번들은 최소 APK 3을 요구함
+- ⚠️ **v1.1 이하 앱은 v1.1.1 APK를 앱 허브에서 1회 설치해야 함** — 옛 앱은 GitHub Release 주소만 알고 새 APK 안내창도 없어 스스로 넘어올 수 없음. 옛 경로(Release `ota`) 게시는 옛 앱이 모두 넘어올 때까지 유지하며, 그 뒤 저장소를 비공개로 바꿔도 됨
+
 ## 최근 업데이트 (2026-10-08, 8차)
 
 - 🆕 **홈 하단 한도 영역을 누르면 한도 설정 창(바텀시트)이 열림** — 삼성카드 등 카드 한도 영역 어디를 눌러도 `CardLimitSheet`가 열려 카드사 선택·한도 금액 입력·저장, 남은 한도 직접 입력·적용, 한도 리셋, 상태바 고정 알림 토글을 한 곳에서 처리. 기존의 작은 "한도 관리" 모달(리셋·남은 한도 입력)은 이 시트로 통합. 누를 수 있다는 표시로 제목 옆 ✎ 아이콘과 눌림 효과(배경 변경) 추가
