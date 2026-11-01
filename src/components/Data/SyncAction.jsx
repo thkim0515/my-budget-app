@@ -38,7 +38,7 @@ export const Btn = styled.button`
   margin-bottom: 12px;
   border: none;
   border-radius: 6px;
-  background: ${(props) => (props.disabled ? "#adb5bd" : props.bg || "#1976d2")};
+  background: ${(props) => (props.disabled ? "#A9BDB3" : props.bg || "#12855A")};
   color: white;
   font-size: 15px;
   cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
@@ -131,11 +131,11 @@ export default function SyncAction() {
   return (
     <Container>
       <Row50>
-        <Btn onClick={handleUpload} bg="#4C6EF5" disabled={isLoading}>
+        <Btn onClick={handleUpload} bg="#12855A" disabled={isLoading}>
           {isLoading ? <Spinner /> : null}
           {isLoading ? "전송 중..." : "서버로 보내기"}
         </Btn>
-        <Btn onClick={handleDownload} bg="#6C757D" disabled={isLoading}>
+        <Btn onClick={handleDownload} bg="#6E8A7D" disabled={isLoading}>
           {isLoading ? <Spinner /> : null}
           {isLoading ? "가져오는 중..." : "서버에서 가져오기"}
         </Btn>

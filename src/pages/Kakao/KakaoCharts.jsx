@@ -1,16 +1,26 @@
 import { useRef } from "react";
 import { useTheme } from "styled-components";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip } from "chart.js";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Filler, Tooltip } from "chart.js";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import { formatNumber } from "../../utils/numberFormat";
 import { ChartBox } from "./KakaoPage.styles";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip);
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Filler, Tooltip);
+
+// 막대·면을 아래에서 위로 칠하는 초록 그라데이션. 그래프 영역이 잡히기 전에는 단색을 쓴다.
+const verticalGradient = (context, bottomColor, topColor) => {
+  const { ctx, chartArea } = context.chart;
+  if (!chartArea) return topColor;
+  const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+  gradient.addColorStop(0, bottomColor);
+  gradient.addColorStop(1, topColor);
+  return gradient;
+};
 
 // 카테고리 색은 순위가 아니라 카테고리에 고정한다(달이 바뀌어도 색이 안 바뀌게). 나머지는 회색으로 묶인다.
 const CATEGORY_COLORS = {
-  light: { 식비: "#2a78d6", 편의점: "#eb6834", 배달: "#1baf7a", 쇼핑: "#eda100", 교통: "#e87ba4", 생활: "#008300", 구독: "#6250d6", 의료: "#e34948" },
-  dark: { 식비: "#3987e5", 편의점: "#d95926", 배달: "#199e70", 쇼핑: "#c98500", 교통: "#d55181", 생활: "#008300", 구독: "#9085e9", 의료: "#e66767" },
+  light: { 식비: "#1baf7a", 편의점: "#eda100", 배달: "#eb6834", 쇼핑: "#008300", 교통: "#2a78d6", 생활: "#e87ba4", 구독: "#6250d6", 의료: "#e34948" },
+  dark: { 식비: "#199e70", 편의점: "#c98500", 배달: "#d95926", 쇼핑: "#008300", 교통: "#3987e5", 생활: "#d55181", 구독: "#9085e9", 의료: "#e66767" },
 };
 export const categoryColor = (name, theme) => CATEGORY_COLORS[theme.isDark ? "dark" : "light"][name] || theme.mutedText;
 
@@ -49,7 +59,7 @@ const baseOptions = (theme) => ({
       ticks: { color: theme.subText, font: { size: 11 }, maxRotation: 0, autoSkipPadding: 10 },
     },
     y: {
-      grid: { color: theme.border },
+      grid: { color: theme.border, drawTicks: false },
       border: { display: false },
       ticks: { color: theme.subText, font: { size: 11 }, maxTicksLimit: 5, callback: tickWon },
     },
@@ -57,7 +67,9 @@ const baseOptions = (theme) => ({
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: theme.isDark ? "#2B303B" : "#15171C",
+      backgroundColor: theme.isDark ? "#21392D" : "#16352A",
+      cornerRadius: 10,
+      padding: 10,
       titleColor: "#FFFFFF",
       bodyColor: "#FFFFFF",
       displayColors: false,
@@ -74,10 +86,14 @@ export function SpendBars({ rows, selected, onSelect, height = 180 }) {
     datasets: [{
       label: "결제",
       data: rows.map((r) => Math.max(r.spend, 0)),
-      backgroundColor: rows.map((_, i) => (selected == null || i === selected ? theme.primary : theme.isDark ? "#39477F" : "#BCC9FF")),
-      borderRadius: { topLeft: 4, topRight: 4 },
+      backgroundColor: (context) => {
+        const on = selected == null || context.dataIndex === selected;
+        if (on) return verticalGradient(context, theme.chartLow, theme.chartHigh);
+        return theme.chartDim;
+      },
+      borderRadius: { topLeft: 6, topRight: 6 },
       borderSkipped: "bottom",
-      maxBarThickness: 24,
+      maxBarThickness: 26,
       categoryPercentage: 0.8,
       barPercentage: 0.9,
     }],
@@ -96,10 +112,12 @@ export function CumulativeLines({ rows, selected, onSelect, thisLabel, prevLabel
       {
         label: thisLabel,
         data: rows.map((r) => r.cum),
-        borderColor: theme.primary,
-        backgroundColor: theme.primary,
-        borderWidth: 2,
-        tension: 0.2,
+        borderColor: theme.chartHigh,
+        backgroundColor: (context) => verticalGradient(context, theme.chartFade, theme.chartFill),
+        pointBackgroundColor: theme.chartHigh,
+        fill: "origin",
+        borderWidth: 2.5,
+        tension: 0.3,
         pointRadius: rows.map((_, i) => (i === selected ? 5 : 0)),
         pointHoverRadius: 5,
       },
@@ -110,7 +128,7 @@ export function CumulativeLines({ rows, selected, onSelect, thisLabel, prevLabel
         backgroundColor: theme.mutedText,
         borderWidth: 2,
         borderDash: [5, 4],
-        tension: 0.2,
+        tension: 0.3,
         pointRadius: 0,
         pointHoverRadius: 4,
       },
@@ -129,10 +147,12 @@ export function NetLine({ rows, limit, selected, onSelect }) {
     {
       label: "순자금",
       data: rows.map((r) => r.net),
-      borderColor: theme.primary,
-      backgroundColor: theme.primary,
-      borderWidth: 2,
-      tension: 0.15,
+      borderColor: theme.chartHigh,
+      pointBackgroundColor: theme.chartHigh,
+      backgroundColor: (context) => verticalGradient(context, theme.chartFade, theme.chartFill),
+      fill: "origin",
+      borderWidth: 2.5,
+      tension: 0.25,
       pointRadius: rows.map((_, i) => (i === selected ? 5 : 0)),
       pointHoverRadius: 5,
     },
@@ -154,14 +174,15 @@ export function CategoryDoughnut({ rows }) {
       data: rows.map((r) => r.amount),
       backgroundColor: rows.map((r) => categoryColor(r.name, theme)),
       borderColor: theme.card,
-      borderWidth: 2,
+      borderWidth: 3,
+      borderRadius: 6,
     }],
   };
   const total = rows.reduce((acc, r) => acc + r.amount, 0);
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "62%",
+    cutout: "66%",
     plugins: {
       legend: { display: false },
       tooltip: { callbacks: { label: (c) => `${won(c.parsed)} (${Math.round((c.parsed / total) * 100)}%)` } },

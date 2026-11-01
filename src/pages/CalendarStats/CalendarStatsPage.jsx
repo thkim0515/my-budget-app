@@ -78,12 +78,12 @@ export default function CalendarStatsPage() {
     return (
       <S.AmountBox>
         {data?.income > 0 && (
-          <div style={{ color: "#12B76A", fontWeight: 700 }}>
+          <div style={{ color: "#1FA971", fontWeight: 700 }}>
             +{formatCompact(data.income)}
           </div>
         )}
         {data?.expense > 0 && (
-          <div style={{ color: "#F5455C", fontWeight: 700 }}>
+          <div style={{ color: "#E5604D", fontWeight: 700 }}>
             -{formatCompact(data.expense)}
           </div>
         )}

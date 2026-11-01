@@ -12,8 +12,7 @@ const Bar = styled.div`
   max-width: 480px;
   height: calc(72px + env(safe-area-inset-bottom));
   background: ${({ theme }) => theme.card};
-  border-top: 1px solid ${({ theme }) => theme.border};
-  box-shadow: 0 -6px 20px rgba(20, 30, 60, 0.06);
+  box-shadow: 0 -8px 24px ${({ theme }) => theme.navShadow};
   display: flex;
   justify-content: space-around;
   align-items: stretch;
@@ -31,13 +30,13 @@ const TabWrapper = styled.div`
 
 const ActiveIndicator = styled.div`
   position: absolute;
-  top: 8px;
+  top: 9px;
   left: 50%;
   transform: translateX(-50%);
-  width: 36px;
-  height: 36px;
+  width: 60px;
+  height: 32px;
   background: ${({ theme }) => theme.activeBg};
-  border-radius: 50%;
+  border-radius: 16px;
   transition: all 0.2s ease;
 `;
 
@@ -53,9 +52,9 @@ const Tab = styled(Link)`
   width: 100%;
   text-decoration: none;
   color: ${({ $active, theme }) => ($active ? theme.activeText : theme.text)};
-  font-size: 10px;
+  font-size: 11px;
   font-weight: ${({ $active }) => ($active ? "700" : "400")};
-  opacity: ${({ $active }) => ($active ? 1 : 0.55)};
+  opacity: ${({ $active }) => ($active ? 1 : 0.65)};
   transition: color 0.2s, opacity 0.2s;
 `;
 

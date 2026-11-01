@@ -53,8 +53,8 @@ export const ResetBtn = styled.button`
   padding: 12px;
   margin-top: 20px;
   background: transparent;
-  color: #d9534f;
-  border: 1px solid #d9534f;
+  color: #E5604D;
+  border: 1px solid #E5604D;
   border-radius: 8px;
   font-weight: bold;
 `;

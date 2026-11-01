@@ -29,6 +29,13 @@ function DeltaText({ current, previous, label }) {
   return <S.Delta $up={diff > 0}>{label}보다 {won(Math.abs(diff))} {diff > 0 ? "더 씀" : "덜 씀"} ({Math.round((Math.abs(diff) / previous) * 100)}%)</S.Delta>;
 }
 
+const DeltaPlain = ({ current, previous, label }) => {
+  if (!previous) return `${label} 내역 없음`;
+  const diff = current - previous;
+  if (diff === 0) return `${label}과 같음`;
+  return `${label}보다 ${won(Math.abs(diff))} ${diff > 0 ? "더 씀" : "덜 씀"}`;
+};
+
 export default function PaymentsTab({ txs, onEdit }) {
   const theme = useTheme();
   const now = new Date();
@@ -76,10 +83,12 @@ export default function PaymentsTab({ txs, onEdit }) {
           <strong>{label}</strong>
           <S.IconBtn type="button" aria-label="다음 달" disabled={ym >= currentYm} onClick={() => moveMonth(1)}>›</S.IconBtn>
         </S.MonthNav>
-        <S.HeroLabel>결제 누적</S.HeroLabel>
-        <S.HeroValue>{won(monthTotal)}</S.HeroValue>
-        <DeltaText current={lastCumRow?.cum ?? monthTotal} previous={prevComparable} label={ym === currentYm ? "전월 같은 날까지" : "전월"} />
       </S.Card>
+      <S.Hero>
+        <S.HeroLabel $onHero>{parseYm(ym).getMonth() + 1}월 결제 누적</S.HeroLabel>
+        <S.HeroValue $onHero>{won(monthTotal)}</S.HeroValue>
+        <S.HeroNote><DeltaPlain current={lastCumRow?.cum ?? monthTotal} previous={prevComparable} label={ym === currentYm ? "전월 같은 날까지" : "전월"} /></S.HeroNote>
+      </S.Hero>
 
       <S.Card>
         <S.Segment style={{ marginBottom: 12 }}>
@@ -93,7 +102,7 @@ export default function PaymentsTab({ txs, onEdit }) {
           <>
             <S.CardTitle style={{ marginTop: 18 }}>누적 결제와 전월 비교</S.CardTitle>
             <S.Legend>
-              <span><S.LegendKey $color={theme.primary} />이번 달</span>
+              <span><S.LegendKey $color={theme.chartHigh} />이번 달</span>
               <span><S.LegendKey $color={theme.mutedText} $dashed />지난달</span>
             </S.Legend>
             <CumulativeLines rows={daily} selected={selected} onSelect={setSelected} thisLabel="이번 달" prevLabel="지난달" />

@@ -38,6 +38,11 @@ export const saveFlow = (flow) => writeJson(FLOW_KEY, flow);
 export const loadNotiLog = () => readJson(LOG_KEY, []);
 const appendNotiLog = (rows) => writeJson(LOG_KEY, [...rows, ...loadNotiLog()].slice(0, 30));
 
+export const loadMerchantRules = () => readJson(MERCHANT_CATEGORY_KEY, {});
+
+// 전체 소비 탭에서 고른 금융사. ② 카카오뱅크 탭의 자동 인식과는 별개 설정이다.
+export const loadSpendSourceIds = () => readJson("spendSources", []);
+
 export const rememberMerchantCategory = (merchant, category) => {
   writeJson(MERCHANT_CATEGORY_KEY, { ...readJson(MERCHANT_CATEGORY_KEY, {}), [merchant]: category });
 };
@@ -50,7 +55,9 @@ export const categoryFor = (tx) => {
 
 export const ingestKakaoNotifications = async (notis, { getAll, add, deleteItem }) => {
   const targets = notis.filter(isKakaoBankNotification);
-  if (targets.length === 0 || !loadFlow().autoSave) return;
+  const forFlow = loadFlow().autoSave;
+  const forSpend = loadSpendSourceIds().includes("kakaobank");
+  if (targets.length === 0 || (!forFlow && !forSpend)) return;
 
   const existing = await getAll("kakaoTx");
   const log = [];
@@ -75,6 +82,7 @@ export const ingestKakaoNotifications = async (notis, { getAll, add, deleteItem 
       }
     }
     const record = { ...tx, category: categoryFor(tx) };
+    if (!forFlow) record.spendOnly = true; // 자금 관리 탭의 잔액 계산에는 넣지 않는다
     record.id = await add("kakaoTx", record, true);
     existing.push(record);
   }

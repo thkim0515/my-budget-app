@@ -19,7 +19,6 @@ const HeaderWrap = styled.div`
   background: ${({ theme }) => theme.headerBg};
   color: ${({ theme }) => theme.headerText};
 
-  border-bottom: 1px solid ${({ theme }) => theme.border};
   box-sizing: border-box;
   min-height: 84px;
 
@@ -31,7 +30,7 @@ const HeaderWrap = styled.div`
 `;
 
 const Title = styled.h1`
-  font-size: 23px;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0;

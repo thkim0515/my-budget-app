@@ -17,7 +17,7 @@ const Row = styled.div`
 const Btn = styled.button`
   flex: 1;
   padding: 12px;
-  background: #1976d2;
+  background: #12855A;
   color: white;
   border: none;
   border-radius: 6px;

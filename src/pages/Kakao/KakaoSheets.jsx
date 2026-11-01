@@ -153,6 +153,7 @@ export function FlowSheet({ flow, txs, onChange, onImport, onClose, onShowLog })
 
   return (
     <Sheet title="카카오뱅크 자금 설정" onClose={onClose}>
+      <S.Caption style={{ marginBottom: 12 }}>이 탭은 내 돈 관리용입니다. 잔액·마이너스·예산과 입금·이체까지 따라갑니다. 지출만 모아 분석하는 곳은 전체 소비 탭입니다.</S.Caption>
       <S.CardTitle>이번 달 예산</S.CardTitle>
       <MoneyField label="매달 예산(원)" value={monthly} onChange={setMonthly} placeholder="예: 1,000,000" />
       <MoneyField label="지금 남은 예산(원) — 이번 달만 맞춤" value={remaining} onChange={setRemaining} placeholder="직접 넣으면 이 값부터 결제가 차감돼요" />
@@ -166,7 +167,7 @@ export function FlowSheet({ flow, txs, onChange, onImport, onClose, onShowLog })
       <S.Divider />
       <S.CheckRow>
         <input type="checkbox" checked={flow.autoSave} onChange={(e) => onChange({ ...flow, autoSave: e.target.checked })} />
-        카카오뱅크 알림 자동 인식
+        이 탭에서 카카오뱅크 알림 자동 인식(잔액 계산용)
       </S.CheckRow>
       <S.GhostBtn type="button" onClick={onShowLog}>알림 인식 기록 보기</S.GhostBtn>
       <S.GhostBtn type="button" onClick={onImport}>가계부의 기존 카카오뱅크 내역 가져오기</S.GhostBtn>

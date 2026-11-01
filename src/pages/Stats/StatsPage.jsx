@@ -109,7 +109,7 @@ export default function StatsPage() {
       label: "잔액",
       data: summaryList.map((s) => s.balance),
       backgroundColor: summaryList.map((s) => (s.balance < 0 ? "rgba(245, 69, 92, 0.75)" : "rgba(76, 111, 255, 0.75)")),
-      borderColor: summaryList.map((s) => (s.balance < 0 ? "#F5455C" : "#4C6FFF")),
+      borderColor: summaryList.map((s) => (s.balance < 0 ? "#E5604D" : "#12855A")),
       borderWidth: 1.5,
       borderRadius: 8,
       maxBarThickness: 48,
@@ -125,7 +125,7 @@ export default function StatsPage() {
     });
 
     const labels = Object.keys(categorySum);
-    const palette = ["#4C6FFF", "#6F5BFF", "#12B76A", "#F5455C", "#F59E0B", "#22C3E6", "#FF8A5B", "#9B6DFF", "#2BD67B", "#FF6B9D"];
+    const palette = ["#12855A", "#2FA08A", "#1FA971", "#E5604D", "#F59E0B", "#22C3E6", "#FF8A5B", "#9B6DFF", "#2BD67B", "#FF6B9D"];
     return {
       labels,
       datasets: [{

@@ -85,10 +85,36 @@ export const byWeekday = (list) => WEEKDAYS.map((name, i) => ({ name, amount: Ma
 
 const row = (r) => ({ 이름: r.name, 금액: r.amount, 건수: r.count });
 
-// Claude 로 보내는 값은 이 집계뿐이다. 개별 거래·시각·알림 원문·잔액·계좌·이체 상대는 넣지 않는다.
-export const buildSpendPayload = (txs, p) => {
+// 직전 기간과 카테고리별 비교(앱 계산). 차이가 큰 순서.
+export const compareCategories = (list, prevList) => {
+  const cur = byCategory(list);
+  const prev = byCategory(prevList);
+  const names = [...new Set([...cur, ...prev].map((r) => r.name))];
+  return names.map((name) => {
+    const a = cur.find((r) => r.name === name)?.amount || 0;
+    const b = prev.find((r) => r.name === name)?.amount || 0;
+    return { name, amount: a, prev: b, diff: a - b };
+  }).sort((x, y) => Math.abs(y.diff) - Math.abs(x.diff));
+};
+
+const stamp = (ts) => {
+  const d = new Date(ts);
+  return `${toDateKey(d)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+// Claude 로 보내는 값. 요약: 집계만. 상세: 집계 + 지출 한 건씩의 일시·가맹점·금액·카테고리·출처(거래내역서를 주는 것과 같은 수준).
+// 어느 쪽이든 계좌번호·카드번호·잔액·알림 원문·입금·이체는 넣지 않는다.
+export const buildSpendPayload = (txs, p, level = "detail") => {
   const list = inPeriod(txs, p);
   const prev = previousPeriod(p);
+  const prevList = inPeriod(txs, prev);
+  const detail = level === "detail"
+    ? {
+      지출목록: [...list].sort((a, b) => a.ts - b.ts).filter((t) => spendOf(t) !== 0).map((t) => ({
+        일시: stamp(t.ts), 가맹점: t.merchant, 금액: spendOf(t), 카테고리: t.category || "기타", 출처: sourceById(t.sourceId)?.name || "기타", ...(t.installment > 0 ? { 할부: t.installment } : {}),
+      })),
+    }
+    : {};
   return {
     기간: { 시작: p.start, 끝: p.end, 일수: periodDays(p) },
     결제합계: totalSpend(list),
@@ -98,7 +124,8 @@ export const buildSpendPayload = (txs, p) => {
     가맹점상위15: byMerchant(list).slice(0, 15).map(row),
     시간대별: byBand(list).map((r) => ({ 시간대: r.name, 금액: r.amount, 건수: r.count })),
     요일별: byWeekday(list).map((r) => ({ 요일: r.name, 금액: r.amount })),
-    직전기간결제합계: { 시작: prev.start, 끝: prev.end, 금액: totalSpend(inPeriod(txs, prev)) },
+    직전기간: { 시작: prev.start, 끝: prev.end, 결제합계: totalSpend(prevList), 카테고리별: byCategory(prevList).map(row) },
+    ...detail,
   };
 };
 

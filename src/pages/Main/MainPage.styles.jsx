@@ -67,7 +67,7 @@ export const CardLimitBar = styled.div`
   padding: 12px 16px ${limitPadBottom};
   background: ${({ theme }) => theme.card};
   border-top: 1px solid ${({ theme }) => theme.border};
-  box-shadow: 0 -4px 12px rgba(20, 30, 60, 0.06);
+  box-shadow: 0 -4px 12px rgba(16, 70, 48, 0.06);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s;
@@ -259,8 +259,9 @@ export const ActionGroup = styled.div`
 
 export const ActionBtn = styled.button`
   flex: 1;
-  background: ${({ $bg }) => $bg || "#888"};
-  color: #fff;
+  /* 카드마다 네 개씩 놓여 진한 색이면 금액보다 앞서 보인다. 연한 바탕으로 낮춘다. */
+  background: ${({ $bg, theme }) => ($bg === "#E5604D" ? theme.expenseSoft : theme.bgElevated)};
+  color: ${({ $bg, theme }) => ($bg === "#E5604D" ? theme.errorText : theme.text)};
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   padding: 10px 6px;

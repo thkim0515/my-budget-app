@@ -9,10 +9,10 @@ export const Page = styled.div`
 `;
 
 export const Body = styled.div`
-  padding: 12px 16px calc(${28 + BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom));
+  padding: 4px 16px calc(${32 + BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 `;
 
 export const AddBtn = styled.button`
@@ -33,16 +33,16 @@ export const Segment = styled.div`
   display: flex;
   gap: 4px;
   padding: 4px;
-  border-radius: ${({ theme }) => theme.radius.sm};
+  border-radius: ${({ theme }) => theme.radius.pill};
   background: ${({ theme }) => theme.bgElevated};
 `;
 
 export const SegmentBtn = styled.button`
   flex: 1;
-  min-height: 38px;
+  min-height: 40px;
   padding: 0 4px;
   border: none;
-  border-radius: ${({ theme }) => theme.radius.xs};
+  border-radius: ${({ theme }) => theme.radius.pill};
   background: ${({ $active, theme }) => ($active ? theme.card : "transparent")};
   color: ${({ $active, theme }) => ($active ? theme.text : theme.subText)};
   box-shadow: ${({ $active, theme }) => ($active ? theme.shadowSm : "none")};
@@ -52,17 +52,36 @@ export const SegmentBtn = styled.button`
 `;
 
 export const Card = styled.section`
-  padding: 16px;
-  border-radius: ${({ theme }) => theme.radius.md};
+  padding: 20px;
+  border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.card};
-  border: 1px solid ${({ theme }) => theme.border};
   box-shadow: ${({ theme }) => theme.shadowSm};
   min-width: 0;
 `;
 
+// 탭마다 맨 위 한 장 — 가장 궁금한 금액을 숲색 바탕에 크게 보여 준다.
+export const Hero = styled.section`
+  padding: 24px 22px;
+  border-radius: ${({ theme }) => theme.radius.xl};
+  background: ${({ theme }) => theme.heroBg};
+  color: #FFFFFF;
+  min-width: 0;
+`;
+
+export const HeroNote = styled.div`
+  display: inline-block;
+  margin-top: 4px;
+  padding: 5px 12px;
+  border-radius: ${({ theme }) => theme.radius.pill};
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
+`;
+
 export const CardTitle = styled.h2`
-  margin: 0 0 10px;
-  font-size: 15px;
+  margin: 0 0 12px;
+  font-size: 16px;
   font-weight: 700;
 `;
 
@@ -73,17 +92,20 @@ export const Caption = styled.div`
 `;
 
 export const HeroLabel = styled.div`
-  font-size: 13px;
-  color: ${({ theme }) => theme.subText};
+  font-size: 14px;
+  font-weight: 500;
+  color: ${({ $onHero, theme }) => ($onHero ? "rgba(255, 255, 255, 0.86)" : theme.subText)};
 `;
 
 export const HeroValue = styled.div`
-  margin: 2px 0 6px;
-  font-size: 30px;
+  margin: 4px 0 8px;
+  font-size: 38px;
+  line-height: 1.15;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: ${({ $negative, theme }) => ($negative ? theme.expenseColor : theme.text)};
+  overflow-wrap: anywhere;
+  color: ${({ $negative, $onHero, theme }) => ($onHero ? ($negative ? "#FFD9CF" : "#FFFFFF") : $negative ? theme.expenseColor : theme.text)};
 `;
 
 export const Row = styled.div`
@@ -102,28 +124,28 @@ export const Stats = styled.div`
 
 export const Stat = styled.div`
   min-width: 0;
-  & > div:first-child { font-size: 12px; color: ${({ theme }) => theme.subText}; }
+  & > div:first-child { font-size: 12.5px; color: ${({ $onHero, theme }) => ($onHero ? "rgba(255, 255, 255, 0.82)" : theme.subText)}; }
   & > div:last-child {
     margin-top: 2px;
     font-size: 15px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
-    color: ${({ $color, theme }) => ($color ? theme[$color] : theme.text)};
+    color: ${({ $color, $onHero, theme }) => ($onHero ? "#FFFFFF" : $color ? theme[$color] : theme.text)};
   }
 `;
 
 export const Meter = styled.div`
-  height: 8px;
-  margin-top: 12px;
-  border-radius: 4px;
+  height: 10px;
+  margin-top: 14px;
+  border-radius: 5px;
   overflow: hidden;
-  background: ${({ theme }) => theme.bgElevated};
+  background: ${({ $onHero, theme }) => ($onHero ? "rgba(255, 255, 255, 0.22)" : theme.bgElevated)};
   & > div {
     height: 100%;
-    border-radius: 4px;
+    border-radius: 5px;
     width: ${({ $pct }) => Math.min(Math.max($pct, 0), 100)}%;
-    background: ${({ $danger, theme }) => ($danger ? theme.expenseColor : theme.primary)};
+    background: ${({ $danger, $onHero, theme }) => ($onHero ? ($danger ? "#FFB7A6" : "#B9F2C9") : $danger ? theme.expenseColor : theme.primary)};
   }
 `;
 
@@ -197,6 +219,7 @@ export const TxBtn = styled.button`
   text-align: left;
   cursor: pointer;
   &:first-child { border-top: none; }
+  &:active { opacity: 0.7; }
   & strong { display: block; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
   & small { font-size: 12px; color: ${({ theme }) => theme.subText}; }
   & > span:last-child { flex-shrink: 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -210,9 +233,9 @@ export const RankRow = styled.div`
 `;
 
 export const Bar = styled.div`
-  height: 6px;
-  margin-top: 5px;
-  border-radius: 3px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 4px;
   width: ${({ $pct }) => Math.max($pct, 1)}%;
   background: ${({ $color }) => $color};
 `;
@@ -239,9 +262,9 @@ export const Field = styled.label`
     margin-top: 5px;
     padding: 0 12px;
     box-sizing: border-box;
-    border: 1px solid ${({ theme }) => theme.borderStrong};
+    border: 1.5px solid ${({ theme }) => theme.border};
     border-radius: ${({ theme }) => theme.radius.sm};
-    background: ${({ theme }) => theme.card};
+    background: ${({ theme }) => theme.cardAlt};
     color: ${({ theme }) => theme.text};
     font-size: 16px;
     font-weight: 500;
@@ -254,14 +277,14 @@ export const CheckRow = styled.label`
   gap: 10px;
   min-height: 44px;
   font-size: 14px;
-  & input { width: 20px; height: 20px; flex-shrink: 0; }
+  & input { width: 20px; height: 20px; flex-shrink: 0; accent-color: ${({ theme }) => theme.primary}; }
 `;
 
 export const PrimaryBtn = styled.button`
   width: 100%;
-  min-height: 48px;
+  min-height: 52px;
   border: none;
-  border-radius: ${({ theme }) => theme.radius.sm};
+  border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.primary};
   color: ${({ theme }) => theme.onPrimary};
   font-size: 15px;
@@ -274,9 +297,9 @@ export const GhostBtn = styled.button`
   width: 100%;
   min-height: 44px;
   margin-top: 8px;
-  border: 1px solid ${({ theme }) => theme.borderStrong};
-  border-radius: ${({ theme }) => theme.radius.sm};
-  background: transparent;
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ $danger, theme }) => ($danger ? theme.expenseSoft : theme.bgElevated)};
   color: ${({ $danger, theme }) => ($danger ? theme.errorText : theme.text)};
   font-size: 14px;
   font-weight: 600;
@@ -295,6 +318,63 @@ export const Bullets = styled.ul`
   font-size: 14px;
   line-height: 1.6;
   & li + li { margin-top: 4px; }
+`;
+
+export const ModelRow = styled.button`
+  width: 100%;
+  min-height: 56px;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-sizing: border-box;
+  border: 2px solid ${({ $active, theme }) => ($active ? theme.primary : theme.border)};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ $active, theme }) => ($active ? theme.primarySoft : theme.card)};
+  color: ${({ theme }) => theme.text};
+  opacity: ${({ $disabled }) => ($disabled ? 0.6 : 1)};
+  text-align: left;
+  cursor: ${({ $disabled }) => ($disabled ? "default" : "pointer")};
+  & strong { display: block; font-size: 15px; }
+  & small { font-size: 12.5px; color: ${({ theme }) => theme.subText}; }
+`;
+
+export const RadioDot = styled.span`
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid ${({ $active, theme }) => ($active ? theme.primary : theme.borderStrong)};
+  background: ${({ $active, theme }) => ($active ? theme.primary : "transparent")};
+  box-shadow: inset 0 0 0 3px ${({ theme }) => theme.card};
+`;
+
+export const FoldBtn = styled.button`
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.subText};
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+`;
+
+export const Badge = styled.span`
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: ${({ theme }) => theme.radius.pill};
+  background: ${({ theme }) => theme.primarySoft};
+  color: ${({ theme }) => theme.primaryText};
+  font-size: 11px;
+  font-weight: 700;
 `;
 
 export const Pre = styled.pre`

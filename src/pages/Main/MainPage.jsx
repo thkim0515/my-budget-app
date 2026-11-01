@@ -379,7 +379,7 @@ export default function MainPage() {
 
             <S.ActionGroup>
               <S.ActionBtn
-                $bg={c.isCompleted ? "#9098A8" : "#12B76A"}
+                $bg={c.isCompleted ? "#86A094" : "#1FA971"}
                 title={c.isCompleted ? "완료 취소" : "완료 처리"}
                 onClick={(e) => { e.stopPropagation(); toggleComplete(c); }}
               >
@@ -388,7 +388,7 @@ export default function MainPage() {
               </S.ActionBtn>
 
               <S.ActionBtn
-                $bg="#6F5BFF"
+                $bg="#2FA08A"
                 title="챕터 제목 수정"
                 onClick={(e) => { e.stopPropagation(); openRenameChapter(c); }}
               >
@@ -397,7 +397,7 @@ export default function MainPage() {
               </S.ActionBtn>
 
               <S.ActionBtn
-                $bg="#4C6FFF"
+                $bg="#12855A"
                 title="챕터 복사"
                 onClick={(e) => { e.stopPropagation(); openCopyModal(c); }}
               >
@@ -406,7 +406,7 @@ export default function MainPage() {
               </S.ActionBtn>
 
               <S.ActionBtn
-                $bg="#F5455C"
+                $bg="#E5604D"
                 title="삭제"
                 onClick={(e) => { e.stopPropagation(); deleteChapter(c.chapterId); }}
               >
@@ -475,8 +475,8 @@ export default function MainPage() {
               </div>
 
               <div style={MODAL_ROW}>
-                <button style={MODAL_BTN("#4C6FFF")} onClick={executeCopy}>복사하기</button>
-                <button style={MODAL_BTN("#6c757d")} onClick={closeCopyModal}>취소</button>
+                <button style={MODAL_BTN("#12855A")} onClick={executeCopy}>복사하기</button>
+                <button style={MODAL_BTN("#6E8A7D")} onClick={closeCopyModal}>취소</button>
               </div>
             </div>
           </div>,
@@ -506,8 +506,8 @@ export default function MainPage() {
                 autoFocus
               />
               <div style={MODAL_ROW}>
-                <button style={MODAL_BTN("#4C6FFF")} onClick={executeRename}>저장</button>
-                <button style={MODAL_BTN("#6c757d")} onClick={cancelRename}>취소</button>
+                <button style={MODAL_BTN("#12855A")} onClick={executeRename}>저장</button>
+                <button style={MODAL_BTN("#6E8A7D")} onClick={cancelRename}>취소</button>
               </div>
             </div>
           </div>,

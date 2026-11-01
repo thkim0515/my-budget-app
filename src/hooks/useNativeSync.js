@@ -5,13 +5,14 @@ import { BudgetPlugin } from "../plugins/BudgetPlugin";
 import { parseAndCreateRecord, parseAccumulatedAmount } from "../utils/notiParser";
 import { getCurrentYm } from "../utils/cardLimit";
 import { useBudgetDB } from "./useBudgetDB";
+import { tidyLocal } from "../utils/spendClassify";
 import { useSettings } from "../context/SettingsContext";
 import { ingestKakaoNotifications } from "../utils/kakaoIngest";
 import { ingestSpendNotifications } from "../utils/spendStore";
 
 export const useNativeSync = () => {
   // 중복 검사를 위해 getAllRaw(삭제된 것 포함 전체) 사용
-  const { db, add, getAll, getAllRaw, deleteItem } = useBudgetDB();
+  const { db, add, put, getAll, getAllRaw, deleteItem } = useBudgetDB();
   const { settings, updateSetting } = useSettings();
   const isRunningRef = useRef(false);
 
@@ -65,6 +66,7 @@ export const useNativeSync = () => {
       // 전체 소비 탭: 사용자가 체크한 금융사 알림만 저장한다.
       try {
         await ingestSpendNotifications(notis, { db, getAll, add, deleteItem });
+        await tidyLocal({ getAll, put }); // 이전 분류로 맞출 수 있는 새 내역은 바로 맞춘다(무료)
       } catch (spendError) {
         console.error("[Native Sync] 전체 소비 처리 실패:", spendError?.message);
       }
@@ -213,7 +215,7 @@ export const useNativeSync = () => {
     } finally {
       isRunningRef.current = false;
     }
-  }, [db, add, getAll, getAllRaw, deleteItem, settings, updateSetting]);
+  }, [db, add, put, getAll, getAllRaw, deleteItem, settings, updateSetting]);
 
   useEffect(() => {
     let appStateListener;

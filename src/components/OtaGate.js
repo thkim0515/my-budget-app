@@ -29,8 +29,8 @@ function overlayColors() {
     /* 저장소 접근 불가면 라이트 */
   }
   return dark
-    ? { bg: "#121212", text: "#e5e5e5", sub: "#8a8a8a", track: "#2a2a2a" }
-    : { bg: "#ffffff", text: "#1f2937", sub: "#9ca3af", track: "#f3f4f6" };
+    ? { bg: "#0C1A14", text: "#E6F4EC", sub: "#A3C2B2", track: "#21392D" }
+    : { bg: "#F1F8F3", text: "#16352A", sub: "#4E6B5E", track: "#DDEBE2" };
 }
 
 export default function OtaGate({ children }) {
@@ -144,7 +144,7 @@ function UpdatePrompt({ update, onLater }) {
           </div>
         )}
         {hub === false && (
-          <div style={{ fontSize: 12.5, color: "#e11d48", marginTop: 12 }}>앱 허브가 설치되어 있지 않아요. 앱 허브를 설치한 뒤 업데이트해 주세요.</div>
+          <div style={{ fontSize: 12.5, color: "#E5604D", marginTop: 12 }}>앱 허브가 설치되어 있지 않아요. 앱 허브를 설치한 뒤 업데이트해 주세요.</div>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
           {canLater && (

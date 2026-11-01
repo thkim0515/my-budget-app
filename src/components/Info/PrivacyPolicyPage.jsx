@@ -38,7 +38,7 @@ const Content = styled.div`
     font-size: 17px; 
     margin-top: 24px; 
     margin-bottom: 10px;
-    color: #1976d2; 
+    color: #12855A; 
     font-weight: bold;
   }
   
@@ -51,16 +51,16 @@ const Content = styled.div`
   ul { padding-left: 18px; }
 
   .security-card { 
-    color: ${({ theme }) => theme.mode === 'dark' ? '#e5e5e5' : '#2c3e50'};
+    color: ${({ theme }) => theme.mode === 'dark' ? '#e5e5e5' : '#16352A'};
     font-weight: bold;
     padding: 15px;
     background: ${({ theme }) => theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#f8f9fa'};
-    border-left: 4px solid #1976d2;
+    border-left: 4px solid #12855A;
     border-radius: 4px;
     margin: 20px 0;
     font-size: 13px;
     border: 1px solid ${({ theme }) => theme.border};
-    border-left: 4px solid #1976d2;
+    border-left: 4px solid #12855A;
   }
 
   .footer-date {
@@ -125,7 +125,7 @@ export default function PrivacyPolicyPage() {
           <li><strong>이용 목적:</strong> 본인 인증 및 데이터 클라우드 저장</li>
           <li><strong>보유 및 이용 기간:</strong> 서비스 종료 또는 사용자의 삭제 요청 시까지</li>
         </ul>
-        <p>사용자가 본인의 API 키를 넣고 "소비 분석"을 직접 실행한 경우에만, 카테고리·가맹점별 합계 등 집계 정보가 분석을 위해 Anthropic(Claude API)으로 전송됩니다. 개별 거래·잔액·대출액은 전송되지 않습니다.</p>
+        <p>사용자가 본인의 API 키를 넣고 Claude 분석을 실행하거나 자동 정리를 켠 경우에만 Anthropic(Claude API)으로 데이터가 전송됩니다. 요약 분석은 합계만, 상세 분석은 지출 한 건씩의 일시·가맹점·금액·카테고리·출처를, 자동 정리는 가맹점 이름·금액대·시간대를 보냅니다. "읽지 못한 알림 읽기"에 동의하면 잔액·긴 번호·가려진 이름을 지운 알림 문장도 보냅니다. 잔액·계좌번호·카드번호·대출액은 전송되지 않습니다.</p>
 
         <h2>4. 정보주체의 권리 및 행사방법</h2>
         <p>사용자는 언제든지 자신의 개인정보를 조회하거나 수정할 수 있으며, 다음의 방법을 통해 탈퇴 및 데이터 삭제를 요청할 수 있습니다.</p>

@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "styled-components";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
-import { KIND_LABEL, byCategory, byMerchant, shiftYm, spendOf, toDateKey, toYm } from "../../utils/kakaoStats";
+import { byCategory, byMerchant, shiftYm, spendOf, toDateKey, toYm } from "../../utils/kakaoStats";
 import { sourceById } from "../../utils/spendParser";
 import { importSpendFromRecords, loadSelectedSources, mergeSpend } from "../../utils/spendStore";
-import { bucketSeries, byBand, bySource, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
+import { bucketSeries, byBand, bySource, compareCategories, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
 import { rememberMerchantCategory, categoryFor } from "../../utils/kakaoIngest";
+import { tidyLocal } from "../../utils/spendClassify";
 import { CategoryDoughnut, SpendBars, categoryColor, won } from "../Kakao/KakaoCharts";
 import * as S from "../Kakao/KakaoPage.styles";
-import { SourcesSheet, SpendTxSheet, UnclassifiedSheet } from "./SpendSheets";
+import { ImportSheet, SourcesSheet, SpendTxSheet, TidySheet } from "./SpendSheets";
 import ClaudePanel from "./ClaudePanel";
 
 const PAGE_SIZE = 50;
@@ -20,14 +23,14 @@ function TxRows({ list, onEdit }) {
   const theme = useTheme();
   return list.map((tx) => {
     const positive = tx.kind === "refund";
-    const label = tx.kind === "payment" ? tx.category : KIND_LABEL[tx.kind];
+    const label = tx.kind === "refund" ? "결제 취소" : tx.category;
     return (
       <S.TxBtn key={`${tx.store}-${tx.id}`} type="button" onClick={() => onEdit(tx)}>
         <span>
           <strong>{tx.merchant}</strong>
-          <small>{sourceById(tx.sourceId)?.name} · {formatWhen(tx.ts)} · {label}{tx.installment > 0 ? ` · ${tx.installment}개월` : ""}</small>
+          <small>{sourceById(tx.sourceId)?.name} · {formatWhen(tx.ts)} · {label}{tx.installment > 0 ? ` · ${tx.installment}개월` : ""}{tx.autoCategory ? " · 자동 분류" : ""}{tx.suggestedCategory ? " · 추천 있음" : ""}</small>
         </span>
-        <span style={{ color: positive ? theme.incomeColor : tx.kind === "transfer" ? theme.subText : theme.text }}>{positive ? "+" : "-"}{won(tx.amount)}</span>
+        <span style={{ color: positive ? theme.incomeColor : theme.text }}>{positive ? "+" : "-"}{won(tx.amount)}</span>
       </S.TxBtn>
     );
   });
@@ -66,9 +69,17 @@ export default function SpendPage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [shown, setShown] = useState(PAGE_SIZE);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [unclassifiedOpen, setUnclassifiedOpen] = useState(false);
+  const [tidyOpen, setTidyOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [hasKey, setHasKey] = useState(false);
   const [editing, setEditing] = useState(null); // { tx?, draft?, raw? }
-  const [selectedCount, setSelectedCount] = useState(() => loadSelectedSources().length);
+  const [selectedIds, setSelectedIds] = useState(loadSelectedSources);
+  const selectedCount = selectedIds.length;
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    BudgetPlugin.hasClaudeApiKey().then((r) => setHasKey(!!r.exists)).catch(() => setHasKey(false));
+  }, [tab, tidyOpen]);
 
   const reload = useCallback(async () => {
     if (!db) return;
@@ -89,7 +100,11 @@ export default function SpendPage() {
     };
   }, [reload]);
 
-  const all = useMemo(() => mergeSpend(spendTxs, kakaoTxs), [spendTxs, kakaoTxs]);
+  const all = useMemo(() => mergeSpend(spendTxs, kakaoTxs, selectedIds), [spendTxs, kakaoTxs, selectedIds]);
+  const suggestions = useMemo(() => all.filter((t) => t.suggestedCategory && !t.categoryLocked && t.category === "기타"), [all]);
+  const autoApplied = useMemo(() => all.filter((t) => t.autoCategory).sort((a, b) => (b.autoCategory.at || 0) - (a.autoCategory.at || 0)), [all]);
+  const tidyHelpers = { db, getAll, put, add };
+  const reviewCount = unclassified.length + suggestions.length;
   const period = useMemo(() => (mode === "month" ? monthPeriod(ym) : rangePeriod(rangeStart, rangeEnd)), [mode, ym, rangeStart, rangeEnd]);
   const list = useMemo(() => inPeriod(all, period), [all, period]);
   const total = totalSpend(list);
@@ -101,6 +116,7 @@ export default function SpendPage() {
   const merchants = useMemo(() => byMerchant(list).slice(0, 10), [list]);
   const bands = useMemo(() => byBand(list), [list]);
   const categoryTotal = categories.reduce((acc, r) => acc + r.amount, 0);
+  const compareRows = useMemo(() => compareCategories(list, inPeriod(all, prev)).slice(0, 5), [list, all, prev]);
   const selectedBucket = selected != null ? buckets[selected] : null;
   const bucketList = selectedBucket ? all.filter((t) => t.ts >= selectedBucket.from && t.ts < selectedBucket.to && spendOf(t) !== 0) : [];
 
@@ -120,26 +136,27 @@ export default function SpendPage() {
     setEditing({ tx, raw: raws.find((n) => n.txId === tx.id) || null });
   };
   const openUnclassified = (n) => {
-    setUnclassifiedOpen(false);
-    setEditing({ draft: { sourceId: n.sourceId, ts: n.ts, merchant: "" }, raw: n });
+    setTidyOpen(false);
+    const s = n.suggestion?.isExpense ? n.suggestion : {};
+    setEditing({ draft: { sourceId: n.sourceId, ts: n.ts, merchant: s.merchant || "", amount: s.amount || 0, kind: s.kind }, raw: n });
   };
 
   const saveTx = async (fields) => {
     const { tx, draft, raw } = editing;
     if (tx) {
-      if (fields.category !== tx.category) rememberMerchantCategory(fields.merchant, fields.category);
-      const { store, ...rest } = tx;
-      await put(store, store === "kakaoTx" ? { ...rest, ...fields, sourceId: undefined } : { ...rest, ...fields });
+      // 사용자가 고른 분류는 규칙으로 배우고, 이후 자동으로 바꾸지 않는다.
+      const changed = fields.category !== tx.category;
+      if (changed) rememberMerchantCategory(fields.merchant, fields.category);
+      const { store, sourceId: mergedSource, autoCategory, suggestedCategory, suggestedConfidence, ...rest } = tx;
+      const keep = changed ? { categoryLocked: true } : { autoCategory, suggestedCategory, suggestedConfidence };
+      const next = { ...rest, ...fields, ...Object.fromEntries(Object.entries(keep).filter(([, v]) => v !== undefined)) };
+      await put(store, store === "kakaoTx" ? next : { sourceId: mergedSource, ...next });
+      await tidyLocal({ getAll, put }); // 방금 배운 규칙을 같은 가맹점 미분류에 바로 적용한다
     } else {
-      const base = { ...fields, category: fields.kind === "transfer" ? "이체" : fields.category === "기타" ? categoryFor(fields) : fields.category, inputMode: draft ? "unclassified" : "manual", pkg: "" };
-      if (fields.sourceId === "kakaobank") {
-        const { sourceId, installment, ...kakao } = base;
-        await add("kakaoTx", { ...kakao, balanceAfter: null, excludeFromFlow: false });
-      } else {
-        const id = await add("spendTx", base);
-        if (raw) await db.put("spendNoti", { ...raw, status: "parsed", txId: id });
-      }
-      if (raw && fields.sourceId === "kakaobank") await db.delete("spendNoti", raw.id);
+      // 카카오뱅크로 직접 넣어도 ②의 잔액에 섞이지 않게 전체 소비 쪽에만 저장한다.
+      const base = { ...fields, category: fields.category === "기타" ? categoryFor(fields) : fields.category, inputMode: draft ? "unclassified" : "manual", pkg: "" };
+      const id = await add("spendTx", base);
+      if (raw) await db.put("spendNoti", { ...raw, status: "parsed", txId: id });
     }
     setEditing(null);
     reload();
@@ -158,7 +175,7 @@ export default function SpendPage() {
 
   const closeSources = () => {
     setSourcesOpen(false);
-    setSelectedCount(loadSelectedSources().length);
+    setSelectedIds(loadSelectedSources());
   };
   const importRecords = async () => {
     const count = await importSpendFromRecords({ getAll, add });
@@ -174,14 +191,14 @@ export default function SpendPage() {
       <S.Body>
         {selectedCount === 0 && (
           <S.Card>
-            <S.CardTitle>금융사를 골라 주세요</S.CardTitle>
-            <S.Caption>체크한 금융사 알림만 읽어 지출을 모읍니다.</S.Caption>
+            <S.CardTitle>어느 곳의 지출을 모을까요?</S.CardTitle>
+            <S.Caption>체크한 은행·카드에서 사용한 금액만 모아 분석합니다. 잔액과 마이너스는 카카오뱅크 탭에서 따로 관리합니다.</S.Caption>
             <S.GhostBtn type="button" onClick={() => setSourcesOpen(true)}>금융사 선택</S.GhostBtn>
           </S.Card>
         )}
-        {unclassified.length > 0 && (
-          <S.GhostBtn type="button" style={{ marginTop: 0, background: theme.warningSoft, border: "none" }} onClick={() => setUnclassifiedOpen(true)}>
-            ⚠️ 확인이 필요한 미분류 알림 {unclassified.length}건
+        {reviewCount > 0 && (
+          <S.GhostBtn type="button" style={{ marginTop: 0, background: theme.warningSoft, border: "none" }} onClick={() => setTidyOpen(true)}>
+            확인이 필요한 분류 {reviewCount}건
           </S.GhostBtn>
         )}
 
@@ -205,15 +222,18 @@ export default function SpendPage() {
               <S.Field style={{ margin: 0 }}>종료일<input type="date" value={rangeEnd} onChange={(e) => { if (e.target.value) { setRangeEnd(e.target.value); resetView(); } }} /></S.Field>
             </S.Stats>
           )}
-          <S.HeroLabel style={{ marginTop: 8 }}>결제 합계</S.HeroLabel>
-          <S.HeroValue>{won(total)}</S.HeroValue>
-          {prevTotal > 0
-            ? <S.Delta $up={diff > 0}>직전 기간보다 {won(Math.abs(diff))} {diff > 0 ? "더 씀" : "덜 씀"}</S.Delta>
-            : <S.Caption>직전 기간 내역 없음</S.Caption>}
         </S.Card>
 
+        <S.Hero>
+          <S.HeroLabel $onHero>{mode === "month" ? `${new Date(period.from).getMonth() + 1}월에` : "이 기간에"} 사용한 금액</S.HeroLabel>
+          <S.HeroValue $onHero>{won(total)}</S.HeroValue>
+          <S.HeroNote>
+            {prevTotal > 0 ? `직전 기간보다 ${won(Math.abs(diff))} ${diff > 0 ? "더 씀" : "덜 씀"}` : "직전 기간 내역 없음"}
+          </S.HeroNote>
+        </S.Hero>
+
         <S.Segment role="tablist">
-          {[["stats", "기본 분석"], ["list", "내역"], ["claude", "Claude 정밀 분석"]].map(([key, label]) => (
+          {[["stats", "기본 분석"], ["list", "내역"], ["claude", "Claude 분석"]].map(([key, label]) => (
             <S.SegmentBtn key={key} type="button" role="tab" aria-selected={tab === key} $active={tab === key} onClick={() => setTab(key)}>{label}</S.SegmentBtn>
           ))}
         </S.Segment>
@@ -263,8 +283,21 @@ export default function SpendPage() {
             </S.Card>
             <S.Card>
               <S.CardTitle>시간대별</S.CardTitle>
-              <RankBars rows={[...bands].sort((a, b) => b.amount - a.amount)} />
+              <RankBars rows={bands.filter((b) => b.amount > 0).sort((a, b) => b.amount - a.amount)} />
             </S.Card>
+            {prevTotal > 0 && (
+              <S.Card>
+                <S.CardTitle>직전 기간 대비 많이 달라진 곳</S.CardTitle>
+                {compareRows.map((r) => (
+                  <S.RankRow key={r.name}>
+                    <div>
+                      <span>{r.name}</span>
+                      <S.Delta $up={r.diff > 0}>{r.diff > 0 ? "+" : "-"}{won(Math.abs(r.diff))}</S.Delta>
+                    </div>
+                  </S.RankRow>
+                ))}
+              </S.Card>
+            )}
           </>
         )}
 
@@ -290,17 +323,32 @@ export default function SpendPage() {
                 </select>
               </S.Field>
             </S.Stats>
-            <S.Caption style={{ marginBottom: 6 }}>{filtered.length}건 · 합계 {won(totalSpend(filtered))} (이체 제외)</S.Caption>
+            <S.Caption style={{ marginBottom: 6 }}>{filtered.length}건 · 합계 {won(totalSpend(filtered))}</S.Caption>
             {filtered.length === 0 && <S.Caption>조건에 맞는 내역이 없습니다.</S.Caption>}
             <TxRows list={filtered.slice(0, shown)} onEdit={openTx} />
             {filtered.length > shown && <S.GhostBtn type="button" onClick={() => setShown(shown + PAGE_SIZE)}>더 보기</S.GhostBtn>}
           </S.Card>
         )}
 
-        {tab === "claude" && <ClaudePanel txs={all} period={period} />}
+        {tab === "claude" && <ClaudePanel txs={all} period={period} helpers={tidyHelpers} onChanged={reload} />}
       </S.Body>
-      {sourcesOpen && <SourcesSheet onImport={importRecords} onClose={closeSources} />}
-      {unclassifiedOpen && <UnclassifiedSheet items={unclassified} onPick={openUnclassified} onClose={() => setUnclassifiedOpen(false)} />}
+      {sourcesOpen && <SourcesSheet onImport={importRecords} onImportFile={() => { closeSources(); setImportOpen(true); }} onClose={closeSources} />}
+      {importOpen && (
+        <ImportSheet
+          existing={[...spendTxs, ...kakaoTxs]}
+          helpers={tidyHelpers}
+          onDone={async (count) => {
+            setImportOpen(false);
+            await tidyLocal({ getAll, put });
+            window.dispatchEvent(new CustomEvent("budget-db-updated"));
+            alert(`${count}건을 합쳤습니다.`);
+          }}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
+      {tidyOpen && (
+        <TidySheet raws={unclassified} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onChanged={reload} onClose={() => setTidyOpen(false)} />
+      )}
       {editing && <SpendTxSheet tx={editing.tx} draft={editing.draft} raw={editing.raw} onSave={saveTx} onDelete={editing.tx || editing.draft ? deleteEditing : null} onClose={() => setEditing(null)} />}
     </S.Page>
   );

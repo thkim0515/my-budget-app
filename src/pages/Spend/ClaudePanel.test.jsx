@@ -9,7 +9,7 @@ import ClaudePanel from "./ClaudePanel";
 
 jest.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: () => true }, registerPlugin: () => ({}) }));
 jest.mock("../../plugins/BudgetPlugin", () => ({
-  BudgetPlugin: { hasClaudeApiKey: jest.fn(), claudeMessages: jest.fn(), saveClaudeApiKey: jest.fn(), deleteClaudeApiKey: jest.fn() },
+  BudgetPlugin: { hasClaudeApiKey: jest.fn(), claudeMessages: jest.fn(), claudeListModels: jest.fn(), saveClaudeApiKey: jest.fn(), deleteClaudeApiKey: jest.fn() },
 }));
 jest.mock("../Kakao/KakaoCharts", () => ({ won: (n) => `${n}원` }));
 
@@ -46,9 +46,32 @@ test("가짜 응답: 결과·토큰·비용 표시, 장부 누적, 집계만 전
   expect(call.fallback).toBe(true);
   const sent = JSON.parse(call.body);
   expect(sent.model).toBe("claude-sonnet-5-5");
-  expect(sent.messages[0].content).toContain("스타벅스");
-  expect(sent.messages[0].content).not.toContain(String(txs[0].ts));
+  expect(sent.messages[0].content).toContain("지출목록"); // 기본은 상세 분석
+  expect(sent.messages[0].content).toContain("2026-10-05 12:00");
   expect(JSON.parse(localStorage.getItem("spendClaudeResults"))[0].key).toBe(ym);
+});
+
+test("요약 분석을 고르면 한 건씩의 내역을 보내지 않고, 미리보기에 건수·토큰이 보임", async () => {
+  BudgetPlugin.claudeMessages.mockResolvedValue(fake());
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "요약 분석" }));
+  expect(screen.getByText(/지출 1건 · 입력 약 \d+ 토큰 · 예상/)).toBeTruthy();
+  fireEvent.click(await screen.findByRole("button", { name: /분석하기/ }));
+  await screen.findByText("가짜 요약입니다");
+  expect(BudgetPlugin.claudeMessages.mock.calls[0][0].body).not.toContain("지출목록");
+});
+
+test("모델 목록: 쓸 수 있는 것만 펼치고 사용 불가는 접힘, 목록 실패 시 기본 목록", async () => {
+  BudgetPlugin.claudeListModels.mockResolvedValueOnce({ status: 200, body: JSON.stringify({ data: [{ id: "claude-haiku-5-5", display_name: "Claude Haiku 5.5" }] }) });
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "키·모델·상한" }));
+  await screen.findByText("사용 불가 모델 2개");
+  expect(screen.getByRole("button", { name: /Haiku 5\.5/ })).toBeTruthy();
+  expect(screen.queryByText("Opus 5.5")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /사용 불가 모델/ }));
+  expect(screen.getByText("Opus 5.5")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /사용 불가 모델/ }));
+  expect(screen.queryByText("Opus 5.5")).toBeNull();
 });
 
 test("Haiku 선택 시 대체 모델 없이 호출", async () => {

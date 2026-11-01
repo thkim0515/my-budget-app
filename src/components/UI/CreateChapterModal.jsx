@@ -48,7 +48,7 @@ const Btn = styled.button`
   border: none;
   border-radius: 6px;
   color: white;
-  background: ${({ danger }) => danger ? "#d9534f" : "#1976d2"};
+  background: ${({ danger }) => danger ? "#E5604D" : "#12855A"};
 `;
 
 export default function CreateChapterModal({ onClose, onSubmit }) {

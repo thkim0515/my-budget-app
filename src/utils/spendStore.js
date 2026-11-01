@@ -1,39 +1,36 @@
 // 전체 소비 저장: spendTx(지출, 동기화 대상) + spendNoti(알림 원문, 기기 전용). 카카오뱅크는 탭 2의 kakaoTx 를 그대로 합쳐 보여 준다.
-import { categoryFor, loadFlow, saveFlow } from "./kakaoIngest";
+import { categoryFor, loadSpendSourceIds } from "./kakaoIngest";
+import { isSameTx } from "./statementImport";
 import { isKakaoBankNotification, parseKakaoNotification, findCancelTarget } from "./kakaoParser";
 import { findDuplicate, matchSource, parseSpendNotification, SOURCES, sourceById } from "./spendParser";
 
 const SOURCES_KEY = "spendSources";
 const KEEP_PARSED_RAW = 300;
 
-// 카카오뱅크는 탭 2의 자동 인식 설정과 같은 값이다(둘로 나누면 한쪽만 꺼진 상태가 생긴다).
-export const loadSelectedSources = () => {
-  let ids = [];
-  try {
-    ids = JSON.parse(localStorage.getItem(SOURCES_KEY)) || [];
-  } catch {
-    ids = [];
-  }
-  const others = ids.filter((id) => id !== "kakaobank" && sourceById(id));
-  return loadFlow().autoSave ? ["kakaobank", ...others] : others;
-};
+// 전체 소비 탭에서 고른 금융사. ② 카카오뱅크 탭의 자동 인식과는 별개다.
+export const loadSelectedSources = () => loadSpendSourceIds().filter((id) => sourceById(id));
 export const saveSelectedSources = (ids) => {
   try {
     localStorage.setItem(SOURCES_KEY, JSON.stringify(ids));
   } catch {
     /* 저장 실패 시 이전 선택 유지 */
   }
-  saveFlow({ ...loadFlow(), autoSave: ids.includes("kakaobank") });
 };
 
 const newId = () => crypto.randomUUID();
 
-// 카카오뱅크 내역을 통합 목록 형태로. 입금은 지출이 아니라 뺀다.
-export const mergeSpend = (spendTxs, kakaoTxs) => {
-  const kakao = kakaoTxs.filter((t) => t.kind !== "income").map((t) => ({ ...t, sourceId: "kakaobank", store: "kakaoTx" }));
+// 지출 통합 목록. 카카오뱅크 탭 내역은 결제·취소만 함께 보여 주고(입금·이체·대출 제외), 탭 ③에서 체크했을 때만 넣는다.
+export const mergeSpend = (spendTxs, kakaoTxs, selected = ["kakaobank"]) => {
+  const useKakao = selected.includes("kakaobank");
+  const kakao = (useKakao ? kakaoTxs : [])
+    .filter((t) => (t.kind === "payment" || t.kind === "refund") && !t.excludeFromFlow)
+    .map((t) => ({ ...t, sourceId: "kakaobank", store: "kakaoTx" }));
   // 페이 알림이 카카오뱅크 결제와 겹치면 카카오뱅크 쪽만 센다(저장 순서와 무관하게 이중 집계를 막는다).
   const others = spendTxs
+    .filter((t) => t.kind === "payment" || t.kind === "refund")
     .filter((t) => !(sourceById(t.sourceId)?.pay && kakao.some((k) => k.kind === t.kind && k.amount === t.amount && Math.abs(k.ts - t.ts) < 3 * 60 * 1000)))
+    // 거래내역서로 넣은 카카오뱅크 내역이 알림 내역과 겹치면 한 번만 센다.
+    .filter((t) => !(t.sourceId === "kakaobank" && kakao.some((k) => isSameTx({ ...t, hasTime: true }, k))))
     .map((t) => ({ ...t, store: "spendTx" }));
   return [...kakao, ...others].sort((a, b) => b.ts - a.ts);
 };
@@ -79,7 +76,7 @@ export const ingestSpendNotifications = async (notis, { db, getAll, add, deleteI
         continue;
       }
     }
-    const record = { ...tx, category: tx.kind === "transfer" ? "이체" : categoryFor(tx) };
+    const record = { ...tx, category: categoryFor(tx) };
     record.id = await add("spendTx", record, true);
     existing.push(record);
     await db.put("spendNoti", { ...rawBase, status: "parsed", txId: record.id });
@@ -107,9 +104,10 @@ export const importSpendFromRecords = async ({ getAll, add }) => {
     if (!source || r.type === "income" || imported.has(r.id)) continue;
     const ts = new Date(r.createdAt || r.date).getTime();
     if (!ts) continue;
-    const tx = { ts, kind: r.isTransfer ? "transfer" : "payment", amount: r.amount, sourceId: source.id, pkg: "import" };
+    if (r.isTransfer) continue; // 지출만 모은다
+    const tx = { ts, kind: "payment", amount: r.amount, sourceId: source.id, pkg: "import" };
     if (existing.some((e) => !e.isDeleted && e.sourceId === source.id && e.amount === r.amount && e.kind === tx.kind && Math.abs(e.ts - ts) < 5 * 60 * 1000)) continue;
-    await add("spendTx", { ...tx, merchant: r.title, category: r.isTransfer ? "이체" : r.category || "기타", installment: 0, inputMode: "import", sourceRecordId: r.id }, true);
+    await add("spendTx", { ...tx, merchant: r.title, category: r.category || "기타", installment: 0, inputMode: "import", sourceRecordId: r.id }, true);
     count += 1;
   }
   return count;

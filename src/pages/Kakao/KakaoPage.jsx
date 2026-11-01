@@ -23,7 +23,7 @@ export default function KakaoPage() {
 
   const reload = useCallback(async () => {
     if (!db) return;
-    setTxs((await getAll("kakaoTx")).sort((a, b) => b.ts - a.ts));
+    setTxs((await getAll("kakaoTx")).filter((t) => !t.spendOnly).sort((a, b) => b.ts - a.ts));
   }, [db, getAll]);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export default function KakaoPage() {
 
   return (
     <S.Page>
-      <Header title="카카오뱅크" onSettings={() => navigate("/settings")} rightButton={<S.AddBtn type="button" onClick={() => setEditing("new")}>＋ 내역 추가</S.AddBtn>} />
+      <Header title="내 카카오뱅크" onSettings={() => navigate("/settings")} rightButton={<S.AddBtn type="button" onClick={() => setEditing("new")}>＋ 내역 추가</S.AddBtn>} />
       <S.Body>
         <S.Segment role="tablist">
           {TABS.map(([key, label]) => (

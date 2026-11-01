@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "styled-components";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
-import { CLAUDE_MODELS, formatTokens, formatUsd, getLimits, getModel, modelName, saveLimits, saveModel } from "../../utils/claudeClient";
+import { formatTokens, formatUsd, getLimits, getModel, loadModelState, modelDesc, modelName, refreshModels, saveLimits, saveModel } from "../../utils/claudeClient";
+import { hasRawConsent, isTidyEnabled, setRawConsent, setTidyEnabled } from "../../utils/spendClassify";
 import { won } from "../../pages/Kakao/KakaoCharts";
 import { Sheet } from "../../pages/Kakao/KakaoSheets";
 import * as S from "../../pages/Kakao/KakaoPage.styles";
@@ -12,6 +13,31 @@ export function ClaudeSettingsSheet({ hasKey, onKeyChange, onClose }) {
   const [model, setModel] = useState(getModel);
   const [limits, setLimits] = useState(getLimits);
   const [error, setError] = useState("");
+  const [models, setModels] = useState(loadModelState);
+  const [checking, setChecking] = useState(false);
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [tidy, setTidy] = useState(isTidyEnabled);
+  const [rawHelp, setRawHelp] = useState(hasRawConsent);
+
+  const checkModels = async () => {
+    setChecking(true);
+    const state = await refreshModels();
+    setModels(state);
+    setModel(getModel());
+    setChecking(false);
+  };
+
+  // 설정을 열 때마다 이 키로 쓸 수 있는 모델을 다시 확인한다.
+  useEffect(() => {
+    if (hasKey) checkModels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasKey]);
+
+  const toggleRawHelp = (on) => {
+    if (on && !window.confirm("읽지 못한 알림의 문장을 Claude로 보내 읽기를 돕습니다. 잔액·긴 번호·가려진 이름은 지우고 보냅니다. 켤까요?")) return;
+    setRawConsent(on);
+    setRawHelp(on);
+  };
 
   const saveKey = async () => {
     try {
@@ -19,6 +45,7 @@ export function ClaudeSettingsSheet({ hasKey, onKeyChange, onClose }) {
       setKey("");
       setError("");
       onKeyChange(true);
+      checkModels();
     } catch (e) {
       setError(e?.message || "키를 저장하지 못했습니다.");
     }
@@ -41,12 +68,28 @@ export function ClaudeSettingsSheet({ hasKey, onKeyChange, onClose }) {
   return (
     <Sheet title="Claude 분석 설정" onClose={onClose}>
       <S.CardTitle>모델</S.CardTitle>
-      <S.Segment style={{ marginBottom: 6 }}>
-        {CLAUDE_MODELS.map((m) => (
-          <S.SegmentBtn key={m.id} type="button" $active={model === m.id} onClick={() => pickModel(m.id)}>{m.name}</S.SegmentBtn>
-        ))}
-      </S.Segment>
-      <S.Caption style={{ marginBottom: 4 }}>{CLAUDE_MODELS.find((m) => m.id === model)?.desc}</S.Caption>
+      {checking && <S.Caption style={{ marginBottom: 6 }}>이 키로 쓸 수 있는 모델을 확인하는 중…</S.Caption>}
+      {models.note && <S.Caption style={{ marginBottom: 6 }}>{models.note}</S.Caption>}
+      {!hasKey && <S.Caption style={{ marginBottom: 6 }}>키를 넣으면 실제로 쓸 수 있는 모델만 보여 드립니다.</S.Caption>}
+      {models.available.map((m) => (
+        <S.ModelRow key={m.id} type="button" $active={model === m.id} aria-pressed={model === m.id} onClick={() => pickModel(m.id)}>
+          <span><strong>{modelName(m.id)}</strong><small>{modelDesc(m)}</small></span>
+          <S.RadioDot $active={model === m.id} />
+        </S.ModelRow>
+      ))}
+      {models.unavailable.length > 0 && (
+        <>
+          <S.FoldBtn type="button" aria-expanded={showUnavailable} onClick={() => setShowUnavailable(!showUnavailable)}>
+            <span>사용 불가 모델 {models.unavailable.length}개</span>
+            <span aria-hidden="true">{showUnavailable ? "접기" : "펼치기"}</span>
+          </S.FoldBtn>
+          {showUnavailable && models.unavailable.map((m) => (
+            <S.ModelRow key={m.id} as="div" $disabled>
+              <span><strong>{modelName(m.id)}</strong><small>{m.reason}</small></span>
+            </S.ModelRow>
+          ))}
+        </>
+      )}
       <S.Divider />
       <S.CardTitle>API 키</S.CardTitle>
       <S.Caption style={{ marginBottom: 10 }}>
@@ -69,6 +112,18 @@ export function ClaudeSettingsSheet({ hasKey, onKeyChange, onClose }) {
         예상 비용(달러)
         <input inputMode="decimal" value={limits.maxUsd} onChange={(e) => setLimit("maxUsd", e.target.value.replace(/[^0-9.]/g, ""))} />
       </S.Field>
+      <S.Divider />
+      <S.CardTitle>미분류 자동 정리</S.CardTitle>
+      <S.CheckRow>
+        <input type="checkbox" checked={tidy} onChange={(e) => { setTidy(e.target.checked); setTidyEnabled(e.target.checked); }} />
+        하루 한 번 Claude로 카테고리 정리
+      </S.CheckRow>
+      <S.Caption style={{ marginBottom: 8 }}>앱을 켰을 때 실행합니다. 가맹점 이름·금액대·시간대만 보내며, 토큰과 비용은 위 상한에 포함됩니다. 이전 분류와 같은 가맹점은 Claude 없이 앱이 맞춥니다.</S.Caption>
+      <S.CheckRow>
+        <input type="checkbox" checked={rawHelp} onChange={(e) => toggleRawHelp(e.target.checked)} />
+        읽지 못한 알림도 Claude로 읽기
+      </S.CheckRow>
+      <S.Caption>잔액·긴 번호·가려진 이름을 지운 문장을 보냅니다. 켠 뒤 미분류 화면에서 직접 실행합니다.</S.Caption>
     </Sheet>
   );
 }

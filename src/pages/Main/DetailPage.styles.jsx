@@ -156,7 +156,7 @@ export const BalanceAmount = styled.div`
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  color: ${({ $negative }) => ($negative ? "#FFD7DD" : "#fff")};
+  color: ${({ $negative }) => ($negative ? "#FFE1DA" : "#fff")};
 `;
 
 export const ExcludedNote = styled.div`
@@ -231,7 +231,7 @@ export const FAB = styled.button`
 export const SheetBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(10, 15, 30, 0.5);
+  background: rgba(6, 30, 20, 0.5);
   z-index: 40;
   animation: fadeIn 0.2s ease;
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

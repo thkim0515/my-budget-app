@@ -72,7 +72,7 @@ export default function ChapterList({
           <Actions>
             <ActionButton
               type="button"
-              style={{ background: "#4caf50" }}
+              style={{ background: "#1FA971" }}
               onClick={() => onToggleComplete(ch)}
               title={ch.isCompleted ? "해제" : "완료"}
             >
@@ -80,17 +80,17 @@ export default function ChapterList({
               {ch.isCompleted ? "해제" : "완료"}
             </ActionButton>
 
-            <ActionButton type="button" style={{ background: "#6f42c1" }} onClick={() => onRename(ch)} title="편집">
+            <ActionButton type="button" style={{ background: "#2FA08A" }} onClick={() => onRename(ch)} title="편집">
               <FiEdit3 size={11} />
             </ActionButton>
 
-            <ActionButton type="button" style={{ background: "#1976d2" }} onClick={() => onCopy(ch)} title="복사">
+            <ActionButton type="button" style={{ background: "#12855A" }} onClick={() => onCopy(ch)} title="복사">
               <FiCopy size={11} />
             </ActionButton>
 
             <ActionButton
               type="button"
-              style={{ background: "#d9534f" }}
+              style={{ background: "#E5604D" }}
               onClick={() => onDelete(ch.chapterId)}
               title="삭제"
             >

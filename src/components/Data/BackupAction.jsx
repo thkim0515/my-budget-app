@@ -120,14 +120,14 @@ export default function BackupAction() {
       <S.Row50>
         <S.Btn
           onClick={backupData}
-          style={{ background: "#4C6EF5" }}
+          style={{ background: "#12855A" }}
         >
           데이터 백업 다운로드
         </S.Btn>
 
         <S.Btn
           onClick={() => fileInputRef.current.click()}
-          style={{ background: "#6C757D" }}
+          style={{ background: "#6E8A7D" }}
         >
           데이터 파일 불러오기
         </S.Btn>

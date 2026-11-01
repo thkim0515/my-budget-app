@@ -16,6 +16,7 @@ export const SOURCES = [
   { id: "naverpay", name: "네이버페이", packages: ["com.naverfin.payapp"], keywords: [/네이버페이/, /Npay/i], pay: true },
   { id: "kakaopay", name: "카카오페이", recordSource: "카카오페이", packages: ["com.kakaopay.app"], keywords: [/카카오페이/], pay: true },
 ];
+export const SPEND_CATEGORIES = ["식비", "편의점", "배달", "쇼핑", "교통", "생활", "구독", "의료", "기타"];
 export const sourceById = (id) => SOURCES.find((s) => s.id === id);
 export const ALL_PACKAGES = SOURCES.flatMap((s) => s.packages);
 
@@ -105,9 +106,10 @@ export const parseSpendNotification = (noti, source, channel = "own") => {
   const amount = parseInt(amountMatch[1].replace(/,/g, ""), 10);
   if (!amount) return unsure("금액을 찾지 못함");
 
-  let kind = "payment";
-  if (/취소/.test(withoutMeta)) kind = "refund";
-  else if (/이체|송금|보내기|보냈/.test(withoutMeta)) kind = "transfer";
+  // 전체 소비는 사용한 금액만 모은다. 이체·대출은 돈이 옮겨 갈 뿐이라 뺀다.
+  const kind = /취소/.test(withoutMeta) ? "refund" : "payment";
+  if (kind === "payment" && /이체|송금|보내기|보냈/.test(withoutMeta)) return { result: "ignored", reason: "이체는 지출이 아님" };
+  if (/대출/.test(withoutMeta) && !/이자/.test(withoutMeta)) return { result: "ignored", reason: "대출 실행·상환은 지출이 아님" };
 
   const installMatch = withoutMeta.match(/(\d{1,2})\s*개월|할부\s*(\d{1,2})/);
   const installment = installMatch ? Number(installMatch[1] || installMatch[2]) : 0;

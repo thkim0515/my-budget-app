@@ -1,6 +1,6 @@
 import { adjustmentForRemaining, budgetSummary, byCategory, dailySeries, flowSeries, monthlySeries, netAt, splitNet, weeklySeries } from "./kakaoStats";
 import { buildAnalysisPayload } from "./kakaoAnalysis";
-import { blockReason, buildRequestBody, costOf, parseResponse } from "./claudeClient";
+import { blockReason, buildRequestBody, costOf, parseModelList, parseResponse } from "./claudeClient";
 
 const at = (y, m, d, h = 12) => new Date(y, m - 1, d, h).getTime();
 const now = new Date(2026, 10, 10, 18); // 2026-11-10
@@ -85,6 +85,16 @@ describe("Claude 분석", () => {
   });
   test("비용 계산과 응답 해석", () => {
     expect(costOf("claude-opus-5-5", { input_tokens: 1000000, output_tokens: 1000000 })).toBe(24);
+    expect(parseModelList(JSON.stringify({ data: [
+      { id: "claude-sonnet-5-5", display_name: "Claude Sonnet 5.5", created_at: "2026-02", capabilities: { structured_outputs: { supported: true } } },
+      { id: "claude-opus-4-1", display_name: "Old", created_at: "2025-01", capabilities: { structured_outputs: { supported: false } } },
+      { id: "claude-instant", display_name: "x" },
+      { id: "claude-haiku-5-5", lifecycle: "retired" },
+    ] }))).toMatchObject({
+      available: [{ id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5" }],
+      unavailable: [{ id: "claude-opus-4-1" }, { id: "claude-haiku-5-5", reason: "이 키로 쓸 수 없음" }, { id: "claude-opus-5-5" }],
+    });
+    expect(parseModelList("이상한 응답")).toBeNull();
     const ok = { model: "claude-opus-5-5", stop_reason: "end_turn", usage: { input_tokens: 1000, output_tokens: 1000 }, content: [{ type: "thinking", thinking: "" }, { type: "text", text: '{"summary":"요약","patterns":[],"savings":[],"warnings":[]}' }] };
     expect(parseResponse(200, JSON.stringify(ok))).toEqual({ analysis: { summary: "요약", patterns: [], savings: [], warnings: [] }, usd: 0.024, tokens: { input: 1000, output: 1000 }, model: "claude-opus-5-5" });
     expect(costOf("claude-haiku-5-5", { input_tokens: 1000000, output_tokens: 1000000 })).toBeCloseTo(0.6);

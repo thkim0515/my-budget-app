@@ -74,10 +74,10 @@ const Description = styled.div`
 const GoogleButton = styled.button`
   width: ${({ $isLogout }) => ($isLogout ? "auto" : "100%")};
   padding: ${({ $isLogout }) => ($isLogout ? "8px 12px" : "12px")};
-  border: 1px solid ${({ $isLogout }) => ($isLogout ? "#ff4d4f" : "#ddd")};
+  border: 1px solid ${({ $isLogout }) => ($isLogout ? "#E5604D" : "#ddd")};
   border-radius: 8px;
   background: white;
-  color: ${({ $isLogout }) => ($isLogout ? "#ff4d4f" : "#444")};
+  color: ${({ $isLogout }) => ($isLogout ? "#E5604D" : "#444")};
   font-weight: bold;
   font-size: ${({ $isLogout }) => ($isLogout ? "13px" : "14px")};
   cursor: pointer;

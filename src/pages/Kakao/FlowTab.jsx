@@ -37,25 +37,25 @@ export default function FlowTab({ txs, flow, onChangeFlow, onOpenSettings, onEdi
 
   return (
     <>
-      <S.Card>
+      <S.Hero>
         <S.Row>
-          <S.HeroLabel>이번 달 남은 예산</S.HeroLabel>
-          <S.AddBtn type="button" onClick={onOpenSettings} style={{ minHeight: 36, background: theme.primarySoft, color: theme.primaryText }}>자금 설정</S.AddBtn>
+          <S.HeroLabel $onHero>이번 달 남은 예산</S.HeroLabel>
+          <S.AddBtn type="button" onClick={onOpenSettings} style={{ minHeight: 36, background: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}>자금 설정</S.AddBtn>
         </S.Row>
         {summary.hasBudget ? (
           <>
-            <S.HeroValue $negative={summary.remaining < 0}>{won(summary.remaining)}</S.HeroValue>
-            <S.Meter $pct={budgetPct} $danger={summary.remaining < 0}><div /></S.Meter>
+            <S.HeroValue $onHero $negative={summary.remaining < 0}>{won(summary.remaining)}</S.HeroValue>
+            <S.Meter $onHero $pct={budgetPct} $danger={summary.remaining < 0}><div /></S.Meter>
             <S.Stats $cols={3}>
-              <S.Stat><div>예산</div><div>{won(summary.budget)}</div></S.Stat>
-              <S.Stat><div>이번 달 결제</div><div>{won(summary.spent)}</div></S.Stat>
-              <S.Stat><div>하루 권장({summary.daysLeft}일 남음)</div><div>{won(summary.perDay)}</div></S.Stat>
+              <S.Stat $onHero><div>예산</div><div>{won(summary.budget)}</div></S.Stat>
+              <S.Stat $onHero><div>이번 달 결제</div><div>{won(summary.spent)}</div></S.Stat>
+              <S.Stat $onHero><div>하루 권장({summary.daysLeft}일)</div><div>{won(summary.perDay)}</div></S.Stat>
             </S.Stats>
           </>
         ) : (
-          <S.Caption style={{ marginTop: 8 }}>자금 설정에서 매달 예산이나 지금 남은 예산을 넣으면 하루 권장 사용액을 계산합니다.</S.Caption>
+          <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>자금 설정에서 매달 예산이나 지금 남은 예산을 넣으면 하루 권장 사용액을 계산합니다.</div>
         )}
-      </S.Card>
+      </S.Hero>
 
       <S.Card>
         <S.CardTitle>현재 카카오뱅크 자금</S.CardTitle>
@@ -99,7 +99,7 @@ export default function FlowTab({ txs, flow, onChangeFlow, onOpenSettings, onEdi
             </S.Segment>
           </S.Row>
           <S.Legend>
-            <span><S.LegendKey $color={theme.primary} />순자금(잔액 − 마이너스)</span>
+            <span><S.LegendKey $color={theme.chartHigh} />순자금(잔액 − 마이너스)</span>
             {flow.limit > 0 && <span><S.LegendKey $color={theme.expenseColor} $dashed />마이너스 한도</span>}
           </S.Legend>
           <NetLine rows={rows} limit={flow.limit} selected={selected} onSelect={setSelected} />

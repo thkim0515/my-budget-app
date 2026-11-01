@@ -242,6 +242,43 @@ public class BudgetPlugin extends Plugin {
         call.resolve();
     }
 
+    // 이 키로 쓸 수 있는 모델 목록(Models API). 응답 본문을 그대로 돌려주고 해석은 JS 가 한다.
+    @PluginMethod
+    public void claudeListModels(PluginCall call) {
+        String apiKey = SecureKeyStore.read(getContext());
+        if (apiKey == null) {
+            call.reject("NO_KEY");
+            return;
+        }
+        new Thread(() -> {
+            java.net.HttpURLConnection conn = null;
+            try {
+                conn = (java.net.HttpURLConnection) new java.net.URL("https://api.anthropic.com/v1/models?limit=100").openConnection();
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(20000);
+                conn.setRequestProperty("x-api-key", apiKey);
+                conn.setRequestProperty("anthropic-version", "2023-06-01");
+                int status = conn.getResponseCode();
+                java.io.InputStream in = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                if (in != null) {
+                    byte[] chunk = new byte[8192];
+                    int read;
+                    while ((read = in.read(chunk)) != -1) buffer.write(chunk, 0, read);
+                    in.close();
+                }
+                JSObject ret = new JSObject();
+                ret.put("status", status);
+                ret.put("body", buffer.toString("UTF-8"));
+                call.resolve(ret);
+            } catch (Exception e) {
+                call.reject("NETWORK");
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
     // 요청 본문(JSON 문자열)을 Claude Messages API 로 보내고 상태 코드와 응답 본문을 돌려준다. 주소는 고정이다.
     @PluginMethod
     public void claudeMessages(PluginCall call) {

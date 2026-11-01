@@ -162,7 +162,7 @@ export default function NotificationSettings() {
                   <strong>{item.title}</strong> {item.text}
                 </div>
                 {parsed ? (
-                  <div style={{ color: theme.primary || "#2ecc71", fontWeight: "bold" }}>
+                  <div style={{ color: theme.primary || "#1FA971", fontWeight: "bold" }}>
                     ✅ 파싱 성공: {parsed.type === "income" ? "입금" : "지출"} {parsed.amount.toLocaleString()}원 ({parsed.title})
                   </div>
                 ) : (
