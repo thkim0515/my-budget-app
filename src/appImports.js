@@ -18,3 +18,4 @@ export { default as StatsBySourcePage } from "./pages/Stats/StatsBySourcePage";
 export { default as CategorySettingsPage } from "./pages/Settings/CategorySettingsPage";
 export { default as CalendarStatsPage } from "./pages/CalendarStats/CalendarStatsPage";
 export { default as KakaoPage } from "./pages/Kakao/KakaoPage";
+export { default as SpendPage } from "./pages/Spend/SpendPage";

@@ -21,14 +21,17 @@ const tickWon = (v) => {
   return String(v);
 };
 
-// 누른 위치의 x 축 항목을 고른다. Chart.js 의 onClick 은 다음 프레임으로 미뤄지므로 캔버스 클릭에서 바로 찾는다.
+// 누른 위치의 x 축 항목을 고른다. Chart.js 의 onClick 은 다음 프레임으로 미뤄지고 막대 위치는 애니메이션 중일 수 있어,
+// 캔버스 클릭에서 x 축 눈금으로 바로 계산한다.
 const useChartSelect = (onSelect) => {
   const ref = useRef(null);
   const onClick = (event) => {
     const chart = ref.current;
     if (!chart || !onSelect) return;
-    const hit = chart.getElementsAtEventForMode(event.nativeEvent, "index", { intersect: false, axis: "x" }, true);
-    if (hit.length) onSelect(hit[0].index);
+    const x = event.clientX - event.currentTarget.getBoundingClientRect().left;
+    const index = chart.scales.x.getValueForPixel(x);
+    const count = chart.data.labels.length;
+    if (count > 0 && Number.isFinite(index)) onSelect(Math.min(Math.max(Math.round(index), 0), count - 1));
   };
   return { ref, onClick };
 };

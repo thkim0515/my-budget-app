@@ -46,22 +46,22 @@ export function useSync() {
   // =================================================================
   // [Mode 1] 구글 로그인 유저용: Firestore 동기화 (플래그에 따라 모드 전환)
   // =================================================================
-  const syncKakaoTx = useCallback(
-    async (uid) => {
-      const lastKey = `lastKakaoSyncTime_${uid}`;
+  const syncExtraStore = useCallback(
+    async (uid, store) => {
+      const lastKey = store === "kakaoTx" ? `lastKakaoSyncTime_${uid}` : `lastSync_${store}_${uid}`;
       const last = parseInt(localStorage.getItem(lastKey) || "0", 10);
       const startedAt = Date.now();
-      const ref = collection(firestore, "users", uid, "kakaoTx");
-      const local = await getAllRaw("kakaoTx");
+      const ref = collection(firestore, "users", uid, store);
+      const local = await getAllRaw(store);
       const snapshot = await getDocs(query(ref, where("updatedAt", ">", last)));
       for (const remote of snapshot.docs) {
         const mine = local.find((t) => t.id === remote.id);
-        if (!mine || remote.data().updatedAt > mine.updatedAt) await put("kakaoTx", normalizeFirestoreData(remote.data()), true);
+        if (!mine || remote.data().updatedAt > mine.updatedAt) await put(store, normalizeFirestoreData(remote.data()), true);
       }
       const toPush = local.filter((t) => t.updatedAt > last);
       for (let i = 0; i < toPush.length; i += 400) {
         const batch = writeBatch(firestore);
-        toPush.slice(i, i + 400).forEach((t) => batch.set(doc(firestore, "users", uid, "kakaoTx", t.id), t));
+        toPush.slice(i, i + 400).forEach((t) => batch.set(doc(firestore, "users", uid, store, t.id), t));
         await batch.commit();
       }
       localStorage.setItem(lastKey, startedAt.toString());
@@ -159,11 +159,13 @@ export function useSync() {
 
         localStorage.setItem(lastSyncKey, currentSyncStartTime.toString());
 
-        // 카카오뱅크 내역은 따로 동기화한다. 규칙 문제 등으로 실패해도 기존 가계부 동기화에 영향을 주지 않게 분리했다.
-        try {
-          await syncKakaoTx(uid);
-        } catch (kakaoError) {
-          console.warn("카카오뱅크 내역 동기화 실패:", kakaoError?.message);
+        // 카카오뱅크·전체 소비 내역은 따로 동기화한다. 규칙 문제 등으로 실패해도 기존 가계부 동기화에 영향을 주지 않게 분리했다.
+        for (const store of ["kakaoTx", "spendTx"]) {
+          try {
+            await syncExtraStore(uid, store);
+          } catch (extraError) {
+            console.warn(`${store} 동기화 실패:`, extraError?.message);
+          }
         }
 
         window.dispatchEvent(new CustomEvent("budget-db-updated"));
@@ -174,7 +176,7 @@ export function useSync() {
         isSyncingRef.current = false;
       }
     },
-    [localDb, getAllRaw, put, syncKakaoTx]
+    [localDb, getAllRaw, put, syncExtraStore]
   );
 
   // =================================================================
@@ -190,6 +192,7 @@ export function useSync() {
       records: await getAllRaw("records"),
       categories: await getAllRaw("categories"),
       kakaoTx: await getAllRaw("kakaoTx"),
+      spendTx: await getAllRaw("spendTx"),
       exportedAt: new Date().toISOString(),
       version: 4,
     };
@@ -235,6 +238,7 @@ export function useSync() {
     await mergeStore("records", serverData.records || []);
     await mergeStore("categories", serverData.categories || []);
     await mergeStore("kakaoTx", serverData.kakaoTx || []);
+    await mergeStore("spendTx", serverData.spendTx || []);
     window.dispatchEvent(new CustomEvent("budget-db-updated"));
     return true;
   };

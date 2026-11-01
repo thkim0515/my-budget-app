@@ -20,6 +20,7 @@ import {
   CategorySettingsPage,
   CalendarStatsPage,
   KakaoPage,
+  SpendPage,
   TextColorSettingsPage,
   PrivacyPolicyPage,
 } from "./appImports";
@@ -97,6 +98,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<MainPage />} />
           <Route path="/kakao" element={<KakaoPage />} />
+          <Route path="/spend" element={<SpendPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/text-color" element={<TextColorSettingsPage />} />
           <Route path="/stats" element={<StatsPage />} />

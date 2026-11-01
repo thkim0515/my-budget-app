@@ -15,6 +15,24 @@
     <!-- 업데이트를 앱 허브에서 받도록: 허브 설치 여부와 허브가 처리하는 인텐트만 확인한다 -->
     <queries>
         <package android:name="com.thkim.apphub" />
+        <!-- 전체 소비 탭의 금융 앱 목록: 설치 여부만 확인한다(src/utils/spendParser.js 의 SOURCES 와 맞출 것) -->
+        <package android:name="com.kakaobank.channel" />
+        <package android:name="kr.co.samsungcard.mpocket" />
+        <package android:name="com.shcard.smartpay" />
+        <package android:name="com.shinhan.sbanking" />
+        <package android:name="com.kbcard.cxh.appcard" />
+        <package android:name="com.kbstar.kbbank" />
+        <package android:name="com.hyundaicard.appcard" />
+        <package android:name="com.lcacApp" />
+        <package android:name="com.wooricard.smartapp" />
+        <package android:name="com.wooribank.smart.npib" />
+        <package android:name="com.hanaskcard.paycla" />
+        <package android:name="com.kebhana.hanapush" />
+        <package android:name="nh.smart.nhallonepay" />
+        <package android:name="nh.smart.banking" />
+        <package android:name="viva.republica.toss" />
+        <package android:name="com.naverfin.payapp" />
+        <package android:name="com.kakaopay.app" />
     </queries>
 
     <application

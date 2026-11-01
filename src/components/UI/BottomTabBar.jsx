@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import { Link, useLocation } from 'react-router-dom';
 import { AiFillHome, AiOutlineBarChart, AiOutlineSetting } from "react-icons/ai";
-import { MdListAlt, MdCalendarToday, MdAccountBalanceWallet } from "react-icons/md";
+import { MdListAlt, MdCalendarToday, MdAccountBalanceWallet, MdInsights } from "react-icons/md";
 
 const Bar = styled.div`
   position: fixed;
@@ -67,7 +67,9 @@ const TABS = [
   { to: "/stats", icon: AiOutlineBarChart, label: "통계", hidden: true },
   { to: "/calendar-stats", icon: MdCalendarToday, label: "캘린더", hidden: true },
   { to: "/source-stats", icon: MdListAlt, label: "출처", hidden: true },
-  { to: "/settings", icon: AiOutlineSetting, label: "설정" },
+  { to: "/spend", icon: MdInsights, label: "전체 소비" },
+  // 설정은 각 탭 상단의 톱니 아이콘으로 들어간다.
+  { to: "/settings", icon: AiOutlineSetting, label: "설정", hidden: true },
 ];
 
 const VISIBLE_TABS = TABS.filter((tab) => !tab.hidden);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { importFromRecords, loadFlow, rememberMerchantCategory, saveFlow } from "../../utils/kakaoIngest";
@@ -11,6 +12,7 @@ import AnalysisTab from "./AnalysisTab";
 const TABS = [["payments", "결제"], ["flow", "자금 흐름"], ["analysis", "소비 분석"]];
 
 export default function KakaoPage() {
+  const navigate = useNavigate();
   const { db, getAll, add, put, deleteItem } = useBudgetDB();
   const [txs, setTxs] = useState([]);
   const [flow, setFlow] = useState(loadFlow);
@@ -66,7 +68,7 @@ export default function KakaoPage() {
 
   return (
     <S.Page>
-      <Header title="카카오뱅크" rightButton={<S.AddBtn type="button" onClick={() => setEditing("new")}>＋ 내역 추가</S.AddBtn>} />
+      <Header title="카카오뱅크" onSettings={() => navigate("/settings")} rightButton={<S.AddBtn type="button" onClick={() => setEditing("new")}>＋ 내역 추가</S.AddBtn>} />
       <S.Body>
         <S.Segment role="tablist">
           {TABS.map(([key, label]) => (

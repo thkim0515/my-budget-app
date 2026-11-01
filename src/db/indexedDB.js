@@ -6,8 +6,8 @@ let dbPromise = null;
 export const initDB = async () => {
   if (dbPromise) return dbPromise;
 
-  // 버전 5 미만은 초기화 후 재생성, 6은 카카오뱅크 탭 스토어만 추가(기존 데이터 유지)
-  dbPromise = openDB("budgetDB", 6, {
+  // 버전 5 미만은 초기화 후 재생성, 6은 카카오뱅크 탭 스토어만 추가(기존 데이터 유지), 7은 전체 소비 스토어 추가
+  dbPromise = openDB("budgetDB", 7, {
     async upgrade(db, oldVersion, newVersion, transaction) {
       // 버전 5 미만일 때 (최초 설치 or 구버전) 실행
       if (oldVersion < 5) {
@@ -40,6 +40,10 @@ export const initDB = async () => {
       }
       if (oldVersion < 6) {
         db.createObjectStore("kakaoTx", { keyPath: "id" });
+      }
+      if (oldVersion < 7) {
+        db.createObjectStore("spendTx", { keyPath: "id" });
+        db.createObjectStore("spendNoti", { keyPath: "id" }); // 알림 원문 — 기기 전용, 동기화·백업하지 않는다
       }
     },
   });

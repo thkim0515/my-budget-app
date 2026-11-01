@@ -188,6 +188,30 @@ public class BudgetPlugin extends Plugin {
         call.resolve();
     }
 
+    // 주어진 패키지 중 이 기기에 설치된 것만 돌려준다(매니페스트 <queries> 에 있는 금융 앱만 보인다).
+    @PluginMethod
+    public void getInstalledPackages(PluginCall call) {
+        JSArray result = new JSArray();
+        try {
+            org.json.JSONArray packages = call.getArray("packages", new JSArray());
+            for (int i = 0; i < packages.length(); i++) {
+                String pkg = packages.getString(i);
+                try {
+                    getContext().getPackageManager().getPackageInfo(pkg, 0);
+                    result.put(pkg);
+                } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {
+                    // 설치되어 있지 않음
+                }
+            }
+        } catch (org.json.JSONException e) {
+            call.reject("목록을 읽지 못했습니다.");
+            return;
+        }
+        JSObject ret = new JSObject();
+        ret.put("packages", result);
+        call.resolve(ret);
+    }
+
     // ---- Claude API: 키는 Keystore 로 암호화해 저장하고, 호출도 네이티브에서 해 키가 웹뷰로 나가지 않게 한다. ----
 
     @PluginMethod
@@ -222,6 +246,7 @@ public class BudgetPlugin extends Plugin {
     @PluginMethod
     public void claudeMessages(PluginCall call) {
         String body = call.getString("body", "");
+        boolean useFallback = Boolean.TRUE.equals(call.getBoolean("fallback", false));
         String apiKey = SecureKeyStore.read(getContext());
         if (apiKey == null) {
             call.reject("NO_KEY");
@@ -238,7 +263,8 @@ public class BudgetPlugin extends Plugin {
                 conn.setRequestProperty("content-type", "application/json");
                 conn.setRequestProperty("x-api-key", apiKey);
                 conn.setRequestProperty("anthropic-version", "2023-06-01");
-                conn.setRequestProperty("anthropic-beta", "server-side-fallback-2026-07-01");
+                // 거절 시 서버 대체 모델 — Haiku 는 지원하지 않아 요청에 쓸 때만 붙인다.
+                if (useFallback) conn.setRequestProperty("anthropic-beta", "server-side-fallback-2026-07-01");
                 try (java.io.OutputStream out = conn.getOutputStream()) {
                     out.write(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 }

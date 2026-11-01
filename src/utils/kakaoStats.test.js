@@ -1,5 +1,6 @@
 import { adjustmentForRemaining, budgetSummary, byCategory, dailySeries, flowSeries, monthlySeries, netAt, splitNet, weeklySeries } from "./kakaoStats";
-import { blockReason, buildAnalysisPayload, costOf, parseResponse } from "./kakaoAnalysis";
+import { buildAnalysisPayload } from "./kakaoAnalysis";
+import { blockReason, buildRequestBody, costOf, parseResponse } from "./claudeClient";
 
 const at = (y, m, d, h = 12) => new Date(y, m - 1, d, h).getTime();
 const now = new Date(2026, 10, 10, 18); // 2026-11-10
@@ -78,13 +79,17 @@ describe("Claude 분석", () => {
   });
   test("상한", () => {
     expect(blockReason({ calls: 30, usd: 0 }, { maxCalls: 30, maxUsd: 1 })).toMatch("호출 상한");
-    expect(blockReason({ calls: 1, usd: 0.95 }, { maxCalls: 30, maxUsd: 1 })).toMatch("비용 상한");
-    expect(blockReason({ calls: 1, usd: 0.1 }, { maxCalls: 30, maxUsd: 1 })).toBeNull();
+    expect(blockReason({ calls: 1, usd: 0.95 }, { maxCalls: 30, maxUsd: 1 }, "claude-opus-5-5")).toMatch("비용 상한");
+    expect(blockReason({ calls: 1, usd: 0.1 }, { maxCalls: 30, maxUsd: 1 }, "claude-opus-5-5")).toBeNull();
+    expect(blockReason({ calls: 1, usd: 0.95 }, { maxCalls: 30, maxUsd: 1 }, "claude-haiku-5-5")).toBeNull();
   });
   test("비용 계산과 응답 해석", () => {
     expect(costOf("claude-opus-5-5", { input_tokens: 1000000, output_tokens: 1000000 })).toBe(24);
     const ok = { model: "claude-opus-5-5", stop_reason: "end_turn", usage: { input_tokens: 1000, output_tokens: 1000 }, content: [{ type: "thinking", thinking: "" }, { type: "text", text: '{"summary":"요약","patterns":[],"savings":[],"warnings":[]}' }] };
-    expect(parseResponse(200, JSON.stringify(ok))).toEqual({ analysis: { summary: "요약", patterns: [], savings: [], warnings: [] }, usd: 0.024 });
+    expect(parseResponse(200, JSON.stringify(ok))).toEqual({ analysis: { summary: "요약", patterns: [], savings: [], warnings: [] }, usd: 0.024, tokens: { input: 1000, output: 1000 }, model: "claude-opus-5-5" });
+    expect(costOf("claude-haiku-5-5", { input_tokens: 1000000, output_tokens: 1000000 })).toBeCloseTo(0.6);
+    expect(JSON.parse(buildRequestBody({}, "claude-haiku-5-5")).fallbacks).toBeUndefined();
+    expect(JSON.parse(buildRequestBody({}, "claude-sonnet-5-5")).fallbacks).toBe("default");
     expect(parseResponse(401, "{}").error).toMatch("키");
     expect(parseResponse(200, JSON.stringify({ ...ok, stop_reason: "refusal" })).error).toBeTruthy();
   });

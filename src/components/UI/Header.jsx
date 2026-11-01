@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { AiOutlineArrowLeft } from "react-icons/ai";
+import { AiOutlineArrowLeft, AiOutlineSetting } from "react-icons/ai";
 
 const HeaderWrap = styled.div`
   width: 100%;
@@ -84,6 +84,25 @@ const TitleBtn = styled.button`
   &:active { background: ${({ theme }) => theme.activeBg}; transform: scale(0.97); }
 `;
 
+// 좁은 화면에서도 제목·버튼과 한 줄에 들어가도록 폭은 줄이고, 위아래로 44px 터치 영역을 둔다.
+const SettingsBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 44px;
+  margin-right: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:active { background: ${({ theme }) => theme.activeBg}; }
+`;
+
 const RightArea = styled.div`
   min-width: 80px;
   display: flex;
@@ -92,8 +111,9 @@ const RightArea = styled.div`
 
 `;
 
-// onBack: 왼쪽에 뒤로가기 버튼을 둔다. onTitleClick: 제목 자체를 눌러 이동하는 버튼으로 만든다(홈 → 설정).
-export default function Header({ title, rightButton, onBack, onTitleClick }) {
+// onBack: 왼쪽에 뒤로가기 버튼을 둔다. onTitleClick: 제목 자체를 눌러 이동하는 버튼으로 만든다.
+// onSettings: 제목 옆에 설정(톱니) 아이콘을 둔다. 탭 화면들이 쓴다.
+export default function Header({ title, rightButton, onBack, onTitleClick, onSettings }) {
   return (
     <HeaderWrap>
       <Left>
@@ -108,6 +128,11 @@ export default function Header({ title, rightButton, onBack, onTitleClick }) {
           </TitleBtn>
         ) : (
           <Title>{title}</Title>
+        )}
+        {onSettings && (
+          <SettingsBtn type="button" aria-label="설정" onClick={onSettings}>
+            <AiOutlineSetting size={20} />
+          </SettingsBtn>
         )}
       </Left>
       <RightArea>{rightButton ? rightButton : null}</RightArea>

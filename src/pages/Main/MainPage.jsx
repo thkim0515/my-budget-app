@@ -296,17 +296,17 @@ export default function MainPage() {
       <S.HeaderFix>
         <Header
           title="가계부"
-          // 하단 내비게이션을 숨기는 동안(constants/ui.js) 설정 화면은 이 제목을 눌러 들어간다
-          onTitleClick={() => navigate("/settings")}
+          onSettings={() => navigate("/settings")}
           rightButton={
             <S.HeaderButtons>
               <S.HideCompletedBtn
                 type="button"
                 $on={hideCompleted}
                 aria-pressed={hideCompleted}
+                aria-label="완료 항목 숨기기"
                 onClick={() => setHideCompleted((v) => !v)}
               >
-                완료 항목 숨기기
+                완료 숨김
               </S.HideCompletedBtn>
               <div style={{ position: "relative" }}>
                 <S.SortBtn onClick={() => setSortMenuOpen((v) => !v)}>

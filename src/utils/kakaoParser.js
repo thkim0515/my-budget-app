@@ -16,6 +16,8 @@ const has = (text, words) => words.some((w) => text.includes(w));
 export const isKakaoBankNotification = (noti) => {
   if (!noti) return false;
   if (noti.package === KAKAOBANK_PACKAGE) return true;
+  // 카카오톡은 친구 대화에 "카카오뱅크"가 나올 수 있어 보낸 곳(제목)이 카카오뱅크일 때만 인정한다.
+  if (noti.package === "com.kakao.talk") return /카카오뱅크|카뱅/.test(noti.title || "");
   return /카카오뱅크|카뱅/.test(`${noti.title || ""} ${noti.text || ""}`);
 };
 

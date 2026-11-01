@@ -7,6 +7,7 @@ import { getCurrentYm } from "../utils/cardLimit";
 import { useBudgetDB } from "./useBudgetDB";
 import { useSettings } from "../context/SettingsContext";
 import { ingestKakaoNotifications } from "../utils/kakaoIngest";
+import { ingestSpendNotifications } from "../utils/spendStore";
 
 export const useNativeSync = () => {
   // 중복 검사를 위해 getAllRaw(삭제된 것 포함 전체) 사용
@@ -60,6 +61,12 @@ export const useNativeSync = () => {
         await ingestKakaoNotifications(notis, { getAll, add, deleteItem });
       } catch (kakaoError) {
         console.error("[Native Sync] 카카오뱅크 처리 실패:", kakaoError?.message);
+      }
+      // 전체 소비 탭: 사용자가 체크한 금융사 알림만 저장한다.
+      try {
+        await ingestSpendNotifications(notis, { db, getAll, add, deleteItem });
+      } catch (spendError) {
+        console.error("[Native Sync] 전체 소비 처리 실패:", spendError?.message);
       }
 
       const { autoSaveIncome, autoSaveExpense } = settings;

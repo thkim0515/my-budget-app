@@ -162,7 +162,7 @@ export default function SettingsPage() {
       const user = auth.currentUser;
       if (user) {
         const batch = writeBatch(firestore);
-        const STORES = ["chapters", "records", "categories", "kakaoTx"];
+        const STORES = ["chapters", "records", "categories", "kakaoTx", "spendTx"];
         let deletedCount = 0;
 
         for (const storeName of STORES) {
@@ -187,6 +187,8 @@ export default function SettingsPage() {
       await clear("records");
       await clear("categories");
       await clear("kakaoTx");
+      await clear("spendTx");
+      await clear("spendNoti");
 
       // -----------------------------------------------------------
       // 3. [복구] 기본 카테고리 재생성 (ID 포함 필수!)
