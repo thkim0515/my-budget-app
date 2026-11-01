@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import { Link, useLocation } from 'react-router-dom';
 import { AiFillHome, AiOutlineBarChart, AiOutlineSetting } from "react-icons/ai";
-import { MdListAlt, MdCalendarToday } from "react-icons/md";
+import { MdListAlt, MdCalendarToday, MdAccountBalanceWallet } from "react-icons/md";
 
 const Bar = styled.div`
   position: fixed;
@@ -63,6 +63,7 @@ const Tab = styled(Link)`
 // 다시 보이게 하려면 해당 줄의 hidden: true 만 지우면 된다.
 const TABS = [
   { to: "/", icon: AiFillHome, label: "홈" },
+  { to: "/kakao", icon: MdAccountBalanceWallet, label: "카카오뱅크" },
   { to: "/stats", icon: AiOutlineBarChart, label: "통계", hidden: true },
   { to: "/calendar-stats", icon: MdCalendarToday, label: "캘린더", hidden: true },
   { to: "/source-stats", icon: MdListAlt, label: "출처", hidden: true },
@@ -74,6 +75,9 @@ const VISIBLE_TABS = TABS.filter((tab) => !tab.hidden);
 export default function BottomTabBar() {
   const location = useLocation();
   const path = location.pathname;
+
+  // 탭 화면에만 표시한다. 상세 화면 등은 자체 하단 요소와 뒤로가기 버튼이 있다.
+  if (!VISIBLE_TABS.some((tab) => tab.to === path)) return null;
 
   return (
     <Bar>

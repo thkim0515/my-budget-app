@@ -87,7 +87,7 @@ export const syncParsingRules = () => {
   });
 };
 
-const detectCategory = (text) => {
+export const detectCategory = (text) => {
   const lowerText = text.toLowerCase();
   for (const rule of CATEGORY_RULES) {
     if (rule.keywords.some((keyword) => lowerText.includes(keyword.toLowerCase()))) {

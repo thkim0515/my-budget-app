@@ -6,6 +6,7 @@ import { parseAndCreateRecord, parseAccumulatedAmount } from "../utils/notiParse
 import { getCurrentYm } from "../utils/cardLimit";
 import { useBudgetDB } from "./useBudgetDB";
 import { useSettings } from "../context/SettingsContext";
+import { ingestKakaoNotifications } from "../utils/kakaoIngest";
 
 export const useNativeSync = () => {
   // 중복 검사를 위해 getAllRaw(삭제된 것 포함 전체) 사용
@@ -52,6 +53,13 @@ export const useNativeSync = () => {
         localStorage.setItem("notiDebugLog", JSON.stringify(newLog));
       } catch (e) {
         // 디버그 로그 저장 실패는 무시(핵심 기능에 영향 없음)
+      }
+
+      // 카카오뱅크 탭은 자체 스토어에 쌓는다. 가계부 자동저장 설정과 무관하고, 실패해도 아래 기존 처리를 막지 않는다.
+      try {
+        await ingestKakaoNotifications(notis, { getAll, add, deleteItem });
+      } catch (kakaoError) {
+        console.error("[Native Sync] 카카오뱅크 처리 실패:", kakaoError?.message);
       }
 
       const { autoSaveIncome, autoSaveExpense } = settings;

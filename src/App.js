@@ -19,6 +19,7 @@ import {
   StatsBySourcePage,
   CategorySettingsPage,
   CalendarStatsPage,
+  KakaoPage,
   TextColorSettingsPage,
   PrivacyPolicyPage,
 } from "./appImports";
@@ -95,6 +96,7 @@ function AppContent() {
       <div style={{ background: theme.bg, minHeight: "100vh", transition: "background 0.3s ease" }}>
         <Routes>
           <Route path="/" element={<MainPage />} />
+          <Route path="/kakao" element={<KakaoPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/text-color" element={<TextColorSettingsPage />} />
           <Route path="/stats" element={<StatsPage />} />

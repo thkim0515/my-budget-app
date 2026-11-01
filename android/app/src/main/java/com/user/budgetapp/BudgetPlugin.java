@@ -188,4 +188,79 @@ public class BudgetPlugin extends Plugin {
         call.resolve();
     }
 
+    // ---- Claude API: 키는 Keystore 로 암호화해 저장하고, 호출도 네이티브에서 해 키가 웹뷰로 나가지 않게 한다. ----
+
+    @PluginMethod
+    public void saveClaudeApiKey(PluginCall call) {
+        String key = call.getString("key", "");
+        if (key == null || !key.trim().startsWith("sk-ant-")) {
+            call.reject("Claude API 키 형식이 아닙니다.");
+            return;
+        }
+        try {
+            SecureKeyStore.save(getContext(), key.trim());
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("키를 저장하지 못했습니다.");
+        }
+    }
+
+    @PluginMethod
+    public void hasClaudeApiKey(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("exists", SecureKeyStore.read(getContext()) != null);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void deleteClaudeApiKey(PluginCall call) {
+        SecureKeyStore.delete(getContext());
+        call.resolve();
+    }
+
+    // 요청 본문(JSON 문자열)을 Claude Messages API 로 보내고 상태 코드와 응답 본문을 돌려준다. 주소는 고정이다.
+    @PluginMethod
+    public void claudeMessages(PluginCall call) {
+        String body = call.getString("body", "");
+        String apiKey = SecureKeyStore.read(getContext());
+        if (apiKey == null) {
+            call.reject("NO_KEY");
+            return;
+        }
+        new Thread(() -> {
+            java.net.HttpURLConnection conn = null;
+            try {
+                conn = (java.net.HttpURLConnection) new java.net.URL("https://api.anthropic.com/v1/messages").openConnection();
+                conn.setRequestMethod("POST");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(120000);
+                conn.setDoOutput(true);
+                conn.setRequestProperty("content-type", "application/json");
+                conn.setRequestProperty("x-api-key", apiKey);
+                conn.setRequestProperty("anthropic-version", "2023-06-01");
+                conn.setRequestProperty("anthropic-beta", "server-side-fallback-2026-07-01");
+                try (java.io.OutputStream out = conn.getOutputStream()) {
+                    out.write(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+                int status = conn.getResponseCode();
+                java.io.InputStream in = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                if (in != null) {
+                    byte[] chunk = new byte[8192];
+                    int read;
+                    while ((read = in.read(chunk)) != -1) buffer.write(chunk, 0, read);
+                    in.close();
+                }
+                JSObject ret = new JSObject();
+                ret.put("status", status);
+                ret.put("body", buffer.toString("UTF-8"));
+                call.resolve(ret);
+            } catch (Exception e) {
+                call.reject("NETWORK");
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
 }

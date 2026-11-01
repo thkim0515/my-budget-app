@@ -6,8 +6,8 @@ let dbPromise = null;
 export const initDB = async () => {
   if (dbPromise) return dbPromise;
 
-  // 버전을 5로 유지 (만약 4에서 5로 넘어가는 중이라면 upgrade 실행됨)
-  dbPromise = openDB("budgetDB", 5, {
+  // 버전 5 미만은 초기화 후 재생성, 6은 카카오뱅크 탭 스토어만 추가(기존 데이터 유지)
+  dbPromise = openDB("budgetDB", 6, {
     async upgrade(db, oldVersion, newVersion, transaction) {
       // 버전 5 미만일 때 (최초 설치 or 구버전) 실행
       if (oldVersion < 5) {
@@ -37,6 +37,9 @@ export const initDB = async () => {
             isDeleted: false,
           });
         });
+      }
+      if (oldVersion < 6) {
+        db.createObjectStore("kakaoTx", { keyPath: "id" });
       }
     },
   });
