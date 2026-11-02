@@ -1,6 +1,6 @@
 import { isKakaoBankNotification } from "./kakaoParser";
 import { findDuplicate, matchSource, parseSpendNotification, parseWhen, sourceById } from "./spendParser";
-import { bucketSeries, buildSpendPayload, bySource, inPeriod, monthPeriod, previousPeriod, rangePeriod, saveSpendResult, loadSpendResults, totalSpend } from "./spendStats";
+import { bucketSeries, buildSpendPayload, inPeriod, monthPeriod, previousPeriod, rangePeriod, saveSpendResult, loadSpendResults, sourceBreakdown, totalSpend, txsOfSource } from "./spendStats";
 import { mergeSpend } from "./spendStore";
 
 const at = (y, m, d, h = 12, mi = 0) => new Date(y, m - 1, d, h, mi).getTime();
@@ -88,9 +88,9 @@ describe("통합·기간 집계", () => {
     expect(all.find((t) => t.id === "s4")).toBeUndefined();
     expect(all.find((t) => t.id === "s3")).toBeUndefined();
     expect(totalSpend(inPeriod(all, oct))).toBe(25400);
-    expect(bySource(inPeriod(all, oct))).toEqual([
-      { name: "삼성카드", amount: 15000, count: 1 },
-      { name: "카카오뱅크", amount: 10400, count: 2 },
+    expect(sourceBreakdown(inPeriod(all, oct)).map((r) => [r.name, r.amount, r.count])).toEqual([
+      ["삼성카드", 15000, 1],
+      ["카카오뱅크", 10400, 2],
     ]);
     expect(mergeSpend(spend, kakao, ["samsung"]).some((t) => t.id === "k1")).toBe(false);
   });
@@ -119,6 +119,25 @@ describe("통합·기간 집계", () => {
     expect(detail.지출목록.find((t) => t.금액 === -5000)).toBeTruthy();
     const text = JSON.stringify(detail);
     ["상대이름", "급여", "999999", "70000"].forEach((v) => expect(text).not.toContain(v));
+  });
+  test("금융사별: 합계·건수·비중, 고른 곳은 0원 표시, 금융사 필터", () => {
+    const list = inPeriod(all, oct);
+    const rows = sourceBreakdown(list, ["samsung", "shinhan"]);
+    expect(rows.map((r) => [r.id, r.name, r.amount, r.count])).toEqual([
+      ["samsung", "삼성카드", 15000, 1],
+      ["kakaobank", "카카오뱅크", 10400, 2],
+      ["shinhan", "신한카드", 0, 0],
+    ]);
+    expect(rows[0].share + rows[1].share).toBeCloseTo(1);
+    expect(rows[2].share).toBe(0);
+    expect(sourceBreakdown([])).toEqual([]);
+    expect(totalSpend(txsOfSource(list, "kakaobank"))).toBe(10400);
+  });
+  test("Claude 로 금융사별 비중·상위 카테고리를 보냄", () => {
+    const sent = buildSpendPayload(all, oct, "summary").출처별;
+    expect(sent[0]).toMatchObject({ 이름: "삼성카드", 금액: 15000, 건수: 1, 비중: 59 });
+    expect(sent[0].상위카테고리).toHaveLength(1);
+    expect(sent[0].상위카테고리[0]).toMatch(/15000$/);
   });
   test("결과는 기간별로 저장, 같은 기간은 교체", () => {
     localStorage.clear();

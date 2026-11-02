@@ -8,13 +8,14 @@ import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { byCategory, byMerchant, shiftYm, spendOf, toDateKey, toYm } from "../../utils/kakaoStats";
 import { sourceById } from "../../utils/spendParser";
 import { importSpendFromRecords, loadSelectedSources, mergeSpend } from "../../utils/spendStore";
-import { bucketSeries, byBand, bySource, compareCategories, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
+import { bucketSeries, byBand, sourceBreakdown, compareCategories, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
 import { rememberMerchantCategory, categoryFor } from "../../utils/kakaoIngest";
 import { tidyLocal } from "../../utils/spendClassify";
 import { CategoryDoughnut, SpendBars, categoryColor, won } from "../Kakao/KakaoCharts";
 import * as S from "../Kakao/KakaoPage.styles";
 import { ImportSheet, SourcesSheet, SpendTxSheet, TidySheet } from "./SpendSheets";
 import ClaudePanel from "./ClaudePanel";
+import SourceBreakdown, { RankBars } from "./SourceBreakdown";
 
 const PAGE_SIZE = 50;
 const formatWhen = (ts) => new Date(ts).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -36,19 +37,6 @@ function TxRows({ list, onEdit }) {
   });
 }
 
-function RankBars({ rows, colorOf, unit = "건" }) {
-  const theme = useTheme();
-  const max = rows[0]?.amount || 1;
-  const sorted = rows;
-  if (sorted.length === 0) return <S.Caption>결제 내역이 없습니다.</S.Caption>;
-  return sorted.map((r) => (
-    <S.RankRow key={r.name}>
-      <div><span>{r.name} · {r.count}{unit}</span><span>{won(r.amount)}</span></div>
-      <S.Bar $pct={(r.amount / max) * 100} $color={colorOf ? colorOf(r.name) : theme.primary} />
-    </S.RankRow>
-  ));
-}
-
 export default function SpendPage() {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -64,6 +52,7 @@ export default function SpendPage() {
   const [rangeEnd, setRangeEnd] = useState(toDateKey(new Date()));
   const [unit, setUnit] = useState("day");
   const [selected, setSelected] = useState(null);
+  const [activeSource, setActiveSource] = useState(null);
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -112,7 +101,7 @@ export default function SpendPage() {
   const prevTotal = useMemo(() => totalSpend(inPeriod(all, prev)), [all, prev]);
   const buckets = useMemo(() => bucketSeries(all, period, unit), [all, period, unit]);
   const categories = useMemo(() => byCategory(list), [list]);
-  const sources = useMemo(() => bySource(list), [list]);
+  const sources = useMemo(() => sourceBreakdown(list, selectedIds), [list, selectedIds]);
   const merchants = useMemo(() => byMerchant(list).slice(0, 10), [list]);
   const bands = useMemo(() => byBand(list), [list]);
   const categoryTotal = categories.reduce((acc, r) => acc + r.amount, 0);
@@ -265,10 +254,7 @@ export default function SpendPage() {
                 </S.Detail>
               ) : <S.Caption style={{ marginTop: 10 }}>막대를 누르면 그 기간의 내역을 볼 수 있습니다.</S.Caption>}
             </S.Card>
-            <S.Card>
-              <S.CardTitle>출처별</S.CardTitle>
-              <RankBars rows={sources} />
-            </S.Card>
+            <SourceBreakdown rows={sources} list={list} period={period} activeId={activeSource} onPick={setActiveSource} />
             <S.Card>
               <S.CardTitle>카테고리별</S.CardTitle>
               {categories.length > 0 && <CategoryDoughnut rows={categories} />}

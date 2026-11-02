@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useTheme } from "styled-components";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
-import { estimateCall, formatTokens, formatUsd, getModel, getUsage, modelName, runAnalysis } from "../../utils/claudeClient";
+import { estimateCall, formatTokens, formatUsd, getModel, getUsage, modelName, runAnalysis, SPEND_ANALYSIS_OPTS } from "../../utils/claudeClient";
 import { buildSpendPayload, compareCategories, inPeriod, loadSpendResults, previousPeriod, saveSpendResult, totalSpend } from "../../utils/spendStats";
 import { tidyLocal, tidyWithClaude } from "../../utils/spendClassify";
 import { ClaudeResult, ClaudeSettingsSheet, UsageLine } from "../../components/Claude/ClaudeParts";
@@ -13,7 +13,7 @@ const LEVEL_KEY = "spendClaudeLevel";
 const LEVELS = [["detail", "상세 분석"], ["summary", "요약 분석"]];
 const LEVEL_TEXT = {
   detail: "거래내역서를 주는 것처럼 지출 한 건씩의 일시·가맹점·금액·카테고리·출처를 보냅니다. 계좌번호·카드번호·잔액·입금·이체는 보내지 않습니다.",
-  summary: "출처·카테고리·가맹점·시간대별 합계만 보냅니다. 한 건씩의 내역은 보내지 않습니다.",
+  summary: "금융사·카테고리·가맹점·시간대별 합계만 보냅니다. 한 건씩의 내역은 보내지 않습니다.",
 };
 const loadLevel = () => {
   try {
@@ -55,7 +55,7 @@ export default function ClaudePanel({ txs, period, helpers, onChanged }) {
 
   const payload = useMemo(() => buildSpendPayload(txs, period, level), [txs, period, level]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const estimate = useMemo(() => estimateCall(payload), [payload, usage, modelTick]);
+  const estimate = useMemo(() => estimateCall(payload, SPEND_ANALYSIS_OPTS), [payload, usage, modelTick]);
   const list = useMemo(() => inPeriod(txs, period), [txs, period]);
   const prev = previousPeriod(period);
   const prevList = useMemo(() => inPeriod(txs, prev), [txs, prev]);
@@ -79,7 +79,7 @@ export default function ClaudePanel({ txs, period, helpers, onChanged }) {
       if (!tidy.skipped && !tidy.error) tidyNote = `미분류 정리: 자동 적용 ${tidy.applied}건 · 추천 ${tidy.suggested}건 (입력 ${formatTokens(tidy.tokens?.input)} · 출력 ${formatTokens(tidy.tokens?.output)} 토큰 · 약 ${formatUsd(tidy.usd)})`;
       onChanged?.();
     }
-    const out = await runAnalysis(payload);
+    const out = await runAnalysis(payload, SPEND_ANALYSIS_OPTS);
     if (out.analysis) {
       setResults(saveSpendResult({ key: period.key, label: period.label, level, count, total: payload.결제합계, analysis: out.analysis, model: out.model, tokens: out.tokens, usd: out.usd }));
     } else {

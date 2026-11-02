@@ -70,8 +70,19 @@ export const bucketSeries = (txs, p, unit) => {
   return buckets.map((b) => ({ ...b, spend: totalSpend(txs.filter((t) => t.ts >= b.from && t.ts < b.to)) }));
 };
 
-export const bySource = (list) => byCategoryLike(list, (t) => sourceById(t.sourceId)?.name || "기타");
 const byCategoryLike = (list, keyOf) => byCategory(list.map((t) => ({ ...t, category: keyOf(t) })));
+
+const sourceKey = (t) => t.sourceId || "기타";
+export const txsOfSource = (list, id) => list.filter((t) => sourceKey(t) === id);
+
+// 금융사별 합계·건수·비중. 고른 금융사는 이 기간에 쓴 돈이 없어도 0원으로 보여 준다.
+export const sourceBreakdown = (list, selectedIds = []) => {
+  const groups = byCategoryLike(list, sourceKey);
+  const total = groups.reduce((acc, r) => acc + r.amount, 0);
+  const rows = groups.map((r) => ({ id: r.name, name: sourceById(r.name)?.name || "기타", amount: r.amount, count: r.count, share: r.amount / total }));
+  const idle = selectedIds.filter((id) => !groups.some((r) => r.name === id)).map((id) => ({ id, name: sourceById(id)?.name || "기타", amount: 0, count: 0, share: 0 }));
+  return [...rows, ...idle];
+};
 
 export const byBand = (list) => BANDS.map(([name, a, b]) => {
   const rows = list.filter((t) => {
@@ -119,7 +130,10 @@ export const buildSpendPayload = (txs, p, level = "detail") => {
     기간: { 시작: p.start, 끝: p.end, 일수: periodDays(p) },
     결제합계: totalSpend(list),
     결제건수: list.filter((t) => t.kind === "payment").length,
-    출처별: bySource(list).map(row),
+    출처별: sourceBreakdown(list).map((r) => ({
+      이름: r.name, 금액: r.amount, 건수: r.count, 비중: Math.round(r.share * 100),
+      상위카테고리: byCategory(txsOfSource(list, r.id)).slice(0, 3).map((c) => `${c.name} ${c.amount}`),
+    })),
     카테고리별: byCategory(list).map(row),
     가맹점상위15: byMerchant(list).slice(0, 15).map(row),
     시간대별: byBand(list).map((r) => ({ 시간대: r.name, 금액: r.amount, 건수: r.count })),

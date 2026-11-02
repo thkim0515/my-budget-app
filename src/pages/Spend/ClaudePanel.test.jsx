@@ -51,6 +51,18 @@ test("가짜 응답: 결과·토큰·비용 표시, 장부 누적, 집계만 전
   expect(JSON.parse(localStorage.getItem("spendClaudeResults"))[0].key).toBe(ym);
 });
 
+test("금융사별 코멘트를 요청하고 결과에 표시", async () => {
+  const body = JSON.parse(fake().body);
+  body.content[0].text = JSON.stringify({ ...JSON.parse(body.content[0].text), sourceComments: [{ source: "삼성카드", comment: "식비 비중이 100%입니다" }] });
+  BudgetPlugin.claudeMessages.mockResolvedValue({ status: 200, body: JSON.stringify(body) });
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: /분석하기/ }));
+  await screen.findByText("식비 비중이 100%입니다");
+  const sent = JSON.parse(BudgetPlugin.claudeMessages.mock.calls[0][0].body);
+  expect(sent.output_config.format.schema.required).toContain("sourceComments");
+  expect(sent.system).toContain("sourceComments");
+});
+
 test("요약 분석을 고르면 한 건씩의 내역을 보내지 않고, 미리보기에 건수·토큰이 보임", async () => {
   BudgetPlugin.claudeMessages.mockResolvedValue(fake());
   show();

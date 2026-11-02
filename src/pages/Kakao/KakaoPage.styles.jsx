@@ -231,6 +231,25 @@ export const RankRow = styled.div`
   & span:last-child { flex-shrink: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 `;
 
+export const SourceRow = styled.button`
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 4px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.xs};
+  background: ${({ $active, theme }) => ($active ? theme.activeBg : "transparent")};
+  color: ${({ theme }) => theme.text};
+  text-align: left;
+  cursor: pointer;
+  &:active { background: ${({ theme }) => theme.surfaceHover}; }
+  &:disabled { color: ${({ theme }) => theme.subText}; cursor: default; }
+  & > div:first-child { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+  & span:first-child { overflow-wrap: anywhere; }
+  & span:last-child { flex-shrink: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+`;
+
 export const Bar = styled.div`
   height: 6px;
   margin-top: 6px;

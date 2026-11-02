@@ -174,6 +174,27 @@ export const SYSTEM_PROMPT = `당신은 한국어로 답하는 개인 소비 분
 받은 데이터에 있는 숫자만 근거로 삼고, 없는 사실을 지어내지 않습니다. 투자·대출 상품 추천은 하지 않습니다.
 숫자를 함께 언급해 구체적으로, 존댓말로 간결하게 씁니다. 절약 제안은 실천할 수 있는 것만 최대 3개, 예상 절감액은 데이터에서 합리적으로 추정한 월 금액(원)입니다. 추정이 어려우면 0으로 둡니다.`;
 
+// 전체 소비 분석 전용 — 금융사마다 한 문장 코멘트를 더 받는다. 카카오뱅크 탭 분석은 기본값 그대로.
+export const SPEND_ANALYSIS_OPTS = {
+  system: `${SYSTEM_PROMPT}\n출처별의 금융사마다 금액·비중·상위카테고리를 근거로 한 문장 코멘트를 sourceComments 에 씁니다.`,
+  schema: {
+    ...ANALYSIS_SCHEMA,
+    properties: {
+      ...ANALYSIS_SCHEMA.properties,
+      sourceComments: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: { source: { type: "string" }, comment: { type: "string" } },
+          required: ["source", "comment"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: [...ANALYSIS_SCHEMA.required, "sourceComments"],
+  },
+};
+
 export const buildRequestBody = (payload, model = getModel(), opts = {}) => {
   const { system = SYSTEM_PROMPT, schema = ANALYSIS_SCHEMA, effort = "medium", maxTokens = MAX_TOKENS } = opts;
   const body = {
@@ -241,8 +262,8 @@ export const runClaude = async (payload, opts = {}) => {
   }
 };
 
-export const runAnalysis = async (payload) => {
-  const out = await runClaude(payload);
+export const runAnalysis = async (payload, opts) => {
+  const out = await runClaude(payload, opts);
   if (out.analysis && typeof out.analysis.summary !== "string") return { ...out, analysis: undefined, error: "응답을 해석하지 못했습니다. 다시 시도해 주세요." };
   return out;
 };

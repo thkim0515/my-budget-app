@@ -156,6 +156,17 @@ export function ClaudeResult({ result }) {
           <S.Bullets>{analysis.patterns.map((t) => <li key={t}>{t}</li>)}</S.Bullets>
         </>
       )}
+      {analysis.sourceComments?.length > 0 && (
+        <>
+          <S.CardTitle style={{ marginTop: 14 }}>금융사별 코멘트</S.CardTitle>
+          {analysis.sourceComments.map((c) => (
+            <S.Detail key={c.source} style={{ marginTop: 8 }}>
+              <strong style={{ fontSize: 14 }}>{c.source}</strong>
+              <S.Caption style={{ marginTop: 4 }}>{c.comment}</S.Caption>
+            </S.Detail>
+          ))}
+        </>
+      )}
       {analysis.savings?.length > 0 && (
         <>
           <S.CardTitle style={{ marginTop: 14 }}>절약 제안</S.CardTitle>
