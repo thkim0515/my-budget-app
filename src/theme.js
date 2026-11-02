@@ -1,5 +1,5 @@
 /**
- * 먹빛 + 새순 디자인 토큰 — 무채색에 가까운 바탕·카드, 또렷한 글자 3단계, 초록은 행동·수입·그래프에만 쓴다.
+ * 먹빛 + 하늘색 디자인 토큰 — 살짝 차가운 무채색 바탕·카드, 또렷한 글자 3단계, 파랑은 행동·수입·그래프에만 쓴다.
  * 표면은 그라데이션·그림자 대신 한 단계 밝기 차이와 1px 선으로 나눈다. 그림자는 시트처럼 떠 있는 것에만 쓴다.
  * 색은 화면 코드에 직접 쓰지 말고 여기 키를 참조한다. 금액 위 글자색은 on* 키를 쓴다.
  */
@@ -38,58 +38,58 @@ export const getLightTheme = (customTextColor) => ({
   isDark: false,
 
   // 브랜드 포인트 — 버튼·선택 표시·수입에만
-  primary: "#1E7A55",
-  primaryDark: "#17633F",
+  primary: "#1668C7",
+  primaryDark: "#11539F",
   onPrimary: "#FFFFFF",
   onExpense: "#FFFFFF",
-  neutralBtn: "#5F6662",
+  neutralBtn: "#5C646E",
   onNeutralBtn: "#FFFFFF",
 
   // 대표 금액 카드 — 라이트에서도 먹색 한 장으로 숫자를 띄운다
-  heroBg: "#1A1E1C",
+  heroBg: "#171C22",
   heroText: "#FFFFFF",
-  heroSub: "#BCC3BE",
-  heroChip: "#2C312E",
-  heroTrack: "#3A403C",
-  heroFill: "#8FD9AE",
+  heroSub: "#BAC2CC",
+  heroChip: "#2A3138",
+  heroTrack: "#38404A",
+  heroFill: "#6CB8FF",
   heroNegative: "#F4A898",
 
   // 배경/표면
-  bg: "#F5F6F4",
-  background: "#F5F6F4", // 일부 컴포넌트가 theme.background 를 참조함
-  bgElevated: "#ECEEEB",
+  bg: "#F4F6F8",
+  background: "#F4F6F8", // 일부 컴포넌트가 theme.background 를 참조함
+  bgElevated: "#EAEDF1",
   card: "#FFFFFF",
-  cardAlt: "#F7F8F6",
-  surfaceHover: "#EDEFEC",
+  cardAlt: "#F6F8FA",
+  surfaceHover: "#ECEFF3",
   segmentActive: "#FFFFFF",
 
   // 텍스트
-  text: customText(customTextColor) || "#171A18",
-  subText: "#505753",
-  mutedText: "#676E6A",
-  border: "#E4E7E3",
-  borderStrong: "#CDD2CD",
+  text: customText(customTextColor) || "#15191E",
+  subText: "#4E5660",
+  mutedText: "#656D77",
+  border: "#E2E6EB",
+  borderStrong: "#CAD0D8",
 
   // 포인트(연한 배경)
-  primarySoft: "#E4F2EA",
-  primaryText: "#17633F",
+  primarySoft: "#E3EEFB",
+  primaryText: "#11539F",
 
   // 헤더 / 탭
-  headerBg: "#F5F6F4",
-  headerText: "#171A18",
+  headerBg: "#F4F6F8",
+  headerText: "#15191E",
 
   // 상태
-  activeText: "#17633F",
-  activeBg: "#E6E9E5",
-  completedBg: "#F1F2F0",
-  completedBorder: "#E4E7E3",
-  paidBadgeBg: "#E4F2EA",
-  paidBadgeText: "#17633F",
+  activeText: "#11539F",
+  activeBg: "#E4E9EF",
+  completedBg: "#EFF2F5",
+  completedBorder: "#E2E6EB",
+  paidBadgeBg: "#E3EEFB",
+  paidBadgeText: "#11539F",
   errorText: "#B23E28",
 
   // 금액 색상
-  incomeColor: "#1E7A55",
-  incomeSoft: "#E4F2EA",
+  incomeColor: "#1668C7",
+  incomeSoft: "#E3EEFB",
   expenseColor: "#BF4530",
   expenseSoft: "#F9ECE8",
   warning: "#8F6208",
@@ -97,13 +97,13 @@ export const getLightTheme = (customTextColor) => ({
   infoColor: "#2B6CB0",
 
   // 그래프 — 주 데이터 한 색, 나머지는 회색
-  chartHigh: "#1E7A55",
-  chartDim: "#D5DAD5",
-  chartFill: "rgba(30, 122, 85, 0.10)",
-  tooltipBg: "#1A1E1C",
+  chartHigh: "#1668C7",
+  chartDim: "#D2D8DF",
+  chartFill: "rgba(22, 104, 199, 0.10)",
+  tooltipBg: "#171C22",
   tooltipText: "#FFFFFF",
-  categoryColors: { 식비: "#2C9A6C", 편의점: "#B98A1E", 배달: "#D3703F", 쇼핑: "#8C5FB8", 교통: "#2F76C4", 생활: "#C65A8C", 구독: "#6560C8", 의료: "#C94F4F" },
-  chartPalette: ["#2C9A6C", "#2F76C4", "#B98A1E", "#D3703F", "#8C5FB8", "#C65A8C", "#6560C8", "#C94F4F", "#3F9AA8", "#7E8A84"],
+  categoryColors: { 식비: "#2F76C4", 편의점: "#B98A1E", 배달: "#D3703F", 쇼핑: "#8C5FB8", 교통: "#1B93B8", 생활: "#C65A8C", 구독: "#6560C8", 의료: "#C94F4F" },
+  chartPalette: ["#2F76C4", "#1B93B8", "#B98A1E", "#D3703F", "#8C5FB8", "#C65A8C", "#6560C8", "#C94F4F", "#3F9AA8", "#7F8A96"],
 
   // 그림자 — 떠 있는 요소 전용
   shadowSm: "none",
@@ -118,58 +118,58 @@ export const getDarkTheme = (customTextColor) => ({
   isDark: true,
 
   // 브랜드 포인트 — 버튼·선택 표시·수입에만
-  primary: "#8FD9AE",
-  primaryDark: "#74C795",
-  onPrimary: "#0E2419",
+  primary: "#6CB8FF",
+  primaryDark: "#4FA3F0",
+  onPrimary: "#06213A",
   onExpense: "#2A120C",
-  neutralBtn: "#3A3F3C",
-  onNeutralBtn: "#F1F3F1",
+  neutralBtn: "#38404A",
+  onNeutralBtn: "#F0F3F6",
 
   // 대표 금액 카드 — 카드보다 한 단계 밝은 면
-  heroBg: "#232725",
+  heroBg: "#222830",
   heroText: "#FFFFFF",
-  heroSub: "#B9BFBB",
-  heroChip: "#323734",
-  heroTrack: "#3B403D",
-  heroFill: "#8FD9AE",
+  heroSub: "#B8C0CA",
+  heroChip: "#2F3741",
+  heroTrack: "#38414C",
+  heroFill: "#6CB8FF",
   heroNegative: "#F4A898",
 
   // 배경/표면
-  bg: "#111312",
-  background: "#111312",
-  bgElevated: "#242725",
-  card: "#1A1C1B",
-  cardAlt: "#212422",
-  surfaceHover: "#2A2D2B",
-  segmentActive: "#3A3F3C",
+  bg: "#0F1215",
+  background: "#0F1215",
+  bgElevated: "#22272C",
+  card: "#181C20",
+  cardAlt: "#1F2429",
+  surfaceHover: "#282D33",
+  segmentActive: "#38404A",
 
   // 텍스트
-  text: customText(customTextColor) || "#F1F3F1",
-  subText: "#B4BAB6",
-  mutedText: "#949A96",
-  border: "#2A2D2B",
-  borderStrong: "#434845",
+  text: customText(customTextColor) || "#F0F3F6",
+  subText: "#B2BAC2",
+  mutedText: "#929AA3",
+  border: "#282D33",
+  borderStrong: "#40474F",
 
   // 포인트(연한 배경)
-  primarySoft: "#1F2C25",
-  primaryText: "#A6E3C0",
+  primarySoft: "#16283A",
+  primaryText: "#9CD0FF",
 
   // 헤더 / 탭
-  headerBg: "#111312",
-  headerText: "#F1F3F1",
+  headerBg: "#0F1215",
+  headerText: "#F0F3F6",
 
   // 상태
-  activeText: "#A6E3C0",
-  activeBg: "#2C302D",
-  completedBg: "#161817",
-  completedBorder: "#242725",
-  paidBadgeBg: "#1F2C25",
-  paidBadgeText: "#A6E3C0",
+  activeText: "#9CD0FF",
+  activeBg: "#232B33",
+  completedBg: "#14171A",
+  completedBorder: "#22272C",
+  paidBadgeBg: "#16283A",
+  paidBadgeText: "#9CD0FF",
   errorText: "#F4A898",
 
   // 금액 색상
-  incomeColor: "#8FD9AE",
-  incomeSoft: "#1F2C25",
+  incomeColor: "#6CB8FF",
+  incomeSoft: "#16283A",
   expenseColor: "#F4A898",
   expenseSoft: "#33221E",
   warning: "#E3BC63",
@@ -177,13 +177,13 @@ export const getDarkTheme = (customTextColor) => ({
   infoColor: "#8DBBEA",
 
   // 그래프 — 주 데이터 한 색, 나머지는 회색
-  chartHigh: "#8FD9AE",
-  chartDim: "#373B38",
-  chartFill: "rgba(143, 217, 174, 0.12)",
-  tooltipBg: "#363A37",
+  chartHigh: "#6CB8FF",
+  chartDim: "#343A41",
+  chartFill: "rgba(108, 184, 255, 0.14)",
+  tooltipBg: "#343A42",
   tooltipText: "#FFFFFF",
-  categoryColors: { 식비: "#8FD9AE", 편의점: "#E3BC63", 배달: "#EE9F7B", 쇼핑: "#C6A3E0", 교통: "#7FB4E8", 생활: "#E79BBB", 구독: "#A7A5EC", 의료: "#EE8D8D" },
-  chartPalette: ["#8FD9AE", "#7FB4E8", "#E3BC63", "#EE9F7B", "#C6A3E0", "#E79BBB", "#A7A5EC", "#EE8D8D", "#7CCBD6", "#A3ABA6"],
+  categoryColors: { 식비: "#6CB8FF", 편의점: "#E3BC63", 배달: "#EE9F7B", 쇼핑: "#C6A3E0", 교통: "#6FD3E8", 생활: "#E79BBB", 구독: "#A7A5EC", 의료: "#EE8D8D" },
+  chartPalette: ["#6CB8FF", "#6FD3E8", "#E3BC63", "#EE9F7B", "#C6A3E0", "#E79BBB", "#A7A5EC", "#EE8D8D", "#7CCBD6", "#A3ABB5"],
 
   // 그림자 — 떠 있는 요소 전용
   shadowSm: "none",
