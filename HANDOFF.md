@@ -1,6 +1,6 @@
 # 가계부 인수인계
 
-최종 갱신: 2026-11-02 (v1.3.1, versionCode 6)
+최종 갱신: 2026-11-02 (v1.3.2, versionCode 6)
 
 ## 현재 상태
 - 하단 탭 3개: 홈(`/`), 카카오뱅크(`/kakao`), 전체 소비(`/spend`). 설정은 탭 헤더의 톱니(`Header`의 `onSettings`).
@@ -18,6 +18,7 @@
 - 분류 정리 시트(`SpendSheets.jsx` `TidySheet`)는 가로 스크롤 금지(`Sheet`에 overflow-x hidden), 긴 원문은 2줄 말줄임+"전체 보기".
 - 거래내역 파일: `statementImport.js`. 칸 이름 낱말 목록 `COLUMN_WORDS`를 실제 파일에 맞춰 보강할 것.
 - 디자인 토큰: `theme.js`. 공용 카드·금액 카드: `pages/Kakao/KakaoPage.styles.jsx`.
+- 자금 분리: `kakaoStats.splitNet(txs, flow, ts)`가 기준 시점(anchorNet·anchorLoan) 이후 거래를 시간순으로 따라감 — 입금은 마이너스 사용액부터 상환, 출금은 잔액부터. 기준 시점 이전은 기준값 그대로.
 - 집계: `kakaoStats.js`, `spendStats.js`(순수 함수). `spendOf`: 결제 +, 취소 -, 이체·입금 0.
 - 자금 설정: localStorage `kakaoFlow`(기기 전용).
 - Claude: `claudeClient.js`(모델·단가·장부·상한·응답 해석) + `BudgetPlugin.claudeMessages`(네이티브 HTTP) + `SecureKeyStore`(Keystore). 키는 JS로 돌아오지 않음. Haiku는 서버 대체 모델 미지원이라 `fallbacks`와 베타 헤더를 뺀다.

@@ -51,11 +51,26 @@ describe("자금 흐름", () => {
     expect(rows[9].net).toBe(-130000);
     expect(rows[4]).toMatchObject({ key: "2026-11-05", inflow: 100000, outflow: 0 });
   });
-  test("순자금 나누기: 마이너스통장·별도 대출", () => {
-    expect(splitNet(-130000, flow)).toEqual({ balance: 0, used: 130000, available: 870000 });
-    expect(splitNet(70000, flow)).toEqual({ balance: 70000, used: 0, available: 1070000 });
-    expect(splitNet(-200000, { anchorLoan: 300000, limit: 500000 })).toEqual({ balance: 100000, used: 300000, available: 300000 });
-    expect(splitNet(-400000, { anchorLoan: 300000, limit: 500000 })).toEqual({ balance: 0, used: 400000, available: 100000 });
+  test("입금은 마이너스 사용액부터 갚고 남는 금액만 잔액으로, 출금은 잔액부터", () => {
+    const at0 = at(2026, 11, 1);
+    const tx = (kind, amount, day) => ({ kind, amount, ts: at(2026, 11, day) });
+    // 기준: 마이너스 사용액 300,000, 잔액 0
+    const f = { anchorNet: -300000, anchorLoan: 0, anchorAt: at0, limit: 500000 };
+    expect(splitNet([], f, now.getTime())).toEqual({ balance: 0, used: 300000, available: 200000 });
+    expect(splitNet([tx("income", 100000, 2)], f, now.getTime())).toEqual({ balance: 0, used: 200000, available: 300000 });
+    expect(splitNet([tx("income", 500000, 2)], f, now.getTime())).toEqual({ balance: 200000, used: 0, available: 700000 });
+    // 잔액을 쓰고 0 아래로 가면 마이너스 사용액이 늘어남(결제 후 입금하면 다시 사용액부터 갚음)
+    const flow2 = { anchorNet: 100000, anchorLoan: 0, anchorAt: at0, limit: 500000 };
+    expect(splitNet([tx("payment", 30000, 2)], flow2, now.getTime())).toMatchObject({ balance: 70000, used: 0 });
+    expect(splitNet([tx("payment", 130000, 2)], flow2, now.getTime())).toMatchObject({ balance: 0, used: 30000 });
+    expect(splitNet([tx("payment", 130000, 2), tx("income", 50000, 3)], flow2, now.getTime())).toMatchObject({ balance: 20000, used: 0 });
+    // 별도 대출(잔액과 함께 있는 사용액)도 입금으로 먼저 갚음
+    const flow3 = { anchorNet: -200000, anchorLoan: 300000, anchorAt: at0, limit: 500000 };
+    expect(splitNet([], flow3, now.getTime())).toEqual({ balance: 100000, used: 300000, available: 300000 });
+    expect(splitNet([tx("income", 400000, 2)], flow3, now.getTime())).toMatchObject({ balance: 200000, used: 0 });
+    // 순서대로 처리하고, 기준 이후·조회 시점 이전 거래만 반영
+    expect(splitNet([tx("income", 50000, 3), tx("payment", 30000, 2)], flow3, at(2026, 11, 2, 18))).toMatchObject({ balance: 70000, used: 300000 });
+    expect(splitNet([], {}, now.getTime())).toBeNull();
   });
 });
 

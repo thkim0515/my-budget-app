@@ -5,7 +5,7 @@ import { pushBackHandler } from "../../utils/backHandlerStack";
 import { useFormattedNumberInput } from "../../hooks/useFormattedNumberInput";
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { DEFAULT_CATEGORIES } from "../../constants/categories";
-import { KIND_LABEL, toDateKey, adjustmentForRemaining, budgetSummary, netAt, splitNet } from "../../utils/kakaoStats";
+import { KIND_LABEL, toDateKey, adjustmentForRemaining, budgetSummary, splitNet } from "../../utils/kakaoStats";
 import { loadNotiLog } from "../../utils/kakaoIngest";
 import * as S from "./KakaoPage.styles";
 
@@ -117,8 +117,7 @@ export function TxSheet({ tx, onSave, onDelete, onClose }) {
 // 자금 설정: 예산·잔액·마이너스 입력, 자동 인식, 가져오기.
 export function FlowSheet({ flow, txs, onChange, onImport, onClose, onShowLog }) {
   const now = new Date();
-  const net = netAt(txs, flow, now.getTime());
-  const split = net == null ? null : splitNet(net, flow);
+  const split = splitNet(txs, flow, now.getTime());
   const summary = budgetSummary(txs, flow, now);
   const [monthly, setMonthly] = useState(flow.monthlyBudget ? formatNumber(flow.monthlyBudget) : "");
   const [remaining, setRemaining] = useState(summary.hasBudget ? formatNumber(Math.max(summary.remaining, 0)) : "");

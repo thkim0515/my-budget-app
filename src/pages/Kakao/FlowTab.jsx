@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "styled-components";
-import { budgetSummary, flowOf, flowSeries, netAt, splitNet, toDateKey, toYm, txsOfMonth } from "../../utils/kakaoStats";
+import { budgetSummary, flowOf, flowSeries, splitNet, toDateKey, toYm, txsOfMonth } from "../../utils/kakaoStats";
 import { NetLine, won } from "./KakaoCharts";
 import { TxList } from "./PaymentsTab";
 import * as S from "./KakaoPage.styles";
@@ -12,8 +12,7 @@ export default function FlowTab({ txs, flow, onChangeFlow, onOpenSettings, onEdi
   const [selected, setSelected] = useState(null);
 
   const summary = budgetSummary(txs, flow, now);
-  const net = netAt(txs, flow, now.getTime());
-  const split = net == null ? null : splitNet(net, flow);
+  const split = splitNet(txs, flow, now.getTime());
   const rows = useMemo(() => flowSeries(txs, flow, days), [txs, flow, days]);
   const row = selected != null ? rows[selected] : null;
   const dayList = useMemo(() => (row ? txs.filter((t) => toDateKey(new Date(t.ts)) === row.key && !t.excludeFromFlow) : []), [txs, row]);
@@ -25,11 +24,13 @@ export default function FlowTab({ txs, flow, onChangeFlow, onOpenSettings, onEdi
   // 알림에 잔액이 찍혀 있으면 계산값과 비교해 한 번에 맞출 수 있게 한다.
   const reported = txs.find((t) => t.balanceAfter != null);
   const reportedIsNew = reported && (flow.anchorAt == null || reported.ts > flow.anchorAt);
-  const computedBalance = split ? net + (flow.anchorLoan || 0) : null;
+  const computedBalance = split ? split.balance : null;
   const mismatch = reportedIsNew && split && reported.balanceAfter !== computedBalance;
 
   const alignToReported = () => {
-    onChangeFlow({ ...flow, anchorNet: reported.balanceAfter - (flow.anchorLoan || 0), anchorAt: reported.ts });
+    // 알림 시점의 마이너스 사용액은 그대로 두고 잔액만 알림 값으로 맞춘다.
+    const usedThen = splitNet(txs, flow, reported.ts).used;
+    onChangeFlow({ ...flow, anchorNet: reported.balanceAfter - usedThen, anchorLoan: reported.balanceAfter > 0 ? usedThen : 0, anchorAt: reported.ts });
   };
 
   const budgetPct = summary.budget > 0 ? (summary.spent / summary.budget) * 100 : 0;

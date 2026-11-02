@@ -142,12 +142,30 @@ export const flowSeries = (txs, flow, days = 30, now = new Date()) => {
   return rows;
 };
 
-// 순자금을 통장 잔액과 마이너스 사용액으로 나눈다. anchorLoan 은 잔액과 별도로 남아 있는 대출(비상금대출)이다.
-export const splitNet = (net, flow) => {
-  const loan = flow.anchorLoan || 0;
-  const balance = net + loan;
-  const used = balance < 0 ? loan - balance : loan;
-  return { balance: Math.max(balance, 0), used, available: Math.max(balance, 0) + Math.max((flow.limit || 0) - used, 0) };
+// ts 시점의 통장 잔액과 마이너스(비상금대출) 사용액. 기준 시점의 잔액·사용액에서 시작해 거래를 시간순으로 따라간다.
+// 입금(취소 포함)은 마이너스 사용액부터 갚고 남는 금액만 잔액으로, 출금은 잔액부터 쓰고 0 아래로 가면 사용액이 늘어난다.
+// 기준 시점 이전은 거꾸로 따라갈 수 없어 기준 시점의 값을 그대로 쓴다.
+export const splitNet = (txs, flow, ts = Date.now()) => {
+  if (flow.anchorAt == null) return null;
+  const start = (flow.anchorNet || 0) + (flow.anchorLoan || 0);
+  let balance = Math.max(start, 0);
+  let used = (flow.anchorLoan || 0) + Math.max(-start, 0);
+  txs
+    .filter((t) => t.ts > flow.anchorAt && t.ts <= ts && flowOf(t) !== 0)
+    .sort((a, b) => a.ts - b.ts)
+    .forEach((t) => {
+      const amount = flowOf(t);
+      if (amount > 0) {
+        const repay = Math.min(used, amount);
+        used -= repay;
+        balance += amount - repay;
+      } else {
+        const fromBalance = Math.min(balance, -amount);
+        balance -= fromBalance;
+        used += -amount - fromBalance;
+      }
+    });
+  return { balance, used, available: balance + Math.max((flow.limit || 0) - used, 0) };
 };
 
 // 월 예산 + 이번 달 보정 - 이번 달 결제 = 남은 예산. 오늘을 포함한 남은 날수로 나눠 하루 권장액을 낸다.
