@@ -33,7 +33,7 @@ export function Sheet({ title, onClose, children }) {
           <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{title}</h3>
           <button type="button" aria-label="닫기" onClick={onClose} style={{ width: 44, height: 44, margin: "-8px -12px -8px 0", border: "none", background: "transparent", color: theme.subText, fontSize: 22, cursor: "pointer" }}>✕</button>
         </div>
-        <div style={{ overflowY: "auto", overscrollBehavior: "contain", padding: "6px 18px calc(20px + env(safe-area-inset-bottom))" }}>
+        <div style={{ overflowY: "auto", overflowX: "hidden", minWidth: 0, overscrollBehavior: "contain", padding: "6px 18px calc(20px + env(safe-area-inset-bottom))" }}>
           {children}
         </div>
       </div>

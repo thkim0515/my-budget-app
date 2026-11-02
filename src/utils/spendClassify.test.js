@@ -75,6 +75,14 @@ describe("2단계: Claude 분류(가짜 응답)", () => {
     expect(s.data.spendTx[2]).toMatchObject({ category: "쇼핑", categoryLocked: true });
     expect(loadMerchantRules().알수없음상점).toBe("쇼핑");
   });
+  test("사용자가 정한 가맹점은 Claude 호출 없이 규칙으로 적용", async () => {
+    localStorage.setItem("kakaoMerchantCategory", JSON.stringify({ 영재: "교육" }));
+    const s = store([{ id: "a", kind: "payment", merchant: "영재", category: "기타", ts: 1, amount: 5000 }]);
+    const r = await tidyWithClaude(s);
+    expect(r.skipped).toBe(true);
+    expect(s.data.spendTx[0]).toMatchObject({ category: "교육", autoCategory: { by: "rule" } });
+    expect(BudgetPlugin.claudeMessages).not.toHaveBeenCalled();
+  });
   test("보낼 것이 없으면 호출하지 않음", async () => {
     expect((await tidyWithClaude(store([]))).skipped).toBe(true);
     expect(BudgetPlugin.claudeMessages).not.toHaveBeenCalled();

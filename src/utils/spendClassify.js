@@ -135,6 +135,7 @@ const CLASSIFY_SCHEMA = {
 
 // 확신도가 높으면 바로 적용, 낮으면 추천으로 둔다. 추천이 이미 있는 내역은 다시 보내지 않는다.
 export const tidyWithClaude = async ({ getAll, put }) => {
+  await tidyLocal({ getAll, put }); // 사용자가 정한 가맹점은 Claude 에 묻지 않는다
   const rows = (await allTxs(getAll)).filter(({ t }) => isUnsorted(t) && !t.suggestedCategory);
   if (rows.length === 0) return { applied: 0, suggested: 0, skipped: true };
   const { keys, payload } = buildClassifyPayload(rows);

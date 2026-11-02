@@ -1,3 +1,5 @@
+import { isNonFinancialApp } from "./kakaoParser";
+
 // 금융사별 알림 → 지출 초안. 승인 문자는 "이름 금액 할부 날짜 시각 가맹점 누적" 순서가 많아 그 구조로 읽고,
 // 못 읽으면 "미분류"로 돌려 사용자가 확인하게 한다. 삼성 형식 외의 실제 문구는 사용하면서 맞춰 가야 한다.
 
@@ -34,6 +36,7 @@ export const matchSource = (noti, selectedIds) => {
   if (own) return { source: own, channel: "own" };
   // 체크하지 않은 금융사의 앱 알림은 본문에 다른 카드 이름이 있어도 보지 않는다.
   if (SOURCES.some((s) => s.packages.includes(pkg))) return null;
+  if (isNonFinancialApp(pkg)) return null;
   const title = noti.title || "";
   const full = `${title} ${noti.text || ""}`;
   if (pkg === KAKAOTALK) {

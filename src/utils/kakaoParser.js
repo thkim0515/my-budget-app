@@ -13,9 +13,18 @@ const NOISE_WORDS = ["카카오뱅크", "카뱅", "체크카드", "입출금통�
 
 const has = (text, words) => words.some((w) => text.includes(w));
 
+// 본문에 금융사 이름이 나올 수 있는 메신저·AI·메일 앱. 이 앱들의 알림은 금융사 알림으로 보지 않는다.
+const NON_FINANCIAL_PACKAGES = [
+  "com.anthropic.claude", "com.openai.chatgpt", "com.google.android.apps.bard", "com.google.android.googlequicksearchbox",
+  "jp.naver.line.android", "org.telegram.messenger", "com.discord", "com.Slack", "com.slack", "com.whatsapp",
+  "com.google.android.gm", "com.google.android.apps.docs", "com.microsoft.teams", "com.facebook.orca", "com.instagram.android",
+];
+export const isNonFinancialApp = (pkg) => NON_FINANCIAL_PACKAGES.includes(pkg);
+
 export const isKakaoBankNotification = (noti) => {
   if (!noti) return false;
   if (noti.package === KAKAOBANK_PACKAGE) return true;
+  if (isNonFinancialApp(noti.package)) return false;
   // 카카오톡은 친구 대화에 "카카오뱅크"가 나올 수 있어 보낸 곳(제목)이 카카오뱅크일 때만 인정한다.
   if (noti.package === "com.kakao.talk") return /카카오뱅크|카뱅/.test(noti.title || "");
   return /카카오뱅크|카뱅/.test(`${noti.title || ""} ${noti.text || ""}`);

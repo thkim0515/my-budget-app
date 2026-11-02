@@ -1,6 +1,6 @@
 # 가계부 인수인계
 
-최종 갱신: 2026-11-01 (v1.3.0, versionCode 6)
+최종 갱신: 2026-11-02 (v1.3.1, versionCode 6)
 
 ## 현재 상태
 - 하단 탭 3개: 홈(`/`), 카카오뱅크(`/kakao`), 전체 소비(`/spend`). 설정은 탭 헤더의 톱니(`Header`의 `onSettings`).
@@ -13,6 +13,9 @@
 - 출처 판별(`matchSource`): 체크한 앱 → 문자 → 카카오톡(제목이 금융사일 때만) → 그 밖의 앱(분명한 승인 문구일 때만). 체크 안 한 금융 앱 알림은 무시.
 - 탭 역할: ② 자금 관리(입금·이체·잔액 포함) / ③ 지출만. ②는 `kakaoFlow.autoSave`, ③은 `spendSources`로 독립. ③만 켠 카카오 내역은 `spendOnly` 표시로 ②에서 제외. `mergeSpend`가 kakaoTx의 결제·취소를 합쳐 보여 주며 ③에서는 가맹점·카테고리만 수정. ③에서 직접 넣은 카카오 내역은 spendTx에 저장.
 - 분류 정리: `spendClassify.js`(1단계 앱 비교, 2단계 Claude, 3단계 동의 시 원문). 사용자가 정한 항목은 `categoryLocked`. 일 1회 실행은 `useDailyTidy`(앱을 켰을 때).
+- 비금융 앱 차단: `kakaoParser.js`의 `NON_FINANCIAL_PACKAGES`(Claude·메신저 등)는 `isKakaoBankNotification`·`matchSource` 모두에서 제외. 새로 걸러낼 앱은 여기에 추가.
+- 사용자 분류 규칙: localStorage `kakaoMerchantCategory`(가맹점→분류). `SpendPage.saveTx`(수정 저장)·`acceptSuggestion`이 기록하고, `tidyLocal`/`tidyWithClaude`(Claude 호출 전)·`ingestSpendNotifications`가 먼저 적용. 사용자 UI: 전체 소비 탭 "확인이 필요한 분류" → 분류 정리 시트 → 자동 적용 "수정"/읽지 못한 알림 "삭제".
+- 분류 정리 시트(`SpendSheets.jsx` `TidySheet`)는 가로 스크롤 금지(`Sheet`에 overflow-x hidden), 긴 원문은 2줄 말줄임+"전체 보기".
 - 거래내역 파일: `statementImport.js`. 칸 이름 낱말 목록 `COLUMN_WORDS`를 실제 파일에 맞춰 보강할 것.
 - 디자인 토큰: `theme.js`. 공용 카드·금액 카드: `pages/Kakao/KakaoPage.styles.jsx`.
 - 집계: `kakaoStats.js`, `spendStats.js`(순수 함수). `spendOf`: 결제 +, 취소 -, 이체·입금 0.

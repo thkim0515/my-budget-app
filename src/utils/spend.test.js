@@ -1,3 +1,4 @@
+import { isKakaoBankNotification } from "./kakaoParser";
 import { findDuplicate, matchSource, parseSpendNotification, parseWhen, sourceById } from "./spendParser";
 import { bucketSeries, buildSpendPayload, bySource, inPeriod, monthPeriod, previousPeriod, rangePeriod, saveSpendResult, loadSpendResults, totalSpend } from "./spendStats";
 import { mergeSpend } from "./spendStore";
@@ -8,6 +9,11 @@ const parse = (title, text, source = samsung, channel = "message") => parseSpend
 
 describe("출처 판별", () => {
   const selected = ["samsung", "kakaobank"];
+  test("Claude 같은 비금융 앱 알림은 본문에 금융사 이름이 있어도 무시", () => {
+    const claude = { package: "com.anthropic.claude", title: "Claude", text: "카카오뱅크 탭 → 결제 12,000원 승인" };
+    expect(matchSource(claude, selected)).toBeNull();
+    expect(isKakaoBankNotification(claude)).toBe(false);
+  });
   test("체크한 앱·문자는 인식, 체크 안 한 앱은 무시", () => {
     expect(matchSource({ package: "kr.co.samsungcard.mpocket", title: "x", text: "y" }, selected).channel).toBe("own");
     expect(matchSource({ package: "com.samsung.android.messaging", title: "15888900", text: "삼성5215승인 김*헌 1,000원" }, selected).source.id).toBe("samsung");

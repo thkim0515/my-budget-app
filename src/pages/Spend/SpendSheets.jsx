@@ -210,7 +210,10 @@ export function SpendTxSheet({ tx, draft, raw, onSave, onDelete, onClose }) {
 }
 
 // 분류 정리: 읽지 못한 알림, Claude 추천 확인, 자동 적용 기록(되돌리기).
-export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onPick, onChanged, onClose }) {
+const clamp = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" };
+
+export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onPick, onEdit, onDismiss, onChanged, onClose }) {
+  const [opened, setOpened] = useState([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -247,14 +250,24 @@ export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onP
       <S.CardTitle style={{ marginTop: 16 }}>읽지 못한 알림 {raws.length}건</S.CardTitle>
       <S.Caption style={{ marginBottom: 6 }}>눌러서 고치면 지출로 저장됩니다. 원문은 이 기기에만 있습니다.</S.Caption>
       {hasKey && hasRawConsent() && raws.length > 0 && <S.GhostBtn type="button" disabled={busy} onClick={runRaw}>Claude로 읽기</S.GhostBtn>}
-      {raws.map((n) => (
-        <S.TxBtn key={n.id} type="button" onClick={() => onPick(n)}>
-          <span>
-            <strong>{sourceById(n.sourceId)?.name} · {n.suggestion?.merchant || n.reason}</strong>
-            <small style={{ overflowWrap: "anywhere" }}>{shortWhen(n.ts)} · {n.text}</small>
-          </span>
-        </S.TxBtn>
-      ))}
+      {raws.map((n) => {
+        const open = opened.includes(n.id);
+        return (
+          <S.Detail key={n.id} style={{ marginTop: 8, minWidth: 0 }}>
+            <S.Row style={{ alignItems: "flex-start" }}>
+              <strong style={{ fontSize: 14, overflowWrap: "anywhere", minWidth: 0 }}>{sourceById(n.sourceId)?.name} · {n.suggestion?.merchant || n.reason}</strong>
+              <S.Caption style={{ flexShrink: 0 }}>{shortWhen(n.ts)}</S.Caption>
+            </S.Row>
+            {n.pkg && <S.Caption style={{ overflowWrap: "anywhere" }}>보낸 앱: {n.pkg}</S.Caption>}
+            <S.Caption style={{ marginTop: 4, overflowWrap: "anywhere", wordBreak: "break-word", ...(open ? {} : clamp) }}>{n.title ? `${n.title} · ` : ""}{n.text}</S.Caption>
+            <S.Row style={{ marginTop: 6 }}>
+              <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => setOpened(open ? opened.filter((x) => x !== n.id) : [...opened, n.id])}>{open ? "접기" : "전체 보기"}</S.GhostBtn>
+              <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => onPick(n)}>지출로 입력</S.GhostBtn>
+              <S.GhostBtn type="button" $danger style={{ marginTop: 0 }} onClick={() => onDismiss(n)}>삭제</S.GhostBtn>
+            </S.Row>
+          </S.Detail>
+        );
+      })}
 
       <S.CardTitle style={{ marginTop: 16 }}>Claude 추천 {suggestions.length}건</S.CardTitle>
       {suggestions.length === 0 && <S.Caption>확인할 추천이 없습니다.</S.Caption>}
@@ -271,19 +284,21 @@ export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onP
             </select>
           </S.Field>
           <S.GhostBtn type="button" onClick={() => accept(t, t.suggestedCategory)}>{t.suggestedCategory}(으)로 정하기</S.GhostBtn>
+          <S.GhostBtn type="button" onClick={() => onEdit(t)}>가맹점·금액 직접 수정</S.GhostBtn>
         </S.Detail>
       ))}
 
       <S.CardTitle style={{ marginTop: 16 }}>자동 적용 {autoApplied.length}건</S.CardTitle>
       {autoApplied.length === 0 && <S.Caption>자동으로 바꾼 내역이 없습니다.</S.Caption>}
       {autoApplied.slice(0, 30).map((t) => (
-        <S.TxBtn key={`${t.store}-${t.id}`} type="button" onClick={() => undo(t)}>
-          <span>
-            <strong>{t.merchant} → {t.category}</strong>
-            <small>{t.autoCategory.by === "rule" ? "이전 분류와 비교" : `Claude 확신 ${Math.round(t.autoCategory.confidence * 100)}%`} · {shortWhen(t.ts)}</small>
-          </span>
-          <span>되돌리기</span>
-        </S.TxBtn>
+        <S.Detail key={`${t.store}-${t.id}`} style={{ marginTop: 8, minWidth: 0 }}>
+          <strong style={{ display: "block", fontSize: 14, overflowWrap: "anywhere" }}>{t.merchant} → {t.category}</strong>
+          <S.Caption>{t.autoCategory.by === "rule" ? "이전 분류와 비교" : `Claude 확신 ${Math.round(t.autoCategory.confidence * 100)}%`} · {shortWhen(t.ts)}</S.Caption>
+          <S.Row style={{ marginTop: 6 }}>
+            <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => onEdit(t)}>수정</S.GhostBtn>
+            <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => undo(t)}>되돌리기</S.GhostBtn>
+          </S.Row>
+        </S.Detail>
       ))}
     </Sheet>
   );

@@ -2,6 +2,7 @@
 import { categoryFor, loadSpendSourceIds } from "./kakaoIngest";
 import { isSameTx } from "./statementImport";
 import { isKakaoBankNotification, parseKakaoNotification, findCancelTarget } from "./kakaoParser";
+import { buildKnown, matchLocal } from "./spendClassify";
 import { findDuplicate, matchSource, parseSpendNotification, SOURCES, sourceById } from "./spendParser";
 
 const SOURCES_KEY = "spendSources";
@@ -51,7 +52,7 @@ export const ingestSpendNotifications = async (notis, { db, getAll, add, deleteI
     if (source.id === "kakaobank") {
       // 저장은 kakaoIngest 가 kakaoTx 에 한다. 여기서는 읽지 못한 알림만 미분류로 남긴다.
       const parsed = isKakaoBankNotification(noti) ? parseKakaoNotification(noti) : { result: "ignored" };
-      if (parsed.result === "ignored" && parsed.reason === "금액 없음") {
+      if (parsed.result === "ignored" && parsed.reason === "금액 없음" && channel !== "other") {
         await db.put("spendNoti", { ...rawBase, status: "unclassified", reason: parsed.reason });
         changed = true;
       }
@@ -76,7 +77,7 @@ export const ingestSpendNotifications = async (notis, { db, getAll, add, deleteI
         continue;
       }
     }
-    const record = { ...tx, category: categoryFor(tx) };
+    const record = { ...tx, category: matchLocal(tx.merchant, buildKnown([])) || categoryFor(tx) }; // 사용자가 정한 분류가 먼저
     record.id = await add("spendTx", record, true);
     existing.push(record);
     await db.put("spendNoti", { ...rawBase, status: "parsed", txId: record.id });
