@@ -22,7 +22,7 @@ const toLocalInput = (ts) => {
 const shortWhen = (ts) => new Date(ts).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 // 알림을 읽을 금융사 선택. 추천·설치된 앱을 위로 올리되, 앱 없이 문자로만 받는 곳도 고를 수 있게 전부 보여 준다.
-export function SourcesSheet({ onImport, onImportFile, onClose }) {
+export function SourcesSheet({ onChange, onImport, onImportFile, onClose }) {
   const [selected, setSelected] = useState(loadSelectedSources);
   const [installed, setInstalled] = useState(null);
 
@@ -38,12 +38,13 @@ export function SourcesSheet({ onImport, onImportFile, onClose }) {
     const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
     setSelected(next);
     saveSelectedSources(next);
+    onChange(next);
   };
 
   return (
     <Sheet title="지출을 모을 금융사" onClose={onClose}>
       <S.Caption style={{ marginBottom: 8 }}>
-        체크한 곳의 앱 알림과, 그 이름이 들어 있는 문자·알림톡에서 사용한 금액만 모읍니다. 입금·이체·대출·잔액은 모으지 않습니다. 잔액과 마이너스 관리는 카카오뱅크 탭에서 따로 합니다.
+        체크한 곳의 앱 알림과, 그 이름이 들어 있는 문자·알림톡에서 사용한 금액만 모읍니다. 입금·이체·대출·잔액은 모으지 않습니다. 체크를 해제하면 이미 모은 내역도 이 탭에서 빠지고, 다시 체크하면 돌아옵니다(지워지지 않음). 잔액과 마이너스 관리는 카카오뱅크 탭에서 따로 합니다.
       </S.Caption>
       {ordered.map((s) => (
         <S.CheckRow key={s.id}>

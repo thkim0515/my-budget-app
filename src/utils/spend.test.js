@@ -1,7 +1,7 @@
 import { isKakaoBankNotification } from "./kakaoParser";
 import { findDuplicate, matchSource, parseSpendNotification, parseWhen, sourceById } from "./spendParser";
 import { bucketSeries, buildSpendPayload, inPeriod, monthPeriod, previousPeriod, rangePeriod, saveSpendResult, loadSpendResults, sourceBreakdown, totalSpend, txsOfSource } from "./spendStats";
-import { mergeSpend } from "./spendStore";
+import { excludedSummary, mergeSpend } from "./spendStore";
 
 const at = (y, m, d, h = 12, mi = 0) => new Date(y, m - 1, d, h, mi).getTime();
 const samsung = sourceById("samsung");
@@ -80,7 +80,7 @@ describe("통합·기간 집계", () => {
     { id: "s4", kind: "payment", amount: 10000, ts: at(2026, 10, 5, 9, 1), merchant: "스타벅스", category: "식비", sourceId: "kakaopay" },
     { id: "s5", kind: "payment", amount: 3000, ts: at(2026, 9, 7), merchant: "GS25", category: "편의점", sourceId: "samsung" },
   ];
-  const all = mergeSpend(spend, kakao);
+  const all = mergeSpend(spend, kakao, ["kakaobank", "samsung", "kakaopay"]);
   const oct = monthPeriod("2026-10");
 
   test("입금 제외, 페이 겹침 제거, 취소 차감, 이체 제외", () => {
@@ -93,6 +93,29 @@ describe("통합·기간 집계", () => {
       ["카카오뱅크", 10400, 2],
     ]);
     expect(mergeSpend(spend, kakao, ["samsung"]).some((t) => t.id === "k1")).toBe(false);
+  });
+  test("체크 해제한 금융사는 보기에서만 빠지고, 다시 체크하면 돌아옴", () => {
+    const before = JSON.stringify([spend, kakao]);
+    const off = mergeSpend(spend, kakao, ["kakaobank", "kakaopay"]);
+    expect(off.some((t) => t.sourceId === "samsung")).toBe(false);
+    expect(totalSpend(inPeriod(off, oct))).toBe(10400);
+    expect(sourceBreakdown(inPeriod(off, oct), ["kakaobank", "kakaopay"]).map((r) => r.id)).toEqual(["kakaobank", "kakaopay"]);
+    expect(JSON.stringify([spend, kakao])).toBe(before);
+    expect(mergeSpend(spend, kakao, ["kakaobank", "samsung", "kakaopay"])).toEqual(all);
+    // 카카오뱅크 해제: 알림 내역과 거래내역서 내역이 함께 빠지고, 겹쳐서 숨겨졌던 페이 결제는 한 번 보인다.
+    const noKakao = mergeSpend(spend, kakao, ["samsung", "kakaopay"]);
+    expect(noKakao.some((t) => t.sourceId === "kakaobank")).toBe(false);
+    expect(noKakao.some((t) => t.id === "s4")).toBe(true);
+    // 목록에 없는 출처는 다시 체크할 방법이 없으므로 빼지 않는다.
+    const legacy = [{ id: "x", kind: "payment", amount: 1, ts: 1, merchant: "옛 내역" }, { id: "y", kind: "payment", amount: 1, ts: 1, merchant: "옛 내역", sourceId: "gone" }];
+    expect(mergeSpend(legacy, [], [])).toHaveLength(2);
+  });
+  test("제외 안내 건수", () => {
+    expect(excludedSummary(spend, kakao, ["kakaobank", "samsung", "kakaopay"])).toEqual({ sources: 0, count: 0 });
+    // 삼성카드는 결제·취소·지난달 3건(이체 제외), 페이 겹침 건은 세지 않는다.
+    expect(excludedSummary(spend, kakao, ["kakaobank"])).toEqual({ sources: 1, count: 3 });
+    expect(excludedSummary(spend, kakao, [])).toEqual({ sources: 2, count: 5 });
+    expect(excludedSummary([{ id: "x", kind: "payment", amount: 1, ts: 1, merchant: "옛 내역" }], [], [])).toEqual({ sources: 0, count: 0 });
   });
   test("기간과 직전 기간", () => {
     const r = rangePeriod("2026-10-05", "2026-10-07");

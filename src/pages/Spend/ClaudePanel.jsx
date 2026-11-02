@@ -124,6 +124,9 @@ export default function ClaudePanel({ txs, period, helpers, onChanged }) {
         {previewOpen && <S.Pre>{JSON.stringify(payload, null, 2)}</S.Pre>}
         {note && <S.Caption style={{ marginTop: 8 }}>{note}</S.Caption>}
         {error && <S.Detail style={{ color: theme.errorText, fontSize: 13.5 }}>{error}</S.Detail>}
+        {current && (current.total !== payload.결제합계 || current.count !== count) && (
+          <S.Caption style={{ marginTop: 8 }}>분석한 뒤 내역이나 금융사 선택이 바뀌었습니다. 다시 분석하면 반영됩니다.</S.Caption>
+        )}
         {current && <ClaudeResult result={current} />}
       </S.Card>
 

@@ -6,8 +6,8 @@ import { useTheme } from "styled-components";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { byCategory, byMerchant, shiftYm, spendOf, toDateKey, toYm } from "../../utils/kakaoStats";
-import { sourceById } from "../../utils/spendParser";
-import { importSpendFromRecords, loadSelectedSources, mergeSpend } from "../../utils/spendStore";
+import { isSourceExcluded, sourceById } from "../../utils/spendParser";
+import { excludedSummary, importSpendFromRecords, loadSelectedSources, mergeSpend } from "../../utils/spendStore";
 import { bucketSeries, byBand, sourceBreakdown, compareCategories, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
 import { rememberMerchantCategory, categoryFor } from "../../utils/kakaoIngest";
 import { tidyLocal } from "../../utils/spendClassify";
@@ -92,8 +92,10 @@ export default function SpendPage() {
   const all = useMemo(() => mergeSpend(spendTxs, kakaoTxs, selectedIds), [spendTxs, kakaoTxs, selectedIds]);
   const suggestions = useMemo(() => all.filter((t) => t.suggestedCategory && !t.categoryLocked && t.category === "기타"), [all]);
   const autoApplied = useMemo(() => all.filter((t) => t.autoCategory).sort((a, b) => (b.autoCategory.at || 0) - (a.autoCategory.at || 0)), [all]);
-  const tidyHelpers = { db, getAll, put, add };
-  const reviewCount = unclassified.length + suggestions.length;
+  const excluded = useMemo(() => excludedSummary(spendTxs, kakaoTxs, selectedIds), [spendTxs, kakaoTxs, selectedIds]);
+  const shownRaws = useMemo(() => unclassified.filter((n) => !isSourceExcluded(n.sourceId, selectedIds)), [unclassified, selectedIds]);
+  const tidyHelpers = { db, getAll, put, add, keep: ({ t, store }) => !isSourceExcluded(store === "kakaoTx" ? "kakaobank" : t.sourceId, selectedIds) };
+  const reviewCount = shownRaws.length + suggestions.length;
   const period = useMemo(() => (mode === "month" ? monthPeriod(ym) : rangePeriod(rangeStart, rangeEnd)), [mode, ym, rangeStart, rangeEnd]);
   const list = useMemo(() => inPeriod(all, period), [all, period]);
   const total = totalSpend(list);
@@ -109,13 +111,15 @@ export default function SpendPage() {
   const selectedBucket = selected != null ? buckets[selected] : null;
   const bucketList = selectedBucket ? all.filter((t) => t.ts >= selectedBucket.from && t.ts < selectedBucket.to && spendOf(t) !== 0) : [];
 
+  const filterSources = useMemo(() => [...new Set(list.map((t) => t.sourceId))], [list]);
+  // 고른 출처가 목록에서 사라지면(체크 해제 등) 전체로 보여 주고, 다시 나타나면 그 출처로 돌아간다.
+  const activeSourceFilter = filterSources.includes(sourceFilter) ? sourceFilter : "";
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return list.filter((t) => (!sourceFilter || t.sourceId === sourceFilter)
+    return list.filter((t) => (!activeSourceFilter || t.sourceId === activeSourceFilter)
       && (!categoryFilter || t.category === categoryFilter)
       && (!q || t.merchant.toLowerCase().includes(q)));
-  }, [list, query, sourceFilter, categoryFilter]);
-  const filterSources = useMemo(() => [...new Set(list.map((t) => t.sourceId))], [list]);
+  }, [list, query, activeSourceFilter, categoryFilter]);
   const filterCategories = useMemo(() => [...new Set(list.map((t) => t.category).filter(Boolean))], [list]);
 
   const resetView = () => { setSelected(null); setShown(PAGE_SIZE); };
@@ -169,10 +173,6 @@ export default function SpendPage() {
     reload();
   };
 
-  const closeSources = () => {
-    setSourcesOpen(false);
-    setSelectedIds(loadSelectedSources());
-  };
   const importRecords = async () => {
     const count = await importSpendFromRecords({ getAll, add });
     window.dispatchEvent(new CustomEvent("budget-db-updated"));
@@ -185,6 +185,7 @@ export default function SpendPage() {
     <S.Page>
       <Header title="전체 소비" onSettings={() => navigate("/settings")} rightButton={<S.AddBtn type="button" onClick={() => setEditing({})}>＋ 추가</S.AddBtn>} />
       <S.Body>
+        {excluded.count > 0 && <S.Caption role="status">제외된 금융사 {excluded.sources}곳 · 내역 {excluded.count}건</S.Caption>}
         {selectedCount === 0 && (
           <S.Card>
             <S.CardTitle>어느 곳의 지출을 모을까요?</S.CardTitle>
@@ -303,7 +304,7 @@ export default function SpendPage() {
             <S.Stats style={{ marginTop: 0, marginBottom: 8 }}>
               <S.Field style={{ margin: 0 }}>
                 출처
-                <select value={sourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setShown(PAGE_SIZE); }}>
+                <select value={activeSourceFilter} onChange={(e) => { setSourceFilter(e.target.value); setShown(PAGE_SIZE); }}>
                   <option value="">전체</option>
                   {filterSources.map((id) => <option key={id} value={id}>{sourceById(id)?.name}</option>)}
                 </select>
@@ -325,7 +326,7 @@ export default function SpendPage() {
 
         {tab === "claude" && <ClaudePanel txs={all} period={period} helpers={tidyHelpers} onChanged={reload} />}
       </S.Body>
-      {sourcesOpen && <SourcesSheet onImport={importRecords} onImportFile={() => { closeSources(); setImportOpen(true); }} onClose={closeSources} />}
+      {sourcesOpen && <SourcesSheet onChange={setSelectedIds} onImport={importRecords} onImportFile={() => { setSourcesOpen(false); setImportOpen(true); }} onClose={() => setSourcesOpen(false)} />}
       {importOpen && (
         <ImportSheet
           existing={[...spendTxs, ...kakaoTxs]}
@@ -340,7 +341,7 @@ export default function SpendPage() {
         />
       )}
       {tidyOpen && (
-        <TidySheet raws={unclassified} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onClose={() => setTidyOpen(false)} />
+        <TidySheet raws={shownRaws} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onClose={() => setTidyOpen(false)} />
       )}
       {editing && <SpendTxSheet tx={editing.tx} draft={editing.draft} raw={editing.raw} onSave={saveTx} onDelete={editing.tx || editing.draft ? deleteEditing : null} onClose={() => setEditing(null)} />}
     </S.Page>

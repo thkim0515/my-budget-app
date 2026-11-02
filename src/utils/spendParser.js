@@ -21,6 +21,8 @@ export const SOURCES = [
 export const SPEND_CATEGORIES = ["식비", "편의점", "배달", "쇼핑", "교통", "생활", "구독", "의료", "기타"];
 export const sourceById = (id) => SOURCES.find((s) => s.id === id);
 export const ALL_PACKAGES = SOURCES.flatMap((s) => s.packages);
+// 체크를 해제한 금융사인가. 목록에 없는 출처는 다시 체크할 방법이 없어 제외하지 않는다.
+export const isSourceExcluded = (id, selectedIds) => !!sourceById(id) && !selectedIds.includes(id);
 
 const SMS_PACKAGES = ["com.samsung.android.messaging", "com.google.android.apps.messaging", "com.android.mms", "com.android.messaging"];
 const KAKAOTALK = "com.kakao.talk";

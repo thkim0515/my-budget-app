@@ -1,6 +1,6 @@
 # 가계부 인수인계
 
-최종 갱신: 2026-11-02 (v1.3.6, versionCode 7)
+최종 갱신: 2026-11-02 (v1.3.7, versionCode 7)
 
 ## 현재 상태
 - 하단 탭 3개: 홈(`/`), 카카오뱅크(`/kakao`), 전체 소비(`/spend`). 설정은 탭 헤더의 톱니(`Header`의 `onSettings`).
@@ -19,7 +19,7 @@
 - 거래내역 파일: `statementImport.js`. 칸 이름 낱말 목록 `COLUMN_WORDS`를 실제 파일에 맞춰 보강할 것.
 - 디자인 토큰: `theme.js`(살짝 차가운 먹빛 바탕 + 파랑 포인트, 지출·경고는 빨강 계열, v1.3.6). 사용자가 초록을 싫어하므로 초록 계열은 쓰지 않는다(앱 아이콘·스플래시도 파랑 `#1668C7`, `docs/design-20261102/icon-preview.png`). 파랑은 행동·수입·주 데이터에만 쓰고, 면은 그라데이션·그림자 없이 밝기 차와 1px 선으로 나눈다(그림자 `shadowLg`는 떠 있는 요소만). 색은 화면 코드에 직접 쓰지 말고 토큰을 참조하며, 채운 버튼 글자는 `onPrimary`·`onExpense`·`onNeutralBtn`을 쓴다(다크의 primary는 밝은 색). 남은 직접 값은 중립 오버레이 `rgba(0,0,0,.5)`와 저장값 기본 글자색뿐. 현재 화면: `docs/design-20261102/blue-*.png`(`A-*`·`B-*`·`compare.png`는 지난 초록 시안). 공용 카드·금액 카드: `pages/Kakao/KakaoPage.styles.jsx`.
 - 자금 분리: `kakaoStats.splitNet(txs, flow, ts)`가 기준 시점(anchorNet·anchorLoan) 이후 거래를 시간순으로 따라감 — 입금은 마이너스 사용액부터 상환, 출금은 잔액부터. 기준 시점 이전은 기준값 그대로.
-- 금융사별 분석: `spendStats.sourceBreakdown(list, selectedIds)`·`txsOfSource`, 화면 `pages/Spend/SourceBreakdown.jsx`. `mergeSpend`가 체크 해제한 금융사의 지난 spendTx를 거르지 않아 합계·목록에 함께 나온다(합계가 맞도록 유지). Claude는 `SPEND_ANALYSIS_OPTS`(전체 소비 전용 프롬프트·스키마)로 `sourceComments`를 받고, 카카오뱅크 탭은 기본 스키마 그대로.
+- 금융사별 분석: `spendStats.sourceBreakdown(list, selectedIds)`·`txsOfSource`, 화면 `pages/Spend/SourceBreakdown.jsx`. 체크 해제한 금융사는 `mergeSpend`가 보기에서만 뺀다(데이터 유지, `isSourceExcluded`, 목록에 없는 출처는 제외하지 않음). 시트의 `onChange`로 체크 즉시 반영되고, 안내는 `excludedSummary`(전 기간 건수). 미분류 알림과 Claude 분석·수동 분류 정리에서도 빠지지만, 하루 1회 자동 정리(`useDailyTidy`)는 카카오뱅크 탭 분류 때문에 그대로 전부 대상으로 둔다. Claude는 `SPEND_ANALYSIS_OPTS`(전체 소비 전용 프롬프트·스키마)로 `sourceComments`를 받고, 카카오뱅크 탭은 기본 스키마 그대로.
 - 집계: `kakaoStats.js`, `spendStats.js`(순수 함수). `spendOf`: 결제 +, 취소 -, 이체·입금 0.
 - 자금 설정: localStorage `kakaoFlow`(기기 전용).
 - Claude: `claudeClient.js`(모델·단가·장부·상한·응답 해석) + `BudgetPlugin.claudeMessages`(네이티브 HTTP) + `SecureKeyStore`(Keystore). 키는 JS로 돌아오지 않음. Haiku는 서버 대체 모델 미지원이라 `fallbacks`와 베타 헤더를 뺀다.

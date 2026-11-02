@@ -83,6 +83,12 @@ describe("2단계: Claude 분류(가짜 응답)", () => {
     expect(s.data.spendTx[0]).toMatchObject({ category: "교육", autoCategory: { by: "rule" } });
     expect(BudgetPlugin.claudeMessages).not.toHaveBeenCalled();
   });
+  test("keep 조건에서 빠진 내역의 가맹점은 보내지 않음", async () => {
+    BudgetPlugin.claudeMessages.mockResolvedValue(reply({ items: [] }));
+    const s = store(rows());
+    await tidyWithClaude({ ...s, keep: ({ t }) => t.merchant !== "알수없음상점" });
+    expect(BudgetPlugin.claudeMessages.mock.calls[0][0].body).not.toContain("알수없음상점");
+  });
   test("보낼 것이 없으면 호출하지 않음", async () => {
     expect((await tidyWithClaude(store([]))).skipped).toBe(true);
     expect(BudgetPlugin.claudeMessages).not.toHaveBeenCalled();

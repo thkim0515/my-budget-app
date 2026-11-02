@@ -3,7 +3,7 @@ import { categoryFor, loadSpendSourceIds } from "./kakaoIngest";
 import { isSameTx } from "./statementImport";
 import { isKakaoBankNotification, parseKakaoNotification, findCancelTarget } from "./kakaoParser";
 import { buildKnown, matchLocal } from "./spendClassify";
-import { findDuplicate, matchSource, parseSpendNotification, SOURCES, sourceById } from "./spendParser";
+import { findDuplicate, isSourceExcluded, matchSource, parseSpendNotification, SOURCES, sourceById } from "./spendParser";
 
 const SOURCES_KEY = "spendSources";
 const KEEP_PARSED_RAW = 300;
@@ -21,6 +21,7 @@ export const saveSelectedSources = (ids) => {
 const newId = () => crypto.randomUUID();
 
 // 지출 통합 목록. 카카오뱅크 탭 내역은 결제·취소만 함께 보여 주고(입금·이체·대출 제외), 탭 ③에서 체크했을 때만 넣는다.
+// 체크를 해제한 금융사의 내역은 보기에서만 빠진다(저장 데이터는 그대로라 다시 체크하면 돌아온다).
 export const mergeSpend = (spendTxs, kakaoTxs, selected = ["kakaobank"]) => {
   const useKakao = selected.includes("kakaobank");
   const kakao = (useKakao ? kakaoTxs : [])
@@ -28,12 +29,18 @@ export const mergeSpend = (spendTxs, kakaoTxs, selected = ["kakaobank"]) => {
     .map((t) => ({ ...t, sourceId: "kakaobank", store: "kakaoTx" }));
   // 페이 알림이 카카오뱅크 결제와 겹치면 카카오뱅크 쪽만 센다(저장 순서와 무관하게 이중 집계를 막는다).
   const others = spendTxs
-    .filter((t) => t.kind === "payment" || t.kind === "refund")
+    .filter((t) => (t.kind === "payment" || t.kind === "refund") && !isSourceExcluded(t.sourceId, selected))
     .filter((t) => !(sourceById(t.sourceId)?.pay && kakao.some((k) => k.kind === t.kind && k.amount === t.amount && Math.abs(k.ts - t.ts) < 3 * 60 * 1000)))
     // 거래내역서로 넣은 카카오뱅크 내역이 알림 내역과 겹치면 한 번만 센다.
     .filter((t) => !(t.sourceId === "kakaobank" && kakao.some((k) => isSameTx({ ...t, hasTime: true }, k))))
     .map((t) => ({ ...t, store: "spendTx" }));
   return [...kakao, ...others].sort((a, b) => b.ts - a.ts);
+};
+
+// 체크 해제로 보기에서 빠진 내역(전 기간). 모두 체크했을 때의 목록과 같은 기준으로 센다.
+export const excludedSummary = (spendTxs, kakaoTxs, selected) => {
+  const hidden = mergeSpend(spendTxs, kakaoTxs, SOURCES.map((s) => s.id)).filter((t) => isSourceExcluded(t.sourceId, selected));
+  return { sources: new Set(hidden.map((t) => t.sourceId)).size, count: hidden.length };
 };
 
 export const ingestSpendNotifications = async (notis, { db, getAll, add, deleteItem }) => {

@@ -134,9 +134,10 @@ const CLASSIFY_SCHEMA = {
 };
 
 // 확신도가 높으면 바로 적용, 낮으면 추천으로 둔다. 추천이 이미 있는 내역은 다시 보내지 않는다.
-export const tidyWithClaude = async ({ getAll, put }) => {
+// keep: 전체 소비 탭이 넘기는 조건 — 보기에서 뺀 금융사의 가맹점은 보내지 않는다.
+export const tidyWithClaude = async ({ getAll, put, keep = () => true }) => {
   await tidyLocal({ getAll, put }); // 사용자가 정한 가맹점은 Claude 에 묻지 않는다
-  const rows = (await allTxs(getAll)).filter(({ t }) => isUnsorted(t) && !t.suggestedCategory);
+  const rows = (await allTxs(getAll)).filter((r) => isUnsorted(r.t) && !r.t.suggestedCategory && keep(r));
   if (rows.length === 0) return { applied: 0, suggested: 0, skipped: true };
   const { keys, payload } = buildClassifyPayload(rows);
   const out = await runClaude(payload, { system: CLASSIFY_SYSTEM, schema: CLASSIFY_SCHEMA, effort: "low", maxTokens: 4000 });

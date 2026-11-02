@@ -63,6 +63,24 @@ test("금융사별 코멘트를 요청하고 결과에 표시", async () => {
   expect(sent.system).toContain("sourceComments");
 });
 
+test("금융사 선택으로 내역이 바뀌면 저장된 분석에 안내를 표시하고, 다음 분석은 넘어온 내역만 보냄", async () => {
+  BudgetPlugin.claudeMessages.mockResolvedValue(fake());
+  const period = monthPeriod(ym);
+  const ui = (list) => <ThemeProvider theme={getLightTheme()}><ClaudePanel txs={list} period={period} /></ThemeProvider>;
+  const hyundai = { id: "2", kind: "payment", amount: 7000, ts: new Date(2026, 9, 6, 12).getTime(), merchant: "제외가맹점", category: "쇼핑", sourceId: "hyundai" };
+  const { rerender } = render(ui([...txs, hyundai]));
+  fireEvent.click(await screen.findByRole("button", { name: /분석하기/ }));
+  await screen.findByText("가짜 요약입니다");
+  expect(screen.queryByText(/다시 분석하면 반영됩니다/)).toBeNull();
+
+  rerender(ui(txs));
+  expect(screen.getByText(/다시 분석하면 반영됩니다/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /다시 분석하기/ }));
+  await waitFor(() => expect(BudgetPlugin.claudeMessages).toHaveBeenCalledTimes(2));
+  expect(BudgetPlugin.claudeMessages.mock.calls[1][0].body).not.toContain("제외가맹점");
+  await waitFor(() => expect(screen.queryByText(/다시 분석하면 반영됩니다/)).toBeNull());
+});
+
 test("요약 분석을 고르면 한 건씩의 내역을 보내지 않고, 미리보기에 건수·토큰이 보임", async () => {
   BudgetPlugin.claudeMessages.mockResolvedValue(fake());
   show();
