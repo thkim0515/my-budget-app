@@ -43,11 +43,10 @@ export const SegmentBtn = styled.button`
   padding: 0 4px;
   border: none;
   border-radius: ${({ theme }) => theme.radius.pill};
-  background: ${({ $active, theme }) => ($active ? theme.card : "transparent")};
+  background: ${({ $active, theme }) => ($active ? theme.segmentActive : "transparent")};
   color: ${({ $active, theme }) => ($active ? theme.text : theme.subText)};
-  box-shadow: ${({ $active, theme }) => ($active ? theme.shadowSm : "none")};
   font-size: 13px;
-  font-weight: ${({ $active }) => ($active ? 700 : 500)};
+  font-weight: ${({ $active }) => ($active ? 600 : 500)};
   cursor: pointer;
 `;
 
@@ -55,16 +54,16 @@ export const Card = styled.section`
   padding: 20px;
   border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.card};
-  box-shadow: ${({ theme }) => theme.shadowSm};
+  border: 1px solid ${({ theme }) => theme.border};
   min-width: 0;
 `;
 
-// 탭마다 맨 위 한 장 — 가장 궁금한 금액을 숲색 바탕에 크게 보여 준다.
+// 탭마다 맨 위 한 장 — 가장 궁금한 금액을 다른 카드보다 도드라진 면에 크게 보여 준다.
 export const Hero = styled.section`
   padding: 24px 22px;
   border-radius: ${({ theme }) => theme.radius.xl};
   background: ${({ theme }) => theme.heroBg};
-  color: #FFFFFF;
+  color: ${({ theme }) => theme.heroText};
   min-width: 0;
 `;
 
@@ -73,8 +72,8 @@ export const HeroNote = styled.div`
   margin-top: 4px;
   padding: 5px 12px;
   border-radius: ${({ theme }) => theme.radius.pill};
-  background: rgba(255, 255, 255, 0.16);
-  color: #FFFFFF;
+  background: ${({ theme }) => theme.heroChip};
+  color: ${({ theme }) => theme.heroText};
   font-size: 13px;
   font-weight: 600;
 `;
@@ -82,7 +81,7 @@ export const HeroNote = styled.div`
 export const CardTitle = styled.h2`
   margin: 0 0 12px;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
 `;
 
 export const Caption = styled.div`
@@ -94,18 +93,18 @@ export const Caption = styled.div`
 export const HeroLabel = styled.div`
   font-size: 14px;
   font-weight: 500;
-  color: ${({ $onHero, theme }) => ($onHero ? "rgba(255, 255, 255, 0.86)" : theme.subText)};
+  color: ${({ $onHero, theme }) => ($onHero ? theme.heroSub : theme.subText)};
 `;
 
 export const HeroValue = styled.div`
   margin: 4px 0 8px;
-  font-size: 38px;
+  font-size: 36px;
   line-height: 1.15;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
-  color: ${({ $negative, $onHero, theme }) => ($onHero ? ($negative ? "#FFD9CF" : "#FFFFFF") : $negative ? theme.expenseColor : theme.text)};
+  color: ${({ $negative, $onHero, theme }) => ($onHero ? ($negative ? theme.heroNegative : theme.heroText) : $negative ? theme.expenseColor : theme.text)};
 `;
 
 export const Row = styled.div`
@@ -124,28 +123,28 @@ export const Stats = styled.div`
 
 export const Stat = styled.div`
   min-width: 0;
-  & > div:first-child { font-size: 12.5px; color: ${({ $onHero, theme }) => ($onHero ? "rgba(255, 255, 255, 0.82)" : theme.subText)}; }
+  & > div:first-child { font-size: 12.5px; color: ${({ $onHero, theme }) => ($onHero ? theme.heroSub : theme.subText)}; }
   & > div:last-child {
     margin-top: 2px;
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
-    color: ${({ $color, $onHero, theme }) => ($onHero ? "#FFFFFF" : $color ? theme[$color] : theme.text)};
+    color: ${({ $color, $onHero, theme }) => ($onHero ? theme.heroText : $color ? theme[$color] : theme.text)};
   }
 `;
 
 export const Meter = styled.div`
-  height: 10px;
+  height: 8px;
   margin-top: 14px;
-  border-radius: 5px;
+  border-radius: 4px;
   overflow: hidden;
-  background: ${({ $onHero, theme }) => ($onHero ? "rgba(255, 255, 255, 0.22)" : theme.bgElevated)};
+  background: ${({ $onHero, theme }) => ($onHero ? theme.heroTrack : theme.bgElevated)};
   & > div {
     height: 100%;
-    border-radius: 5px;
+    border-radius: 4px;
     width: ${({ $pct }) => Math.min(Math.max($pct, 0), 100)}%;
-    background: ${({ $danger, $onHero, theme }) => ($onHero ? ($danger ? "#FFB7A6" : "#B9F2C9") : $danger ? theme.expenseColor : theme.primary)};
+    background: ${({ $danger, $onHero, theme }) => ($onHero ? ($danger ? theme.heroNegative : theme.heroFill) : $danger ? theme.expenseColor : theme.primary)};
   }
 `;
 
@@ -222,7 +221,7 @@ export const TxBtn = styled.button`
   &:active { opacity: 0.7; }
   & strong { display: block; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
   & small { font-size: 12px; color: ${({ theme }) => theme.subText}; }
-  & > span:last-child { flex-shrink: 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  & > span:last-child { flex-shrink: 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 `;
 
 export const RankRow = styled.div`
@@ -233,7 +232,7 @@ export const RankRow = styled.div`
 `;
 
 export const Bar = styled.div`
-  height: 8px;
+  height: 6px;
   margin-top: 6px;
   border-radius: 4px;
   width: ${({ $pct }) => Math.max($pct, 1)}%;

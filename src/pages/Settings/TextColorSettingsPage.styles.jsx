@@ -53,8 +53,8 @@ export const ResetBtn = styled.button`
   padding: 12px;
   margin-top: 20px;
   background: transparent;
-  color: #E5604D;
-  border: 1px solid #E5604D;
+  color: ${({ theme }) => theme.errorText};
+  border: 1px solid ${({ theme }) => theme.expenseColor};
   border-radius: 8px;
   font-weight: bold;
 `;

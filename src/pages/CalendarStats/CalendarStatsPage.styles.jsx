@@ -48,11 +48,11 @@ export const Content = styled.div`
 
   /* 요일 헤더 */
   .react-calendar__month-view__weekdays__weekday:nth-child(1) {
-    color: #e74c3c;
+    color: ${({ theme }) => theme.expenseColor};
   }
 
   .react-calendar__month-view__weekdays__weekday:nth-child(7) {
-    color: #3498db;
+    color: ${({ theme }) => theme.infoColor};
   }
 
   /* 날짜 타일 */
@@ -74,18 +74,18 @@ export const Content = styled.div`
 
   /* 공휴일 */
   .day-holiday abbr {
-    color: #e74c3c !important;
+    color: ${({ theme }) => theme.expenseColor} !important;
     font-weight: bold !important;
   }
 
   /* 일요일 */
   .day-sun abbr {
-    color: #e74c3c !important;
+    color: ${({ theme }) => theme.expenseColor} !important;
   }
 
   /* 토요일 */
   .day-sat abbr {
-    color: #3498db !important;
+    color: ${({ theme }) => theme.infoColor} !important;
   }
 
   /* 평일 */

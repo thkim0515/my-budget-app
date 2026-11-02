@@ -15,7 +15,7 @@ export const PageWrap = styled.div`
 /* 헤더 우측: 납부완료 항목을 이 달 합계에서 제외하는 토글 */
 export const ExcludePaidToggleBtn = styled.button`
   background: ${({ $on, theme }) => ($on ? theme.primary : theme.cardAlt)};
-  color: ${({ $on, theme }) => ($on ? "#fff" : theme.subText)};
+  color: ${({ $on, theme }) => ($on ? theme.onPrimary : theme.subText)};
   padding: 8px 12px;
   border-radius: ${({ theme }) => theme.radius.pill};
   border: 1px solid ${({ $on, theme }) => ($on ? theme.primary : theme.border)};
@@ -30,7 +30,7 @@ export const ExcludePaidToggleBtn = styled.button`
 /* 헤더 우측: 여러 항목을 체크박스로 골라 한 번에 삭제하는 모드 진입 토글 */
 export const SelectModeToggleBtn = styled.button`
   background: ${({ $on, theme }) => ($on ? theme.expenseColor : theme.cardAlt)};
-  color: ${({ $on, theme }) => ($on ? "#fff" : theme.subText)};
+  color: ${({ $on, theme }) => ($on ? theme.onExpense : theme.subText)};
   padding: 8px 12px;
   border-radius: ${({ theme }) => theme.radius.pill};
   border: 1px solid ${({ $on, theme }) => ($on ? theme.expenseColor : theme.border)};
@@ -88,7 +88,7 @@ export const SelectionCancelBtn = styled.button`
 
 export const SelectionDeleteBtn = styled.button`
   background: ${({ theme, disabled }) => (disabled ? theme.borderStrong : theme.expenseColor)};
-  color: #fff;
+  color: ${({ theme }) => theme.onExpense};
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   padding: 9px 16px;
@@ -126,37 +126,27 @@ export const Content = styled.div`
 export const SummaryCard = styled.div`
   position: relative;
   overflow: hidden;
-  background: ${({ theme }) => theme.headerGradient};
+  background: ${({ theme }) => theme.heroBg};
   border-radius: ${({ theme }) => theme.radius.lg};
   padding: 22px 20px 18px;
   margin-bottom: 20px;
-  color: #fff;
-  box-shadow: ${({ theme }) => theme.shadowPrimary};
-  &::after {
-    content: "";
-    position: absolute;
-    top: -40px;
-    right: -30px;
-    width: 140px;
-    height: 140px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 50%;
-  }
+  color: ${({ theme }) => theme.heroText};
 `;
 
 export const BalanceLabel = styled.div`
   font-size: 13px;
-  font-weight: 600;
-  opacity: 0.85;
+  font-weight: 500;
+  color: ${({ theme }) => theme.heroSub};
   margin-bottom: 4px;
 `;
 
 export const BalanceAmount = styled.div`
-  font-size: 30px;
-  font-weight: 800;
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  color: ${({ $negative }) => ($negative ? "#FFE1DA" : "#fff")};
+  color: ${({ $negative, theme }) => ($negative ? theme.heroNegative : theme.heroText)};
 `;
 
 export const ExcludedNote = styled.div`
@@ -168,8 +158,8 @@ export const ExcludedNote = styled.div`
   font-weight: 600;
   padding: 3px 9px;
   border-radius: ${({ theme }) => theme.radius.pill};
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: ${({ theme }) => theme.heroChip};
+  color: ${({ theme }) => theme.heroText};
 `;
 
 export const StatGrid = styled.div`
@@ -187,16 +177,16 @@ export const StatChip = styled.div`
   gap: 3px;
   padding: 10px 12px;
   border-radius: ${({ theme }) => theme.radius.sm};
-  background: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(2px);
+  background: ${({ theme }) => theme.heroChip};
   span {
     font-size: 11px;
-    font-weight: 600;
-    opacity: 0.85;
+    font-weight: 500;
+    color: ${({ theme }) => theme.heroSub};
   }
   strong {
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
     white-space: nowrap;
   }
@@ -210,13 +200,13 @@ export const FAB = styled.button`
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: ${({ theme }) => theme.gradientPrimary};
-  color: white;
+  background: ${({ theme }) => theme.primary};
+  color: ${({ theme }) => theme.onPrimary};
   border: none;
   font-size: 30px;
   font-weight: 300;
   cursor: pointer;
-  box-shadow: ${({ theme }) => theme.shadowPrimary};
+  box-shadow: ${({ theme }) => theme.shadowLg};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -231,7 +221,7 @@ export const FAB = styled.button`
 export const SheetBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(6, 30, 20, 0.5);
+  background: ${({ theme }) => theme.overlay};
   z-index: 40;
   animation: fadeIn 0.2s ease;
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

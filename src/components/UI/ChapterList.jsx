@@ -42,7 +42,8 @@ const Actions = styled.div`
 
 const ActionButton = styled.button`
   border: none;
-  color: #ffffff;
+  background: ${({ $danger, theme }) => ($danger ? theme.expenseSoft : theme.bgElevated)};
+  color: ${({ $danger, theme }) => ($danger ? theme.errorText : theme.text)};
   border-radius: 6px;
   padding: 5px 8px;
   font-size: 11px;
@@ -72,7 +73,6 @@ export default function ChapterList({
           <Actions>
             <ActionButton
               type="button"
-              style={{ background: "#1FA971" }}
               onClick={() => onToggleComplete(ch)}
               title={ch.isCompleted ? "해제" : "완료"}
             >
@@ -80,17 +80,17 @@ export default function ChapterList({
               {ch.isCompleted ? "해제" : "완료"}
             </ActionButton>
 
-            <ActionButton type="button" style={{ background: "#2FA08A" }} onClick={() => onRename(ch)} title="편집">
+            <ActionButton type="button" onClick={() => onRename(ch)} title="편집">
               <FiEdit3 size={11} />
             </ActionButton>
 
-            <ActionButton type="button" style={{ background: "#12855A" }} onClick={() => onCopy(ch)} title="복사">
+            <ActionButton type="button" onClick={() => onCopy(ch)} title="복사">
               <FiCopy size={11} />
             </ActionButton>
 
             <ActionButton
               type="button"
-              style={{ background: "#E5604D" }}
+              $danger
               onClick={() => onDelete(ch.chapterId)}
               title="삭제"
             >

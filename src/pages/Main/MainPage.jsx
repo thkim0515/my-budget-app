@@ -10,7 +10,7 @@ import { useSettings } from "../../context/SettingsContext";
 import { formatNumber } from "../../utils/numberFormat";
 import CardLimitSheet from "../../components/Info/CardLimitSheet";
 import { SHOW_CARD_LIMIT_SETUP_HINT } from "../../constants/ui";
-import { computeCardUsage, getLimitColor, getCurrentYm } from "../../utils/cardLimit";
+import { computeCardUsage, getCurrentYm } from "../../utils/cardLimit";
 import { FiEdit3, FiCopy, FiCheckCircle, FiTrash2, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import * as S from "./MainPage.styles";
 
@@ -54,8 +54,8 @@ const MODAL_OVERLAY = {
   display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 250,
 };
 const MODAL_ROW = { display: "flex", gap: 10, marginTop: 16 };
-const MODAL_BTN = (bg) => ({
-  flex: 1, border: "none", color: "#fff", padding: "10px 12px",
+const MODAL_BTN = (bg, color) => ({
+  flex: 1, border: "none", color, padding: "10px 12px",
   borderRadius: 8, cursor: "pointer", background: bg, fontSize: 15, fontWeight: 600,
 });
 
@@ -285,7 +285,7 @@ export default function MainPage() {
     : Math.max(0, cardUsedRaw + cardAdjustment);
   const cardRemaining = settings.cardLimitAmount - cardUsed;
   const cardRatio = showCardLimit ? Math.min(1, Math.max(0, cardUsed / settings.cardLimitAmount)) : 0;
-  const cardColor = getLimitColor(cardRatio);
+  const cardColor = cardRatio >= 0.9 ? theme.expenseColor : cardRatio >= 0.7 ? theme.warning : theme.primary;
 
   // 한도 영역을 누르면 카드사·한도 설정과 남은 한도 조정을 한 곳에서 하는 바텀시트가 열린다.
   const openCardLimitSheet = () => setCardLimitSheetOpen(true);
@@ -318,7 +318,7 @@ export default function MainPage() {
                     style={{
                       position: "absolute", top: "100%", right: 0, marginTop: 4,
                       background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 8,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)", zIndex: 100, minWidth: 110,
+                      boxShadow: theme.shadowLg, zIndex: 100, minWidth: 110,
                     }}
                   >
                     {SORT_OPTIONS.map((o) => (
@@ -364,11 +364,11 @@ export default function MainPage() {
                       <small>수입</small>
                       <strong>{m.income > 0 ? "+" : ""}{formatNumber(m.income)} {unit}</strong>
                     </S.StatItem>
-                    <S.StatItem $tone="expense">
+                    <S.StatItem>
                       <small>예산</small>
                       <strong>{m.budget > 0 ? "-" : ""}{formatNumber(m.budget)} {unit}</strong>
                     </S.StatItem>
-                    <S.StatItem $tone={m.balance < 0 ? "expense" : "income"}>
+                    <S.StatItem $tone={m.balance < 0 ? "expense" : undefined}>
                       <small>잔액</small>
                       <strong>{m.balance > 0 ? "+" : ""}{formatNumber(m.balance)} {unit}</strong>
                     </S.StatItem>
@@ -379,7 +379,6 @@ export default function MainPage() {
 
             <S.ActionGroup>
               <S.ActionBtn
-                $bg={c.isCompleted ? "#86A094" : "#1FA971"}
                 title={c.isCompleted ? "완료 취소" : "완료 처리"}
                 onClick={(e) => { e.stopPropagation(); toggleComplete(c); }}
               >
@@ -388,7 +387,6 @@ export default function MainPage() {
               </S.ActionBtn>
 
               <S.ActionBtn
-                $bg="#2FA08A"
                 title="챕터 제목 수정"
                 onClick={(e) => { e.stopPropagation(); openRenameChapter(c); }}
               >
@@ -397,7 +395,6 @@ export default function MainPage() {
               </S.ActionBtn>
 
               <S.ActionBtn
-                $bg="#12855A"
                 title="챕터 복사"
                 onClick={(e) => { e.stopPropagation(); openCopyModal(c); }}
               >
@@ -406,7 +403,7 @@ export default function MainPage() {
               </S.ActionBtn>
 
               <S.ActionBtn
-                $bg="#E5604D"
+                $danger
                 title="삭제"
                 onClick={(e) => { e.stopPropagation(); deleteChapter(c.chapterId); }}
               >
@@ -475,8 +472,8 @@ export default function MainPage() {
               </div>
 
               <div style={MODAL_ROW}>
-                <button style={MODAL_BTN("#12855A")} onClick={executeCopy}>복사하기</button>
-                <button style={MODAL_BTN("#6E8A7D")} onClick={closeCopyModal}>취소</button>
+                <button style={MODAL_BTN(theme.primary, theme.onPrimary)} onClick={executeCopy}>복사하기</button>
+                <button style={MODAL_BTN(theme.neutralBtn, theme.onNeutralBtn)} onClick={closeCopyModal}>취소</button>
               </div>
             </div>
           </div>,
@@ -506,8 +503,8 @@ export default function MainPage() {
                 autoFocus
               />
               <div style={MODAL_ROW}>
-                <button style={MODAL_BTN("#12855A")} onClick={executeRename}>저장</button>
-                <button style={MODAL_BTN("#6E8A7D")} onClick={cancelRename}>취소</button>
+                <button style={MODAL_BTN(theme.primary, theme.onPrimary)} onClick={executeRename}>저장</button>
+                <button style={MODAL_BTN(theme.neutralBtn, theme.onNeutralBtn)} onClick={cancelRename}>취소</button>
               </div>
             </div>
           </div>,

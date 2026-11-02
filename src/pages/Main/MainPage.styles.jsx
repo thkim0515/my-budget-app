@@ -67,8 +67,7 @@ export const CardLimitBar = styled.div`
   padding: 12px 16px ${limitPadBottom};
   background: ${({ theme }) => theme.card};
   border-top: 1px solid ${({ theme }) => theme.border};
-  box-shadow: 0 -4px 12px rgba(16, 70, 48, 0.06);
-  cursor: pointer;
+    cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s;
   &:active { background: ${({ theme }) => theme.activeBg}; }
@@ -113,7 +112,8 @@ export const CardLimitTitle = styled.div`
 
 export const CardLimitAmount = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: ${({ $color }) => $color};
   margin-bottom: 8px;
 `;
@@ -135,14 +135,13 @@ export const CardLimitFill = styled.div`
 `;
 
 export const CreateBtn = styled.button`
-  background: ${({ theme }) => theme.gradientPrimary};
-  color: white;
+  background: ${({ theme }) => theme.primary};
+  color: ${({ theme }) => theme.onPrimary};
   padding: 8px 9px;
   border-radius: ${({ theme }) => theme.radius.pill};
   border: none;
   font-size: 12px;
   font-weight: 700;
-  box-shadow: ${({ theme }) => theme.shadowPrimary};
   cursor: pointer;
   white-space: nowrap;
   &:active { transform: scale(0.95); }
@@ -166,7 +165,7 @@ export const SortBtn = styled.button`
 
 export const HideCompletedBtn = styled.button`
   background: ${({ $on, theme }) => ($on ? theme.primary : theme.cardAlt)};
-  color: ${({ $on, theme }) => ($on ? "#fff" : theme.subText)};
+  color: ${({ $on, theme }) => ($on ? theme.onPrimary : theme.subText)};
   padding: 8px 7px;
   border-radius: ${({ theme }) => theme.radius.pill};
   border: 1px solid ${({ $on, theme }) => ($on ? theme.primary : theme.border)};
@@ -190,7 +189,6 @@ export const ChapterRow = styled.div`
   border-radius: ${({ theme }) => theme.radius.md};
   border: 1px solid ${({ theme, $completed }) =>
     $completed ? theme.completedBorder : theme.border};
-  box-shadow: ${({ theme }) => theme.shadowSm};
   color: ${({ theme }) => theme.text};
   opacity: ${({ $completed }) => ($completed ? 0.72 : 1)};
   box-sizing: border-box;
@@ -207,7 +205,7 @@ export const ChapterMain = styled.div`
 `;
 
 export const ChapterTitle = styled.span`
-  font-weight: 800;
+  font-weight: 600;
   font-size: 17px;
   letter-spacing: -0.01em;
   white-space: nowrap;
@@ -231,14 +229,15 @@ export const StatItem = styled.div`
   min-width: 0;
 
   small {
-    font-size: 11px;
-    font-weight: 700;
-    color: ${({ theme }) => theme.mutedText};
+    font-size: 12px;
+    font-weight: 500;
+    color: ${({ theme }) => theme.subText};
   }
   strong {
-    font-size: 13.5px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -260,13 +259,13 @@ export const ActionGroup = styled.div`
 export const ActionBtn = styled.button`
   flex: 1;
   /* 카드마다 네 개씩 놓여 진한 색이면 금액보다 앞서 보인다. 연한 바탕으로 낮춘다. */
-  background: ${({ $bg, theme }) => ($bg === "#E5604D" ? theme.expenseSoft : theme.bgElevated)};
-  color: ${({ $bg, theme }) => ($bg === "#E5604D" ? theme.errorText : theme.text)};
+  background: ${({ $danger, theme }) => ($danger ? theme.expenseSoft : theme.bgElevated)};
+  color: ${({ $danger, theme }) => ($danger ? theme.errorText : theme.text)};
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   padding: 10px 6px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;

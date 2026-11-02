@@ -24,11 +24,3 @@ export const computeCardUsage = (records, provider) => {
     .reduce((sum, r) => sum + r.amount, 0);
 };
 
-/**
- * 한도 대비 사용률(0~1)에 따라 초록(여유) → 빨강(한도 임박) 색을 보간한다.
- */
-export const getLimitColor = (usageRatio) => {
-  const ratio = Math.min(1, Math.max(0, usageRatio));
-  const hue = 120 - 120 * ratio; // 120=초록, 0=빨강
-  return `hsl(${hue}, 72%, 45%)`;
-};

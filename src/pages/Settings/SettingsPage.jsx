@@ -98,10 +98,10 @@ function PinSetupModal({ existingPin, onSave, onClose }) {
           ))}
           <div />
           <button onClick={() => handleDigit("0")} style={btnStyle}>0</button>
-          <button onClick={handleDelete} style={{ ...btnStyle, background: "transparent", color: "#888", fontSize: 20 }}>⌫</button>
+          <button onClick={handleDelete} style={{ ...btnStyle, background: "transparent", color: theme.subText, fontSize: 20 }}>⌫</button>
         </div>
 
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#888", fontSize: 14, cursor: "pointer" }}>취소</button>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: theme.subText, fontSize: 14, cursor: "pointer" }}>취소</button>
       </div>
     </div>
   );
@@ -254,7 +254,7 @@ export default function SettingsPage() {
         {settings.lockPin ? (
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <S.Btn style={{ marginBottom: 0, textAlign: "center" }} onClick={() => setPinModalMode("change")}>PIN 변경</S.Btn>
-            <S.Btn style={{ marginBottom: 0, textAlign: "center", background: "#E5604D", color: "#fff", border: "none" }} onClick={() => { if (window.confirm("PIN을 삭제하시겠습니까?")) updateSetting("lockPin", ""); }}>PIN 삭제</S.Btn>
+            <S.Btn style={{ marginBottom: 0, textAlign: "center", background: theme.expenseColor, color: theme.onExpense, border: "none" }} onClick={() => { if (window.confirm("PIN을 삭제하시겠습니까?")) updateSetting("lockPin", ""); }}>PIN 삭제</S.Btn>
           </div>
         ) : (
           <S.Btn onClick={() => setPinModalMode("set")}>PIN 잠금 설정 (지문 실패 시 폴백)</S.Btn>
@@ -289,7 +289,7 @@ export default function SettingsPage() {
           개인정보 처리방침 확인
         </S.Btn>
 
-        <S.Btn onClick={resetAll} style={{ background: "#E5604D", color: "#fff", border: "none", textAlign: "center", marginTop: "20px" }}>
+        <S.Btn onClick={resetAll} style={{ background: theme.expenseColor, color: theme.onExpense, border: "none", textAlign: "center", marginTop: "20px" }}>
           전체 데이터 초기화
         </S.Btn>
       </S.Content>

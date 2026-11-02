@@ -48,8 +48,8 @@ export const SelectBox = styled.select`
 export const BackBtn = styled.button`
   width: 100%;
   padding: 14px;
-  background: ${({ theme }) => theme.gradientPrimary};
-  color: #fff;
+  background: ${({ theme }) => theme.primary};
+  color: ${({ theme }) => theme.onPrimary};
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   font-size: 15px;

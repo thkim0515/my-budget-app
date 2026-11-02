@@ -55,7 +55,7 @@ export const SelectCheckbox = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: ${({ theme }) => theme.onPrimary};
   font-size: 12px;
   font-weight: 900;
   transition: background 0.15s, border-color 0.15s;
@@ -226,7 +226,7 @@ export const ToggleSwitch = styled.div`
     left: ${({ $isOn }) => ($isOn ? "18px" : "2px")};
     width: 18px;
     height: 18px;
-    background-color: #fff;
+    background-color: ${({ theme }) => theme.knob};
     border-radius: 50%;
     transition: left 0.25s;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);

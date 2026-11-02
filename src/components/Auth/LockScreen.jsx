@@ -137,13 +137,12 @@ export default function LockScreen({ onAuthenticate, needsPinFallback, onVerifyP
               style={{
                 padding: "14px 32px",
                 background: theme.primary,
-                color: "#fff",
+                color: theme.onPrimary,
                 border: "none",
                 borderRadius: "14px",
                 fontSize: "16px",
                 fontWeight: "bold",
                 cursor: "pointer",
-                boxShadow: theme.shadowPrimary,
               }}
             >
               지문 인증하기

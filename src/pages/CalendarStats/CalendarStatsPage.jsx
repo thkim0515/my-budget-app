@@ -8,6 +8,7 @@ import { useCurrencyUnit } from "../../hooks/useCurrencyUnit";
 import { useNavigate } from "react-router-dom";
 import { useSwipeable } from "react-swipeable";
 import Holidays from "date-holidays";
+import { useTheme } from "styled-components";
 
 import * as S from "./CalendarStatsPage.styles";
 
@@ -26,6 +27,7 @@ const formatDateKey = (d) =>
     .replace(".", "");
 
 export default function CalendarStatsPage() {
+  const theme = useTheme();
   const { db, getAll } = useBudgetDB();
   const { unit } = useCurrencyUnit();
   const navigate = useNavigate();
@@ -78,12 +80,12 @@ export default function CalendarStatsPage() {
     return (
       <S.AmountBox>
         {data?.income > 0 && (
-          <div style={{ color: "#1FA971", fontWeight: 700 }}>
+          <div style={{ color: theme.incomeColor, fontWeight: 700 }}>
             +{formatCompact(data.income)}
           </div>
         )}
         {data?.expense > 0 && (
-          <div style={{ color: "#E5604D", fontWeight: 700 }}>
+          <div style={{ color: theme.expenseColor, fontWeight: 700 }}>
             -{formatCompact(data.expense)}
           </div>
         )}

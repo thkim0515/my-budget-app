@@ -59,8 +59,8 @@ export const InputBox = styled.input`
 
 export const AddBtn = styled.button`
   padding: 0 20px;
-  background: ${({ theme }) => theme.gradientPrimary};
-  color: white;
+  background: ${({ theme }) => theme.primary};
+  color: ${({ theme }) => theme.onPrimary};
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   font-weight: 700;

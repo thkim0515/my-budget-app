@@ -4,7 +4,7 @@ const InputBox = styled.input`
   width: 100%;
   padding: 10px;
   margin-bottom: 14px;
-  border: 1px solid #ccc;
+  border: 1px solid ${({ theme }) => theme.borderStrong};
   border-radius: 6px;
 `;
 
@@ -17,8 +17,8 @@ const Row = styled.div`
 const Btn = styled.button`
   flex: 1;
   padding: 12px;
-  background: #12855A;
-  color: white;
+  background: ${({ theme }) => theme.primary};
+  color: ${({ theme }) => theme.onPrimary};
   border: none;
   border-radius: 6px;
 `;

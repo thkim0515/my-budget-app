@@ -118,19 +118,18 @@ export default function BackupAction() {
   return (
     <>
       <S.Row50>
-        <S.Btn
+        <S.SolidBtn
           onClick={backupData}
-          style={{ background: "#12855A" }}
         >
           데이터 백업 다운로드
-        </S.Btn>
+        </S.SolidBtn>
 
-        <S.Btn
+        <S.SolidBtn
+          $neutral
           onClick={() => fileInputRef.current.click()}
-          style={{ background: "#6E8A7D" }}
         >
           데이터 파일 불러오기
-        </S.Btn>
+        </S.SolidBtn>
       </S.Row50>
 
       <input

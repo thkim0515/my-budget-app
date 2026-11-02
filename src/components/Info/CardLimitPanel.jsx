@@ -171,12 +171,12 @@ export default function CardLimitPanel({ usage = null, onDone }) {
       </S.PrimarySaveBtn>
 
       {!settings.cardLimitProvider && (
-        <p style={{ fontSize: "12px", color: "#E5604D", marginTop: "-4px", marginBottom: "10px" }}>
+        <p style={{ fontSize: "12px", color: theme.errorText, marginTop: "-4px", marginBottom: "10px" }}>
           * 카드사를 선택해야 홈 화면에 표시됩니다.
         </p>
       )}
       {settings.cardLimitProvider && !settings.cardLimitAmount && (
-        <p style={{ fontSize: "12px", color: "#E5604D", marginTop: "-4px", marginBottom: "10px" }}>
+        <p style={{ fontSize: "12px", color: theme.errorText, marginTop: "-4px", marginBottom: "10px" }}>
           * 한도 금액을 입력해야 홈 화면에 표시됩니다.
         </p>
       )}
@@ -198,7 +198,7 @@ export default function CardLimitPanel({ usage = null, onDone }) {
             </S.PrimarySaveBtn>
             <S.PrimarySaveBtn
               type="button"
-              style={{ flex: 1, marginTop: 0, background: "#2FA08A" }}
+              style={{ flex: 1, marginTop: 0, background: theme.neutralBtn, color: theme.onNeutralBtn }}
               onClick={resetUsage}
             >
               한도 리셋

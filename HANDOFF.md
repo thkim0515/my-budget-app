@@ -1,6 +1,6 @@
 # 가계부 인수인계
 
-최종 갱신: 2026-11-02 (v1.3.2, versionCode 6)
+최종 갱신: 2026-11-02 (v1.3.3, versionCode 6)
 
 ## 현재 상태
 - 하단 탭 3개: 홈(`/`), 카카오뱅크(`/kakao`), 전체 소비(`/spend`). 설정은 탭 헤더의 톱니(`Header`의 `onSettings`).
@@ -17,7 +17,7 @@
 - 사용자 분류 규칙: localStorage `kakaoMerchantCategory`(가맹점→분류). `SpendPage.saveTx`(수정 저장)·`acceptSuggestion`이 기록하고, `tidyLocal`/`tidyWithClaude`(Claude 호출 전)·`ingestSpendNotifications`가 먼저 적용. 사용자 UI: 전체 소비 탭 "확인이 필요한 분류" → 분류 정리 시트 → 자동 적용 "수정"/읽지 못한 알림 "삭제".
 - 분류 정리 시트(`SpendSheets.jsx` `TidySheet`)는 가로 스크롤 금지(`Sheet`에 overflow-x hidden), 긴 원문은 2줄 말줄임+"전체 보기".
 - 거래내역 파일: `statementImport.js`. 칸 이름 낱말 목록 `COLUMN_WORDS`를 실제 파일에 맞춰 보강할 것.
-- 디자인 토큰: `theme.js`. 공용 카드·금액 카드: `pages/Kakao/KakaoPage.styles.jsx`.
+- 디자인 토큰: `theme.js`(먹빛 바탕 + 새순 포인트, v1.3.3). 초록은 행동·수입·주 데이터에만 쓰고, 면은 그라데이션·그림자 없이 밝기 차와 1px 선으로 나눈다(그림자 `shadowLg`는 떠 있는 요소만). 색은 화면 코드에 직접 쓰지 말고 토큰을 참조하며, 채운 버튼 글자는 `onPrimary`·`onExpense`·`onNeutralBtn`을 쓴다(다크의 primary는 밝은 색). 남은 직접 값은 중립 오버레이 `rgba(0,0,0,.5)`와 저장값 기본 글자색뿐. 시안·비교: `docs/design-20261102/`(`compare.png`). 공용 카드·금액 카드: `pages/Kakao/KakaoPage.styles.jsx`.
 - 자금 분리: `kakaoStats.splitNet(txs, flow, ts)`가 기준 시점(anchorNet·anchorLoan) 이후 거래를 시간순으로 따라감 — 입금은 마이너스 사용액부터 상환, 출금은 잔액부터. 기준 시점 이전은 기준값 그대로.
 - 집계: `kakaoStats.js`, `spendStats.js`(순수 함수). `spendOf`: 결제 +, 취소 -, 이체·입금 0.
 - 자금 설정: localStorage `kakaoFlow`(기기 전용).

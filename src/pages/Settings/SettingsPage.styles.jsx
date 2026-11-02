@@ -46,6 +46,21 @@ export const Row50 = styled.div`
 `;
 
 // 설정 버튼 스타일
+// 백업·불러오기처럼 면을 채운 버튼
+export const SolidBtn = styled.button`
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ $neutral, theme }) => ($neutral ? theme.neutralBtn : theme.primary)};
+  color: ${({ $neutral, theme }) => ($neutral ? theme.onNeutralBtn : theme.onPrimary)};
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  &:active { transform: scale(0.99); }
+`;
+
 export const Btn = styled.button`
   width: 100%;
   padding: 14px;
@@ -192,7 +207,7 @@ export const PrimarySaveBtn = styled.button`
   border: none;
   border-radius: ${({ theme }) => theme.radius.sm};
   background: ${({ theme, disabled }) => (disabled ? theme.borderStrong : theme.primary)};
-  color: #fff;
+  color: ${({ theme }) => theme.onPrimary};
   font-size: 15px;
   font-weight: 700;
   text-align: center;

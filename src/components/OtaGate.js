@@ -4,6 +4,7 @@ import { App as CapApp } from "@capacitor/app";
 import { startupUpdate, checkForOtaUpdate, markAppReady } from "../services/ota";
 import { checkApkUpdate, dismissUpdate, APP_KEY } from "../services/appUpdate";
 import { AppHub } from "../plugins/AppHub";
+import { getDarkTheme, getLightTheme } from "../theme";
 
 // 첫 화면이 오류 없이 그려졌다는 신호 — 화면과 같은 트리 안에 두어, 그 화면이 실제로 그려졌을 때만
 // 커밋된다. 그때 "이 번들 정상"(notifyAppReady)을 보낸다. 첫 화면에서 죽는 번들이면 신호가 안 가서
@@ -28,9 +29,8 @@ function overlayColors() {
   } catch {
     /* 저장소 접근 불가면 라이트 */
   }
-  return dark
-    ? { bg: "#0C1A14", text: "#E6F4EC", sub: "#A3C2B2", track: "#21392D" }
-    : { bg: "#F1F8F3", text: "#16352A", sub: "#4E6B5E", track: "#DDEBE2" };
+  const t = dark ? getDarkTheme() : getLightTheme();
+  return { bg: t.bg, text: t.text, sub: t.subText, track: t.border, accent: t.primary, onAccent: t.onPrimary, error: t.errorText };
 }
 
 export default function OtaGate({ children }) {
@@ -93,7 +93,7 @@ export default function OtaGate({ children }) {
           <div style={{ fontSize: 18, fontWeight: 700 }}>업데이트 중...</div>
           <div style={{ fontSize: 12, color: c.sub, marginTop: 4 }}>{updating} 으로 업데이트하고 있어요</div>
           <div style={{ width: "100%", maxWidth: 220, height: 8, background: c.track, borderRadius: 999, marginTop: 20, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.max(percent, 3)}%`, background: "#3b82f6", borderRadius: 999, transition: "width 0.2s ease-out" }} />
+            <div style={{ height: "100%", width: `${Math.max(percent, 3)}%`, background: c.accent, borderRadius: 999, transition: "width 0.2s ease-out" }} />
           </div>
           <div style={{ fontSize: 11, color: c.sub, marginTop: 8 }}>{percent}%</div>
         </div>
@@ -144,7 +144,7 @@ function UpdatePrompt({ update, onLater }) {
           </div>
         )}
         {hub === false && (
-          <div style={{ fontSize: 12.5, color: "#E5604D", marginTop: 12 }}>앱 허브가 설치되어 있지 않아요. 앱 허브를 설치한 뒤 업데이트해 주세요.</div>
+          <div style={{ fontSize: 12.5, color: c.error, marginTop: 12 }}>앱 허브가 설치되어 있지 않아요. 앱 허브를 설치한 뒤 업데이트해 주세요.</div>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
           {canLater && (
@@ -153,7 +153,7 @@ function UpdatePrompt({ update, onLater }) {
             </button>
           )}
           {hub !== false && (
-            <button type="button" disabled={hub === null || opening} onClick={openHub} style={{ ...btn, background: "#3b82f6", color: "#fff", opacity: hub === null || opening ? 0.6 : 1 }}>
+            <button type="button" disabled={hub === null || opening} onClick={openHub} style={{ ...btn, background: c.accent, color: c.onAccent, opacity: hub === null || opening ? 0.6 : 1 }}>
               앱 허브에서 업데이트
             </button>
           )}

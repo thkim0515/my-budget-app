@@ -12,7 +12,7 @@ const Bar = styled.div`
   max-width: 480px;
   height: calc(72px + env(safe-area-inset-bottom));
   background: ${({ theme }) => theme.card};
-  box-shadow: 0 -8px 24px ${({ theme }) => theme.navShadow};
+  border-top: 1px solid ${({ theme }) => theme.border};
   display: flex;
   justify-content: space-around;
   align-items: stretch;
@@ -51,11 +51,10 @@ const Tab = styled(Link)`
   padding: 6px 4px;
   width: 100%;
   text-decoration: none;
-  color: ${({ $active, theme }) => ($active ? theme.activeText : theme.text)};
+  color: ${({ $active, theme }) => ($active ? theme.activeText : theme.subText)};
   font-size: 11px;
-  font-weight: ${({ $active }) => ($active ? "700" : "400")};
-  opacity: ${({ $active }) => ($active ? 1 : 0.65)};
-  transition: color 0.2s, opacity 0.2s;
+  font-weight: ${({ $active }) => ($active ? "600" : "400")};
+  transition: color 0.2s;
 `;
 
 // hidden: true 인 탭은 하단 내비게이션에 표시하지 않는다(페이지 코드와 라우트는 App.js 에 그대로 있다).

@@ -17,8 +17,8 @@ const spin = keyframes`
 const Spinner = styled.div`
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top: 2px solid white;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
   border-radius: 50%;
   animation: ${spin} 0.8s linear infinite;
 `;
@@ -38,8 +38,8 @@ export const Btn = styled.button`
   margin-bottom: 12px;
   border: none;
   border-radius: 6px;
-  background: ${(props) => (props.disabled ? "#A9BDB3" : props.bg || "#12855A")};
-  color: white;
+  background: ${({ disabled, $neutral, theme }) => (disabled ? theme.borderStrong : $neutral ? theme.neutralBtn : theme.primary)};
+  color: ${({ $neutral, theme }) => ($neutral ? theme.onNeutralBtn : theme.onPrimary)};
   font-size: 15px;
   cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
   display: flex;
@@ -131,11 +131,11 @@ export default function SyncAction() {
   return (
     <Container>
       <Row50>
-        <Btn onClick={handleUpload} bg="#12855A" disabled={isLoading}>
+        <Btn onClick={handleUpload} disabled={isLoading}>
           {isLoading ? <Spinner /> : null}
           {isLoading ? "전송 중..." : "서버로 보내기"}
         </Btn>
-        <Btn onClick={handleDownload} bg="#6E8A7D" disabled={isLoading}>
+        <Btn onClick={handleDownload} $neutral disabled={isLoading}>
           {isLoading ? <Spinner /> : null}
           {isLoading ? "가져오는 중..." : "서버에서 가져오기"}
         </Btn>

@@ -129,22 +129,19 @@ export const ActionBtn = styled.button`
   font-weight: 800;
   font-size: 15px;
   cursor: pointer;
-  color: #fff;
-  transition: transform 0.1s, box-shadow 0.15s;
+  transition: transform 0.1s;
   background: ${({ $variant, theme }) => {
     switch ($variant) {
-      case "income": return theme.gradientIncome;
-      case "expense": return theme.gradientExpense;
-      case "confirm": return theme.gradientPrimary;
+      case "income": return theme.incomeColor;
+      case "expense": return theme.expenseColor;
+      case "confirm": return theme.primary;
       case "toggle": return theme.cardAlt;
       case "cancel": return theme.cardAlt;
-      default: return theme.gradientPrimary;
+      default: return theme.primary;
     }
   }};
   color: ${({ $variant, theme }) =>
-    $variant === "toggle" || $variant === "cancel" ? theme.subText : "#fff"};
-  box-shadow: ${({ $variant, theme }) =>
-    $variant === "toggle" || $variant === "cancel" ? "none" : theme.shadowSm};
+    $variant === "toggle" || $variant === "cancel" ? theme.subText : $variant === "expense" ? theme.onExpense : theme.onPrimary};
   &:active { transform: scale(0.97); }
 `;
 

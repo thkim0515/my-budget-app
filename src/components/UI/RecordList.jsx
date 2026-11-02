@@ -7,7 +7,7 @@ const List = styled.ul`
 
 const Item = styled.li`
   padding: 10px;
-  background: #f7f7f7;
+  background: ${({ theme }) => theme.cardAlt};
   border-radius: 6px;
   margin-bottom: 8px;
   display: flex;

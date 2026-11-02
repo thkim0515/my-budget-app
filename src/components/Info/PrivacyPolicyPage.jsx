@@ -38,7 +38,7 @@ const Content = styled.div`
     font-size: 17px; 
     margin-top: 24px; 
     margin-bottom: 10px;
-    color: #12855A; 
+    color: ${({ theme }) => theme.primaryText}; 
     font-weight: bold;
   }
   
@@ -51,16 +51,15 @@ const Content = styled.div`
   ul { padding-left: 18px; }
 
   .security-card { 
-    color: ${({ theme }) => theme.mode === 'dark' ? '#e5e5e5' : '#16352A'};
+    color: ${({ theme }) => theme.text};
     font-weight: bold;
     padding: 15px;
-    background: ${({ theme }) => theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#f8f9fa'};
-    border-left: 4px solid #12855A;
+    background: ${({ theme }) => theme.cardAlt};
     border-radius: 4px;
     margin: 20px 0;
     font-size: 13px;
     border: 1px solid ${({ theme }) => theme.border};
-    border-left: 4px solid #12855A;
+    border-left: 4px solid ${({ theme }) => theme.primary};
   }
 
   .footer-date {

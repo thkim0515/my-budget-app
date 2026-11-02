@@ -30,8 +30,8 @@ const HeaderWrap = styled.div`
 `;
 
 const Title = styled.h1`
-  font-size: 24px;
-  font-weight: 800;
+  font-size: 22px;
+  font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
   white-space: nowrap;

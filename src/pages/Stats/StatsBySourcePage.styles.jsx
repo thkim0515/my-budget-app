@@ -62,12 +62,11 @@ export const ArrowBtn = styled.button`
 
 // 총 지출 요약 카드
 export const TotalCard = styled.div`
-  background: ${({ theme }) => theme.headerGradient};
+  background: ${({ theme }) => theme.heroBg};
   border-radius: ${({ theme }) => theme.radius.lg};
   padding: 20px;
   margin-bottom: 18px;
-  color: #fff;
-  box-shadow: ${({ theme }) => theme.shadowPrimary};
+  color: ${({ theme }) => theme.heroText};
 
   span {
     font-size: 13px;
@@ -183,7 +182,7 @@ export const BarFill = styled.div`
   bottom: 0;
   width: ${({ $pct }) => $pct}%;
   border-radius: 999px;
-  background: ${({ theme }) => theme.gradientPrimary};
+  background: ${({ theme }) => theme.primary};
   transition: width 0.4s cubic-bezier(0.2, 0, 0, 1);
 `;
 

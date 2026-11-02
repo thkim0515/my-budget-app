@@ -41,7 +41,7 @@ export default function FlowTab({ txs, flow, onChangeFlow, onOpenSettings, onEdi
       <S.Hero>
         <S.Row>
           <S.HeroLabel $onHero>이번 달 남은 예산</S.HeroLabel>
-          <S.AddBtn type="button" onClick={onOpenSettings} style={{ minHeight: 36, background: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}>자금 설정</S.AddBtn>
+          <S.AddBtn type="button" onClick={onOpenSettings} style={{ minHeight: 36, background: theme.heroChip, color: theme.heroText }}>자금 설정</S.AddBtn>
         </S.Row>
         {summary.hasBudget ? (
           <>

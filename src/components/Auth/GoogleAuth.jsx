@@ -74,10 +74,10 @@ const Description = styled.div`
 const GoogleButton = styled.button`
   width: ${({ $isLogout }) => ($isLogout ? "auto" : "100%")};
   padding: ${({ $isLogout }) => ($isLogout ? "8px 12px" : "12px")};
-  border: 1px solid ${({ $isLogout }) => ($isLogout ? "#E5604D" : "#ddd")};
+  border: 1px solid ${({ $isLogout, theme }) => ($isLogout ? theme.expenseColor : theme.borderStrong)};
   border-radius: 8px;
-  background: white;
-  color: ${({ $isLogout }) => ($isLogout ? "#E5604D" : "#444")};
+  background: ${({ theme }) => theme.card};
+  color: ${({ $isLogout, theme }) => ($isLogout ? theme.errorText : theme.text)};
   font-weight: bold;
   font-size: ${({ $isLogout }) => ($isLogout ? "13px" : "14px")};
   cursor: pointer;
@@ -88,7 +88,7 @@ const GoogleButton = styled.button`
   flex-shrink: 0;
   white-space: nowrap;
   
-  &:active { background: #f5f5f5; }
+  &:active { background: ${({ theme }) => theme.surfaceHover}; }
 `;
 
 export default function GoogleAuth() {
