@@ -52,7 +52,7 @@ export const getLightTheme = (customTextColor) => ({
   heroChip: "#2A3138",
   heroTrack: "#38404A",
   heroFill: "#6CB8FF",
-  heroNegative: "#F4A898",
+  heroNegative: "#FF6B6B",
 
   // 배경/표면
   bg: "#F4F6F8",
@@ -85,15 +85,15 @@ export const getLightTheme = (customTextColor) => ({
   completedBorder: "#E2E6EB",
   paidBadgeBg: "#E3EEFB",
   paidBadgeText: "#11539F",
-  errorText: "#B23E28",
+  errorText: "#C62828",
 
   // 금액 색상
   incomeColor: "#1668C7",
   incomeSoft: "#E3EEFB",
-  expenseColor: "#BF4530",
-  expenseSoft: "#F9ECE8",
-  warning: "#8F6208",
-  warningSoft: "#F6EFDC",
+  expenseColor: "#D32F2F",
+  expenseSoft: "#FDECEC",
+  warning: "#BF360C",
+  warningSoft: "#FBE9E7",
   infoColor: "#2B6CB0",
 
   // 그래프 — 주 데이터 한 색, 나머지는 회색
@@ -121,7 +121,7 @@ export const getDarkTheme = (customTextColor) => ({
   primary: "#6CB8FF",
   primaryDark: "#4FA3F0",
   onPrimary: "#06213A",
-  onExpense: "#2A120C",
+  onExpense: "#2A0A0A",
   neutralBtn: "#38404A",
   onNeutralBtn: "#F0F3F6",
 
@@ -132,7 +132,7 @@ export const getDarkTheme = (customTextColor) => ({
   heroChip: "#2F3741",
   heroTrack: "#38414C",
   heroFill: "#6CB8FF",
-  heroNegative: "#F4A898",
+  heroNegative: "#FF6B6B",
 
   // 배경/표면
   bg: "#0F1215",
@@ -165,15 +165,15 @@ export const getDarkTheme = (customTextColor) => ({
   completedBorder: "#22272C",
   paidBadgeBg: "#16283A",
   paidBadgeText: "#9CD0FF",
-  errorText: "#F4A898",
+  errorText: "#FF8080",
 
   // 금액 색상
   incomeColor: "#6CB8FF",
   incomeSoft: "#16283A",
-  expenseColor: "#F4A898",
-  expenseSoft: "#33221E",
-  warning: "#E3BC63",
-  warningSoft: "#2E2817",
+  expenseColor: "#FF6B6B",
+  expenseSoft: "#3A1F22",
+  warning: "#FF8A65",
+  warningSoft: "#36201A",
   infoColor: "#8DBBEA",
 
   // 그래프 — 주 데이터 한 색, 나머지는 회색
