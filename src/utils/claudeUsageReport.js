@@ -67,7 +67,7 @@ export const toItems = (q) =>
 const deviceId = () => {
   let id = read(DEV_KEY, "");
   if (!id) {
-    id = globalThis.crypto?.randomUUID?.() || "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16));
+    id = window.crypto?.randomUUID?.() || "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16));
     write(DEV_KEY, id);
   }
   return id;
