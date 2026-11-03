@@ -2,6 +2,7 @@
 // 키 저장과 실제 HTTP 는 네이티브(BudgetPlugin)가 맡아 키가 웹뷰로 나오지 않는다. 벨라의 모델·단가·장부 방식을 따랐다.
 import { BudgetPlugin } from "../plugins/BudgetPlugin";
 import { toYm } from "./kakaoStats";
+import { recordClaudeUsage } from "./claudeUsageReport";
 
 const MAX_TOKENS = 8000;
 const SHOWN_LINES = ["haiku", "sonnet", "opus", "fable"];
@@ -252,6 +253,13 @@ export const runClaude = async (payload, opts = {}) => {
     const res = await BudgetPlugin.claudeMessages({ body, fallback: FALLBACK_MODELS.includes(model) });
     const parsed = parseResponse(res.status, res.body);
     settle(parsed.usd, parsed.tokens);
+    // 앱 허브 "Claude 사용량" 집계(토큰 수·모델·기능명만). opts.feature 가 없으면 etc
+    try {
+      const sent = JSON.parse(res.body);
+      if (sent?.usage) recordClaudeUsage(opts.feature || "etc", sent.model || model, sent.usage);
+    } catch {
+      /* 본문이 JSON 이 아니면 청구도 없다 */
+    }
     return { ...parsed, model: parsed.model || model };
   } catch (e) {
     if (e?.message === "NO_KEY") {

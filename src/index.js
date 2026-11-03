@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import { HashRouter } from 'react-router-dom';
+import { flushClaudeUsage } from './utils/claudeUsageReport';
+
+flushClaudeUsage(); // 지난번에 못 보낸 Claude 사용량을 보낸다
 import OtaGate from './components/OtaGate';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

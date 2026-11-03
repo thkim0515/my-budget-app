@@ -140,7 +140,7 @@ export const tidyWithClaude = async ({ getAll, put, keep = () => true }) => {
   const rows = (await allTxs(getAll)).filter((r) => isUnsorted(r.t) && !r.t.suggestedCategory && keep(r));
   if (rows.length === 0) return { applied: 0, suggested: 0, skipped: true };
   const { keys, payload } = buildClassifyPayload(rows);
-  const out = await runClaude(payload, { system: CLASSIFY_SYSTEM, schema: CLASSIFY_SCHEMA, effort: "low", maxTokens: 4000 });
+  const out = await runClaude(payload, { system: CLASSIFY_SYSTEM, schema: CLASSIFY_SCHEMA, effort: "low", maxTokens: 4000, feature: "spend_classify" });
   if (!out.analysis) return { error: out.error, noKey: out.noKey, blocked: out.blocked, applied: 0, suggested: 0 };
   let applied = 0;
   let suggested = 0;
@@ -223,7 +223,7 @@ const RAW_SCHEMA = {
 export const parseRawWithClaude = async (notis, { db, add }) => {
   if (!hasRawConsent()) return { error: "동의가 필요합니다." };
   const list = notis.slice(0, MAX_RAW);
-  const out = await runClaude({ 알림: list.map((n, id) => ({ id, 문장: maskNotification(`${n.title} ${n.text}`) })) }, { system: RAW_SYSTEM, schema: RAW_SCHEMA, effort: "low", maxTokens: 3000 });
+  const out = await runClaude({ 알림: list.map((n, id) => ({ id, 문장: maskNotification(`${n.title} ${n.text}`) })) }, { system: RAW_SYSTEM, schema: RAW_SCHEMA, effort: "low", maxTokens: 3000, feature: "notif_parse" });
   if (!out.analysis) return { error: out.error, noKey: out.noKey, saved: 0, suggested: 0 };
   let saved = 0;
   let suggested = 0;

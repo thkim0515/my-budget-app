@@ -44,7 +44,7 @@ export default function AnalysisTab({ txs, flow }) {
   const analyze = async () => {
     setError("");
     setRunning(true);
-    const out = await runAnalysis(payload);
+    const out = await runAnalysis(payload, { feature: "kakao_analysis" });
     if (out.analysis) {
       saveResult(ym, { analysis: out.analysis, model: out.model, tokens: out.tokens, usd: out.usd });
       setResult(loadResult(ym));

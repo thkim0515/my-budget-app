@@ -79,7 +79,7 @@ export default function ClaudePanel({ txs, period, helpers, onChanged }) {
       if (!tidy.skipped && !tidy.error) tidyNote = `미분류 정리: 자동 적용 ${tidy.applied}건 · 추천 ${tidy.suggested}건 (입력 ${formatTokens(tidy.tokens?.input)} · 출력 ${formatTokens(tidy.tokens?.output)} 토큰 · 약 ${formatUsd(tidy.usd)})`;
       onChanged?.();
     }
-    const out = await runAnalysis(payload, SPEND_ANALYSIS_OPTS);
+    const out = await runAnalysis(payload, { ...SPEND_ANALYSIS_OPTS, feature: "spend_analysis" });
     if (out.analysis) {
       setResults(saveSpendResult({ key: period.key, label: period.label, level, count, total: payload.결제합계, analysis: out.analysis, model: out.model, tokens: out.tokens, usd: out.usd }));
     } else {
