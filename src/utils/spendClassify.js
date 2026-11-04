@@ -1,7 +1,7 @@
 // 분류 정리 — 1단계(무료): 이전 분류·학습 규칙으로 카테고리 지정. 2단계(Claude): 남은 가맹점만 모아 분류. 3단계(동의 시): 읽지 못한 알림을 가려서 읽기.
 import { runClaude } from "./claudeClient";
 import { loadMerchantRules, rememberMerchantCategory } from "./kakaoIngest";
-import { SPEND_CATEGORIES } from "./spendParser";
+import { SPEND_CATEGORIES, isHiddenNonExpense } from "./spendParser";
 
 const TIDY_ENABLED_KEY = "spendTidyEnabled";
 const TIDY_DATE_KEY = "spendTidyDate";
@@ -71,7 +71,7 @@ export const buildKnown = (txs, rules = loadMerchantRules()) => {
 
 const allTxs = async (getAll) => {
   const [spend, kakao] = await Promise.all([getAll("spendTx"), getAll("kakaoTx")]);
-  return [...spend.map((t) => ({ t, store: "spendTx" })), ...kakao.map((t) => ({ t, store: "kakaoTx" }))];
+  return [...spend.map((t) => ({ t, store: "spendTx" })), ...kakao.map((t) => ({ t, store: "kakaoTx" }))].filter((r) => !isHiddenNonExpense(r.t));
 };
 
 export const tidyLocal = async ({ getAll, put }) => {

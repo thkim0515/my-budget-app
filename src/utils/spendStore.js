@@ -3,7 +3,7 @@ import { categoryFor, loadSpendSourceIds } from "./kakaoIngest";
 import { isSameTx } from "./statementImport";
 import { isKakaoBankNotification, parseKakaoNotification, findCancelTarget } from "./kakaoParser";
 import { buildKnown, matchLocal } from "./spendClassify";
-import { findDuplicate, isSourceExcluded, matchSource, parseSpendNotification, SOURCES, sourceById } from "./spendParser";
+import { completeMerchant, extractCardMerchant, findDuplicate, isHiddenNonExpense, isSourceExcluded, matchSource, parseSpendNotification, SOURCES, sourceById } from "./spendParser";
 
 const SOURCES_KEY = "spendSources";
 const KEEP_PARSED_RAW = 300;
@@ -25,11 +25,11 @@ const newId = () => crypto.randomUUID();
 export const mergeSpend = (spendTxs, kakaoTxs, selected = ["kakaobank"]) => {
   const useKakao = selected.includes("kakaobank");
   const kakao = (useKakao ? kakaoTxs : [])
-    .filter((t) => (t.kind === "payment" || t.kind === "refund") && !t.excludeFromFlow)
+    .filter((t) => (t.kind === "payment" || t.kind === "refund") && !t.excludeFromFlow && !isHiddenNonExpense(t))
     .map((t) => ({ ...t, sourceId: "kakaobank", store: "kakaoTx" }));
   // 페이 알림이 카카오뱅크 결제와 겹치면 카카오뱅크 쪽만 센다(저장 순서와 무관하게 이중 집계를 막는다).
   const others = spendTxs
-    .filter((t) => (t.kind === "payment" || t.kind === "refund") && !isSourceExcluded(t.sourceId, selected))
+    .filter((t) => (t.kind === "payment" || t.kind === "refund") && !isSourceExcluded(t.sourceId, selected) && !isHiddenNonExpense(t))
     .filter((t) => !(sourceById(t.sourceId)?.pay && kakao.some((k) => k.kind === t.kind && k.amount === t.amount && Math.abs(k.ts - t.ts) < 3 * 60 * 1000)))
     // 거래내역서로 넣은 카카오뱅크 내역이 알림 내역과 겹치면 한 번만 센다.
     .filter((t) => !(t.sourceId === "kakaobank" && kakao.some((k) => isSameTx({ ...t, hasTime: true }, k))))
@@ -112,11 +112,39 @@ export const importSpendFromRecords = async ({ getAll, add }) => {
     if (!source || r.type === "income" || imported.has(r.id)) continue;
     const ts = new Date(r.createdAt || r.date).getTime();
     if (!ts) continue;
-    if (r.isTransfer) continue; // 지출만 모은다
+    if (r.isTransfer || isHiddenNonExpense({ merchant: r.title })) continue; // 지출만 모은다
     const tx = { ts, kind: "payment", amount: r.amount, sourceId: source.id, pkg: "import" };
     if (existing.some((e) => !e.isDeleted && e.sourceId === source.id && e.amount === r.amount && e.kind === tx.kind && Math.abs(e.ts - ts) < 5 * 60 * 1000)) continue;
-    await add("spendTx", { ...tx, merchant: r.title, category: r.category || "기타", installment: 0, inputMode: "import", sourceRecordId: r.id }, true);
+    await add("spendTx", { ...tx, merchant: extractCardMerchant(r.title) || r.title, category: r.category || "기타", installment: 0, inputMode: "import", sourceRecordId: r.id }, true);
     count += 1;
   }
   return count;
+};
+
+// 보기에서 숨긴 비지출 내역(저장은 그대로). 되돌리면 keepAsExpense 로 다시 숨기지 않는다.
+export const listHidden = (spendTxs, kakaoTxs) => [
+  ...spendTxs.filter((t) => (t.kind === "payment" || t.kind === "refund") && isHiddenNonExpense(t)).map((t) => ({ t, store: "spendTx" })),
+  ...kakaoTxs.filter((t) => (t.kind === "payment" || t.kind === "refund") && !t.excludeFromFlow && isHiddenNonExpense(t)).map((t) => ({ t, store: "kakaoTx" })),
+];
+export const restoreHidden = async (rows, put) => { for (const { t, store } of rows) await put(store, { ...t, keepAsExpense: true }, true); };
+
+// 카드 문자 통째로 들어간 가맹점 이름을 가맹점만으로 고치고, 잘린 이름은 같은 앞부분의 기존 이름으로 잇는다.
+// 원래 이름은 merchantRaw 에 남겨 되돌릴 수 있다. 사용자가 직접 고친 내역은 건드리지 않는다.
+// shortcut: 가맹점 이름 한 줄만 다시 읽음(보관된 알림 원문 재파싱은 안 함), 문자 형식이 아닌 잘림은 잇지 않음.
+export const repairMerchants = async ({ getAll, put }) => {
+  const list = (await getAll("spendTx")).filter((t) => !t.isDeleted);
+  const pool = list.filter((t) => !extractCardMerchant(t.merchant)).map((t) => t.merchant);
+  const done = [];
+  for (const t of list) {
+    if (t.categoryLocked || t.inputMode === "manual" || t.merchantRaw) continue;
+    const parsed = extractCardMerchant(t.merchant);
+    if (!parsed) continue;
+    const merchant = completeMerchant(parsed, pool);
+    await put("spendTx", { ...t, merchant, merchantRaw: t.merchant }, true);
+    done.push(t);
+  }
+  return {
+    count: done.length,
+    undo: async () => { for (const t of done) await put("spendTx", t); },
+  };
 };

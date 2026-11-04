@@ -214,7 +214,7 @@ export function SpendTxSheet({ tx, draft, raw, onSave, onDelete, onClose }) {
 // 분류 정리: 읽지 못한 알림, Claude 추천 확인, 자동 적용 기록(되돌리기).
 const clamp = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" };
 
-export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onPick, onEdit, onDismiss, onChanged, onBulk, onClose }) {
+export function TidySheet({ hiddenCount = 0, onRestoreHidden, raws, suggestions, autoApplied, hasKey, helpers, onPick, onEdit, onDismiss, onChanged, onBulk, onClose }) {
   const [opened, setOpened] = useState([]);
   const suggestionGroups = useMemo(() => groupByMerchant(suggestions), [suggestions]);
   const autoGroups = useMemo(() => groupByMerchant(autoApplied), [autoApplied]);
@@ -252,6 +252,12 @@ export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onP
     <Sheet title="분류 정리" onClose={onClose}>
       {hasKey && <S.GhostBtn type="button" style={{ marginTop: 0 }} disabled={busy} onClick={runTidy}>{busy ? "정리하는 중…" : "기타 내역을 Claude로 정리"}</S.GhostBtn>}
       {message && <S.Caption style={{ marginTop: 8 }}>{message}</S.Caption>}
+      {hiddenCount > 0 && (
+        <>
+          <S.Caption style={{ marginTop: 8 }}>충전·이자·대출·안내 등 지출이 아닌 내역 {hiddenCount}건은 숨겼습니다(삭제 아님).</S.Caption>
+          <S.GhostBtn type="button" onClick={onRestoreHidden}>숨긴 내역 모두 지출로 되돌리기</S.GhostBtn>
+        </>
+      )}
 
       <S.CardTitle style={{ marginTop: 16 }}>읽지 못한 알림 {raws.length}건</S.CardTitle>
       <S.Caption style={{ marginBottom: 6 }}>눌러서 고치면 지출로 저장됩니다. 원문은 이 기기에만 있습니다.</S.Caption>

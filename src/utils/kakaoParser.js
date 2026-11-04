@@ -53,6 +53,7 @@ export const parseKakaoNotification = (noti) => {
   const raw = `${noti.title || ""} ${noti.text || ""}`.replace(/\s+/g, " ").trim();
 
   if (has(raw, DECLINED_WORDS)) return { result: "declined", reason: "실패·거절 알림" };
+  if (/(^|\s)내일(은|\s)|날이에요|부족해요|채워\s?주세요|확인\s?해\s?주세요/.test(raw)) return { result: "ignored", reason: "예정·안내 문구" };
   if (!has(raw, SIGNAL_WORDS)) return { result: "ignored", reason: "거래 신호 없음" };
   // 광고 문구는 "입금·출금·승인" 같은 말이 금액 없이 또는 함께 섞여 오므로, 광고어가 있으면 분명한 카드·입출금 신호일 때만 통과시킨다.
   if (has(raw, AD_WORDS) && !/(승인|출금|입금)\s*[:|]?\s*[\d,]+\s*원|[\d,]+\s*원\s*(승인|출금|입금|결제)/.test(raw)) {
@@ -74,7 +75,7 @@ export const parseKakaoNotification = (noti) => {
   let kind;
   if (has(withoutMeta, CANCEL_WORDS)) kind = "refund";
   else if (/입금|환급|받았/.test(withoutMeta)) kind = "income";
-  else if (has(withoutMeta, TRANSFER_WORDS)) kind = "transfer";
+  else if (has(withoutMeta, TRANSFER_WORDS) || /충전/.test(withoutMeta)) kind = "transfer";
   else kind = "payment"; // "출금 12,000원 스타벅스"처럼 카드 결제가 출금으로 오는 경우 포함. 틀리면 탭에서 고칠 수 있다.
 
   const ts = noti.time || Date.now();

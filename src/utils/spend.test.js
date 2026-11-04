@@ -1,7 +1,7 @@
 import { isKakaoBankNotification } from "./kakaoParser";
-import { findDuplicate, matchSource, parseSpendNotification, parseWhen, sourceById } from "./spendParser";
+import { completeMerchant, extractCardMerchant, findDuplicate, isHiddenNonExpense, matchSource, parseSpendNotification, parseWhen, sourceById } from "./spendParser";
 import { bucketSeries, buildSpendPayload, inPeriod, monthPeriod, previousPeriod, rangePeriod, saveSpendResult, loadSpendResults, sourceBreakdown, totalSpend, txsOfSource } from "./spendStats";
-import { excludedSummary, mergeSpend } from "./spendStore";
+import { excludedSummary, listHidden, mergeSpend, repairMerchants, restoreHidden } from "./spendStore";
 
 const at = (y, m, d, h = 12, mi = 0) => new Date(y, m - 1, d, h, mi).getTime();
 const samsung = sourceById("samsung");
@@ -168,5 +168,65 @@ describe("통합·기간 집계", () => {
     saveSpendResult({ key: "b", analysis: { summary: "2" } });
     saveSpendResult({ key: "a", analysis: { summary: "3" } });
     expect(loadSpendResults().map((r) => r.analysis.summary)).toEqual(["3", "2"]);
+  });
+});
+
+describe("지출이 아닌 안내·충전·이자 거르기", () => {
+  const junk = ["충전했어요. 머니를 자동 충전했어요.", "알림 김태헌 02/27", "내일은 이자 나가는 19일은 대출 이자 내는 날이에요. 계좌 부족해요. 계좌를 채워주세요.",
+    "내일 비상금대출 이자 갚는 날이에요. 확인해주세요.", "이자를 냈어요🔔 비상금대출의 이자 냈어요."];
+  test("캡처 문구는 모두 숨김 대상, 이자카야·일반 가맹점은 아님", () => {
+    junk.forEach((m) => expect(isHiddenNonExpense({ merchant: m })).toBe(true));
+    expect(isHiddenNonExpense({ merchant: "이자카야 모리" })).toBe(false);
+    expect(isHiddenNonExpense({ merchant: "드림월드플러스" })).toBe(false);
+    expect(isHiddenNonExpense({ merchant: junk[0], keepAsExpense: true })).toBe(false);
+  });
+  test("알림 파서도 지출로 만들지 않음", () => {
+    expect(parse("", "머니를 자동 충전했어요. 50,000원 충전했어요.").result).toBe("ignored");
+    expect(parse("", "삼성카드 내일 대출 이자 3,000원 나가는 날이에요").result).toBe("ignored");
+    expect(parse("", "삼성카드 이자를 냈어요 비상금대출의 이자 3,000원 출금").result).toBe("ignored");
+  });
+  test("보기에서만 숨기고 되돌리면 다시 나타남", async () => {
+    const spend = [{ id: 1, kind: "payment", merchant: junk[2], amount: 1000, ts: 1, sourceId: "samsung" }, { id: 2, kind: "payment", merchant: "스타벅스", amount: 1000, ts: 2, sourceId: "samsung" }];
+    const kakao = [{ id: 3, kind: "payment", merchant: junk[4], amount: 3000, ts: 3 }];
+    expect(mergeSpend(spend, kakao, ["samsung", "kakaobank"]).map((t) => t.id)).toEqual([2]);
+    const hidden = listHidden(spend, kakao);
+    expect(hidden).toHaveLength(2);
+    const saved = {};
+    await restoreHidden(hidden, async (store, t) => { saved[`${store}${t.id}`] = t; });
+    expect(mergeSpend([saved.spendTx1, spend[1]], [saved.kakaoTx3], ["samsung", "kakaobank"])).toHaveLength(3);
+  });
+});
+
+describe("카드 승인 문자 가맹점 이름", () => {
+  test("캡처의 문구에서 가맹점만 뽑음", () => {
+    expect(extractCardMerchant("김*헌 일시불 21:15 드림월드플러")).toBe("드림월드플러");
+    expect(extractCardMerchant("김*헌 일시불 13:48 네일앤스타일")).toBe("네일앤스타일");
+    expect(extractCardMerchant("김*헌 일시불 18:44 여기어때컴퍼")).toBe("여기어때컴퍼");
+    expect(extractCardMerchant("김*헌 3개월 02/25 21:15 스타벅스 누적 120,000원")).toBe("스타벅스");
+    expect(extractCardMerchant("스타벅스 강남점")).toBeNull();
+  });
+  test("승인 문자 알림도 가맹점만 저장", () => {
+    const r = parse("", "삼성5215승인 김*헌 12,000원 일시불 02/25 21:15 드림월드플러스 누적 100,000원");
+    expect(r.tx.merchant).toBe("드림월드플러스");
+  });
+  test("잘린 이름은 기존 같은 앞부분 이름으로 잇고 법인 표기는 무시", () => {
+    expect(completeMerchant("드림월드플러", ["주 드림월드플러스", "주 드림월드플러스", "스타벅스"])).toBe("주 드림월드플러스");
+    expect(completeMerchant("여기어때컴퍼", ["여기어때컴퍼니"])).toBe("여기어때컴퍼니");
+    expect(completeMerchant("스타벅스", ["스타벅스 강남점"])).toBe("스타벅스"); // 3글자 이상 차이는 잇지 않음
+    expect(completeMerchant("네일앤스타일", ["다른곳"])).toBe("네일앤스타일");
+  });
+  test("저장분 재정리: 원래 이름 보존·되돌리기, 직접 고친 건 제외", async () => {
+    const data = [
+      { id: 1, kind: "payment", merchant: "김*헌 일시불 21:15 드림월드플러", inputMode: "import" },
+      { id: 2, kind: "payment", merchant: "주 드림월드플러스", inputMode: "import" },
+      { id: 3, kind: "payment", merchant: "김*헌 일시불 13:48 네일앤스타일", inputMode: "manual" },
+    ];
+    const put = async (_s, t) => { data.splice(data.findIndex((x) => x.id === t.id), 1, t); };
+    const r = await repairMerchants({ getAll: async () => data, put });
+    expect(r.count).toBe(1);
+    expect(data[0]).toMatchObject({ merchant: "주 드림월드플러스", merchantRaw: "김*헌 일시불 21:15 드림월드플러" });
+    expect(data[2].merchant).toBe("김*헌 일시불 13:48 네일앤스타일");
+    await r.undo();
+    expect(data[0].merchant).toBe("김*헌 일시불 21:15 드림월드플러");
   });
 });

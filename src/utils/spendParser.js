@@ -50,6 +50,32 @@ export const matchSource = (noti, selectedIds) => {
   return { source: s, channel: SMS_PACKAGES.includes(pkg) ? "message" : "other" };
 };
 
+// 지출이 아닌 안내(예정·부족·확인 요청)와 자금 이동(충전·이자·상환·대출). 전체 소비는 "사용한 금액"만 모으고 이런 것은 카카오뱅크 탭에서 다룬다.
+export const NOTICE = /(^|\s)내일(은|\s)|날이에요|부족해요|채워\s?주세요|확인\s?해\s?주세요|예정|자동\s?충전|충전했|충전되|이자(?!카야)|상환|대출/;
+const NON_EXPENSE = new RegExp(NOTICE.source + "|^알림 ");
+// 이미 저장된 내역 중 지출로 보지 않을 것. 지우지 않고 보기에서만 숨기며, keepAsExpense 로 되돌린다.
+export const isHiddenNonExpense = (t) => !t.keepAsExpense && NON_EXPENSE.test(t.merchant || "");
+
+// 카드 승인 문자 꼬리 "이름(마스킹) 일시불|N개월 [날짜] 시각 가맹점" 에서 가맹점만. 누적·잔액 이하는 버린다.
+export const extractCardMerchant = (text) => {
+  const m = (text || "").match(/[가-힣A-Za-z]\*[가-힣A-Za-z]?\s*(?:일시불|\d{1,2}\s*개월)\s*(?:\d{1,2}[/.]\d{1,2}\s+)?\d{1,2}:\d{2}(?::\d{2})?\s+(.+)$/);
+  const name = m ? m[1].replace(/\s*(?:누적|잔액|잔여한도|한도).*$/, "").trim() : "";
+  return name || null;
+};
+
+// 문자 길이 제한으로 잘린 가맹점 이름을 같은 앞부분의 더 긴 이름(최대 2글자 차이)으로 잇는다. 기준 이름이 없으면 그대로.
+const stripCorp = (n) => n.replace(/^(?:\(주\)|㈜|주식회사|주)\s+/, "").replace(/\s+/g, "").toLowerCase();
+export const completeMerchant = (name, pool) => {
+  const cut = stripCorp(name);
+  if (cut.length < 3) return name;
+  const counts = new Map();
+  pool.forEach((p) => {
+    const full = stripCorp(p);
+    if (full.length > cut.length && full.length - cut.length <= 2 && full.startsWith(cut)) counts.set(p, (counts.get(p) || 0) + 1);
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || name;
+};
+
 const AD_WORDS = ["이벤트", "광고", "혜택", "쿠폰", "할인", "적립", "금리", "특판", "추천", "미션", "챌린지", "캐시백", "수신거부", "받아보세요", "신청하세요"];
 const BILLING = /결제\s*예정|청구|납부|명세서|결제일|이용대금/;
 const DECLINED = /실패|거절|잔액\s*부족|한도\s*초과|미승인/;
@@ -95,6 +121,7 @@ export const parseSpendNotification = (noti, source, channel = "own") => {
 
   if (DECLINED.test(raw)) return { result: "ignored", reason: "실패·거절 알림" };
   if (BILLING.test(raw)) return { result: "ignored", reason: "청구·납부 안내" };
+  if (NOTICE.test(raw)) return { result: "ignored", reason: "안내·충전·이자·대출은 전체 소비에 넣지 않음" };
   const hasAd = AD_WORDS.some((w) => raw.includes(w));
   if (hasAd && (channel === "other" || !STRONG.test(raw))) return { result: "ignored", reason: "광고·안내 문구" };
 
@@ -121,7 +148,7 @@ export const parseSpendNotification = (noti, source, channel = "own") => {
 
   const { ts, end } = parseWhen(text, time);
   // 시각 뒤에 오는 말이 가맹점인 형식을 먼저 보고, 없으면 전체에서 잡음을 뺀 나머지를 쓴다.
-  const merchant = (end >= 0 && cleanWords(text.slice(end), source)) || cleanWords(raw, source);
+  const merchant = extractCardMerchant(text) || (end >= 0 && cleanWords(text.slice(end), source)) || cleanWords(raw, source);
   if (!merchant) return unsure("가맹점을 찾지 못함");
 
   return {

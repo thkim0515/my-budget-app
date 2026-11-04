@@ -7,7 +7,7 @@ import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { byCategory, byMerchant, shiftYm, spendOf, toDateKey, toYm } from "../../utils/kakaoStats";
 import { isSourceExcluded, sourceById } from "../../utils/spendParser";
-import { excludedSummary, importSpendFromRecords, loadSelectedSources, mergeSpend } from "../../utils/spendStore";
+import { excludedSummary, importSpendFromRecords, listHidden, loadSelectedSources, mergeSpend, repairMerchants, restoreHidden } from "../../utils/spendStore";
 import { bucketSeries, byBand, sourceBreakdown, compareCategories, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
 import { rememberMerchantCategory, categoryFor } from "../../utils/kakaoIngest";
 import { applyCategoryToSame, sameMerchantMessage, tidyLocal } from "../../utils/spendClassify";
@@ -92,7 +92,30 @@ export default function SpendPage() {
     };
   }, [reload]);
 
+  // 카드 문자째로 저장된 가맹점 이름을 앱을 열 때 한 번 고친다(되돌리기 가능).
+  useEffect(() => {
+    if (!db) return;
+    (async () => {
+      const r = await repairMerchants({ getAll, put });
+      if (r.count === 0) return;
+      await tidyLocal({ getAll, put });
+      setBulk({ message: `가맹점 이름 ${r.count}건을 정리했어요`, undo: async () => { await r.undo(); setBulk(null); reload(); } });
+      reload();
+    })();
+  }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const all = useMemo(() => mergeSpend(spendTxs, kakaoTxs, selectedIds), [spendTxs, kakaoTxs, selectedIds]);
+  const hidden = useMemo(() => listHidden(spendTxs, kakaoTxs), [spendTxs, kakaoTxs]);
+  const restoreAll = async () => { await restoreHidden(hidden, put); reload(); };
+  // 새로 숨긴 내역이 생기면 건수를 한 번 알린다(알린 건수는 이 기기에 기억).
+  useEffect(() => {
+    let seen = 0;
+    try { seen = Number(localStorage.getItem("spendHiddenSeen")) || 0; } catch { /* 기억 못 하면 다시 알림 */ }
+    if (hidden.length === seen) return;
+    try { localStorage.setItem("spendHiddenSeen", String(hidden.length)); } catch { /* 무시 */ }
+    if (hidden.length > seen) setBulk({ message: `지출이 아닌 내역 ${hidden.length}건을 숨겼어요`, undo: async () => { await restoreAll(); setBulk(null); } });
+  }, [hidden.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const suggestions = useMemo(() => all.filter((t) => t.suggestedCategory && !t.categoryLocked && t.category === "기타"), [all]);
   const autoApplied = useMemo(() => all.filter((t) => t.autoCategory).sort((a, b) => (b.autoCategory.at || 0) - (a.autoCategory.at || 0)), [all]);
   const excluded = useMemo(() => excludedSummary(spendTxs, kakaoTxs, selectedIds), [spendTxs, kakaoTxs, selectedIds]);
@@ -351,7 +374,7 @@ export default function SpendPage() {
         />
       )}
       {tidyOpen && (
-        <TidySheet raws={shownRaws} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onBulk={(b) => setBulk({ message: b.message, undo: async () => { await b.undo(); setBulk(null); reload(); } })} onClose={() => setTidyOpen(false)} />
+        <TidySheet hiddenCount={hidden.length} onRestoreHidden={restoreAll} raws={shownRaws} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onBulk={(b) => setBulk({ message: b.message, undo: async () => { await b.undo(); setBulk(null); reload(); } })} onClose={() => setTidyOpen(false)} />
       )}
       {editing && <SpendTxSheet tx={editing.tx} draft={editing.draft} raw={editing.raw} onSave={saveTx} onDelete={editing.tx || editing.draft ? deleteEditing : null} onClose={() => setEditing(null)} />}
       {bulk && <Snackbar message={bulk.message} actionLabel="되돌리기" onAction={bulk.undo} onClose={closeBulk} />}
