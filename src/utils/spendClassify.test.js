@@ -1,4 +1,4 @@
-import { buildClassifyPayload, buildKnown, maskNotification, matchLocal, normalizeMerchant, parseRawWithClaude, setRawConsent, tidyLocal, tidyWithClaude, undoAutoCategory, acceptSuggestion } from "./spendClassify";
+import { buildClassifyPayload, buildKnown, maskNotification, matchLocal, normalizeMerchant, parseRawWithClaude, setRawConsent, tidyLocal, tidyWithClaude, undoAutoCategory, acceptSuggestion, applyCategoryToSame, sameMerchantMessage } from "./spendClassify";
 import { parseStatementRows, planImport, parseDateCell } from "./statementImport";
 import { loadMerchantRules } from "./kakaoIngest";
 import { BudgetPlugin } from "../plugins/BudgetPlugin";
@@ -165,5 +165,32 @@ describe("거래내역서 가져오기(가정한 칸 이름)", () => {
     ], existing);
     expect(duplicates).toBe(2);
     expect(fresh).toHaveLength(2);
+  });
+});
+
+describe("같은 이름 일괄 분류", () => {
+  const pay = (id, merchant, category, extra = {}) => ({ id, kind: "payment", merchant, category, amount: 1000, ts: at(2026, 11, 1), ...extra });
+  test("같은 이름만 바꾸고 기준 한 건·다른 이름·입금은 그대로, 되돌리면 원상복구", async () => {
+    const s = store(
+      [pay(1, "A마트 강남점", "기타"), pay(2, "A마트", "식비", { categoryLocked: true }), pay(3, "B카페", "식비"), pay(4, "A마트", "기타", { kind: "income" }), pay(5, "A마트", "기타", { suggestedCategory: "쇼핑" })],
+      [pay(6, "A마트", "쇼핑")],
+    );
+    const base = { ...s.data.spendTx[0], store: "spendTx", category: "기타" };
+    const r = await applyCategoryToSame(base, "기타", s);
+    expect(r.count).toBe(2); // 2번(직접 정함)·6번, 이미 기타인 5번은 제외
+    expect(r.overwritten).toBe(1);
+    expect(s.data.spendTx.find((t) => t.id === 2)).toMatchObject({ category: "기타", categoryLocked: true });
+    expect(s.data.kakaoTx[0].category).toBe("기타");
+    expect(s.data.spendTx.find((t) => t.id === 3).category).toBe("식비");
+    expect(s.data.spendTx.find((t) => t.id === 4).category).toBe("기타");
+    expect(sameMerchantMessage("기타", r)).toBe("같은 이름 2건도 '기타'로 바꿨어요 (직접 정한 1건 포함)");
+    await r.undo();
+    expect(s.data.spendTx.find((t) => t.id === 2)).toMatchObject({ category: "식비", categoryLocked: true });
+    expect(s.data.kakaoTx[0].category).toBe("쇼핑");
+  });
+  test("keep 에서 뺀 내역은 건드리지 않음", async () => {
+    const s = store([pay(1, "A마트", "식비"), pay(2, "A마트", "식비")]);
+    const r = await applyCategoryToSame({ id: 1, store: "spendTx", merchant: "A마트" }, "기타", { ...s, keep: ({ t }) => t.id !== 2 });
+    expect(r.count).toBe(0);
   });
 });

@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { importFromRecords, loadFlow, rememberMerchantCategory, saveFlow } from "../../utils/kakaoIngest";
+import Snackbar from "../../components/UI/Snackbar";
+import { applyCategoryToSame, sameMerchantMessage } from "../../utils/spendClassify";
+import { isSourceExcluded } from "../../utils/spendParser";
+import { loadSelectedSources } from "../../utils/spendStore";
 import * as S from "./KakaoPage.styles";
 import { FlowSheet, NotiLogSheet, TxSheet } from "./KakaoSheets";
 import PaymentsTab from "./PaymentsTab";
@@ -20,6 +24,8 @@ export default function KakaoPage() {
   const [editing, setEditing] = useState(null); // null | "new" | 거래
   const [flowOpen, setFlowOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [bulk, setBulk] = useState(null); // 같은 이름 일괄 적용 결과 { message, undo }
+  const closeBulk = useCallback(() => setBulk(null), []);
 
   const reload = useCallback(async () => {
     if (!db) return;
@@ -46,8 +52,16 @@ export default function KakaoPage() {
     if (editing === "new") {
       await add("kakaoTx", { ...fields, balanceAfter: null, inputMode: "manual", pkg: "" });
     } else {
-      if (fields.category !== editing.category) rememberMerchantCategory(fields.merchant, fields.category);
+      const categoryChanged = fields.category !== editing.category;
+      if (categoryChanged) rememberMerchantCategory(fields.merchant, fields.category);
       await put("kakaoTx", { ...editing, ...fields });
+      if (categoryChanged) {
+        // 전체 소비 탭에서 보기에서 뺀 금융사의 내역은 건드리지 않는다.
+        const selected = loadSelectedSources();
+        const keep = ({ t, store }) => store === "kakaoTx" || !isSourceExcluded(t.sourceId, selected);
+        const r = await applyCategoryToSame({ ...editing, ...fields, store: "kakaoTx" }, fields.category, { getAll, put, keep });
+        if (r.count > 0) setBulk({ message: sameMerchantMessage(fields.category, r), undo: async () => { await r.undo(); setBulk(null); } });
+      }
     }
     setEditing(null);
   };
@@ -82,6 +96,7 @@ export default function KakaoPage() {
       {editing && <TxSheet tx={editing === "new" ? null : editing} onSave={saveTx} onDelete={deleteTx} onClose={() => setEditing(null)} />}
       {flowOpen && <FlowSheet flow={flow} txs={txs} onChange={updateFlow} onImport={importRecords} onShowLog={() => setLogOpen(true)} onClose={() => setFlowOpen(false)} />}
       {logOpen && <NotiLogSheet onClose={() => setLogOpen(false)} />}
+      {bulk && <Snackbar message={bulk.message} actionLabel="되돌리기" onAction={bulk.undo} onClose={closeBulk} />}
     </S.Page>
   );
 }

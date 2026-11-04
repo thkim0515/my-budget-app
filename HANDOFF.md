@@ -1,8 +1,9 @@
 # 가계부 인수인계
 
-최종 갱신: 2026-11-03 (v1.3.8 웹 OTA, versionCode 7)
+최종 갱신: 2026-11-04 (v1.3.9 웹 OTA, versionCode 7)
 
 - **Claude 사용량 서버 전송(v1.3.8)**: `src/utils/claudeUsageReport.js` — `runClaude(payload, { feature })` 가 응답 usage 를 기록해 our-days `claudeUsageLog?app=mybudget` 로 보낸다(text/plain, CORS 허용). 새 Claude 기능을 만들면 `feature`(영문 소문자·숫자·_ 24자)를 넘길 것(없으면 `etc`). 표시 이름은 서버 `functions/claudeUsage.js` FEATURES.
+- **같은 이름 일괄 분류(v1.3.9)**: 내역 수정 저장 시 카테고리가 바뀌면 `applyCategoryToSame`(spendClassify.js)이 같은 `normalizeMerchant` 결제·취소 내역 전체를 같은 분류로 바꾸고(잠금 처리, 직접 정한 건도 덮어씀) 스낵바(`components/UI/Snackbar.jsx`)에서 되돌릴 수 있다. 두 탭(`SpendPage.saveTx`, `KakaoPage.saveTx`) 모두 사용. 규칙 저장은 '기타'로 바꿀 때도 갱신.
 
 ## 현재 상태
 - 하단 탭 3개: 홈(`/`), 카카오뱅크(`/kakao`), 전체 소비(`/spend`). 설정은 탭 헤더의 톱니(`Header`의 `onSettings`).

@@ -171,6 +171,31 @@ export const undoAutoCategory = async (row, { put }) => {
   await put(store, { ...rest, category: autoCategory?.from || "기타", categoryLocked: true });
 };
 
+// 한 건의 분류를 바꾼 뒤, 같은 이름(정규화 기준)의 다른 결제·취소 내역에도 같은 분류를 적용한다. 직접 정한 내역도 덮어쓴다.
+// undo 로 일괄 적용분만 되돌릴 수 있다(기준 한 건은 건드리지 않는다). keep: 보기에서 뺀 내역은 건너뛴다.
+export const applyCategoryToSame = async (tx, category, { getAll, put, keep = () => true }) => {
+  const key = normalizeMerchant(tx.merchant);
+  const store = tx.store || "kakaoTx";
+  if (!key) return { count: 0, overwritten: 0, undo: async () => {} };
+  const targets = (await allTxs(getAll)).filter((r) => !(r.store === store && r.t.id === tx.id) && !r.t.isDeleted
+    && (r.t.kind === "payment" || r.t.kind === "refund") && r.t.category !== category
+    && normalizeMerchant(r.t.merchant) === key && keep(r));
+  const before = [];
+  for (const r of targets) {
+    const { autoCategory, suggestedCategory, suggestedConfidence, ...rest } = r.t;
+    await put(r.store, { ...rest, category, categoryLocked: true }, true);
+    before.push(r);
+  }
+  return {
+    count: before.length,
+    overwritten: before.filter((r) => r.t.categoryLocked).length,
+    undo: async () => { for (const r of before) await put(r.store, r.t); },
+  };
+};
+
+export const sameMerchantMessage = (category, { count, overwritten }) =>
+  `같은 이름 ${count}건도 '${category}'로 바꿨어요${overwritten > 0 ? ` (직접 정한 ${overwritten}건 포함)` : ""}`;
+
 // 하루 한 번(설정을 켠 경우). 호출 없이 끝나면 날짜만 남긴다.
 export const runDailyTidy = async (helpers, now = new Date()) => {
   await tidyLocal(helpers);

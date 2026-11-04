@@ -10,10 +10,11 @@ import { isSourceExcluded, sourceById } from "../../utils/spendParser";
 import { excludedSummary, importSpendFromRecords, loadSelectedSources, mergeSpend } from "../../utils/spendStore";
 import { bucketSeries, byBand, sourceBreakdown, compareCategories, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
 import { rememberMerchantCategory, categoryFor } from "../../utils/kakaoIngest";
-import { tidyLocal } from "../../utils/spendClassify";
+import { applyCategoryToSame, sameMerchantMessage, tidyLocal } from "../../utils/spendClassify";
 import { CategoryDoughnut, SpendBars, categoryColor, won } from "../Kakao/KakaoCharts";
 import * as S from "../Kakao/KakaoPage.styles";
 import { ImportSheet, SourcesSheet, SpendTxSheet, TidySheet } from "./SpendSheets";
+import Snackbar from "../../components/UI/Snackbar";
 import ClaudePanel from "./ClaudePanel";
 import SourceBreakdown, { RankBars } from "./SourceBreakdown";
 
@@ -62,6 +63,8 @@ export default function SpendPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const [editing, setEditing] = useState(null); // { tx?, draft?, raw? }
+  const [bulk, setBulk] = useState(null); // 같은 이름 일괄 적용 결과 { message, undo }
+  const closeBulk = useCallback(() => setBulk(null), []);
   const [selectedIds, setSelectedIds] = useState(loadSelectedSources);
   const selectedCount = selectedIds.length;
 
@@ -140,12 +143,19 @@ export default function SpendPage() {
       // 사용자가 고른 분류는 규칙으로 배우고, 이후 자동으로 바꾸지 않는다.
       // Claude·앱이 자동으로 정한 내역을 저장하면 그대로 확인한 것으로 보고 같은 가맹점은 이 분류를 따른다.
       const changed = fields.category !== tx.category || fields.merchant !== tx.merchant || !!tx.autoCategory;
-      if (changed && fields.category !== "기타") rememberMerchantCategory(fields.merchant, fields.category);
+      const categoryChanged = fields.category !== tx.category;
+      if (changed && (fields.category !== "기타" || categoryChanged)) rememberMerchantCategory(fields.merchant, fields.category);
       const { store, sourceId: mergedSource, autoCategory, suggestedCategory, suggestedConfidence, ...rest } = tx;
       const keep = changed ? { categoryLocked: true } : { autoCategory, suggestedCategory, suggestedConfidence };
       const next = { ...rest, ...fields, ...Object.fromEntries(Object.entries(keep).filter(([, v]) => v !== undefined)) };
       await put(store, store === "kakaoTx" ? next : { sourceId: mergedSource, ...next });
       await tidyLocal({ getAll, put }); // 방금 배운 규칙을 같은 가맹점 미분류에 바로 적용한다
+      if (categoryChanged) {
+        const r = await applyCategoryToSame({ ...next, store }, fields.category, tidyHelpers);
+        if (r.count > 0) {
+          setBulk({ message: sameMerchantMessage(fields.category, r), undo: async () => { await r.undo(); setBulk(null); reload(); } });
+        }
+      }
     } else {
       // 카카오뱅크로 직접 넣어도 ②의 잔액에 섞이지 않게 전체 소비 쪽에만 저장한다.
       const base = { ...fields, category: fields.category === "기타" ? categoryFor(fields) : fields.category, inputMode: draft ? "unclassified" : "manual", pkg: "" };
@@ -344,6 +354,7 @@ export default function SpendPage() {
         <TidySheet raws={shownRaws} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onClose={() => setTidyOpen(false)} />
       )}
       {editing && <SpendTxSheet tx={editing.tx} draft={editing.draft} raw={editing.raw} onSave={saveTx} onDelete={editing.tx || editing.draft ? deleteEditing : null} onClose={() => setEditing(null)} />}
+      {bulk && <Snackbar message={bulk.message} actionLabel="되돌리기" onAction={bulk.undo} onClose={closeBulk} />}
     </S.Page>
   );
 }
