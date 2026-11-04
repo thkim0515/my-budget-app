@@ -1,4 +1,4 @@
-import { adjustmentForRemaining, budgetSummary, byCategory, dailySeries, flowSeries, monthlySeries, netAt, splitNet, weeklySeries } from "./kakaoStats";
+import { adjustmentForRemaining, budgetSummary, byCategory, dailySeries, flowSeries, formatWhen, monthlySeries, netAt, splitNet, weeklySeries } from "./kakaoStats";
 import { buildAnalysisPayload } from "./kakaoAnalysis";
 import { blockReason, buildRequestBody, costOf, parseModelList, parseResponse } from "./claudeClient";
 
@@ -118,4 +118,10 @@ describe("Claude 분석", () => {
     expect(parseResponse(401, "{}").error).toMatch("키");
     expect(parseResponse(200, JSON.stringify({ ...ok, stop_reason: "refusal" })).error).toBeTruthy();
   });
+});
+
+test("목록 날짜: 올해가 아니면 연도 표시", () => {
+  const y = new Date().getFullYear();
+  expect(formatWhen(new Date(y, 1, 14, 13, 48).getTime())).not.toMatch(/^\d{2}\./);
+  expect(formatWhen(new Date(y - 1, 1, 14, 13, 48).getTime())).toMatch(new RegExp(`^${String(y - 1).slice(2)}\.`));
 });

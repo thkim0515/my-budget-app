@@ -183,3 +183,10 @@ export const budgetSummary = (txs, flow, now = new Date()) => {
 // "지금 남은 예산"을 직접 넣었을 때 그 값이 되도록 하는 보정값.
 export const adjustmentForRemaining = (txs, flow, remaining, now = new Date()) =>
   remaining + monthSpend(txs, toYm(now)) - (flow.monthlyBudget || 0);
+
+// 목록용 날짜·시각. 올해가 아니면 연도(26. 2. 14.)를 붙여 과거 내역임을 알린다.
+export const formatWhen = (ts) => {
+  const d = new Date(ts);
+  const opts = { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" };
+  return d.toLocaleString("ko-KR", d.getFullYear() === new Date().getFullYear() ? opts : { year: "2-digit", ...opts });
+};

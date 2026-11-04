@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "styled-components";
-import { byCategory, dailySeries, KIND_LABEL, monthlySeries, monthSpend, parseYm, shiftYm, spendOf, toDateKey, toYm, txsOfMonth, weeklySeries } from "../../utils/kakaoStats";
+import { byCategory, dailySeries, formatWhen, KIND_LABEL, monthlySeries, monthSpend, parseYm, shiftYm, spendOf, toDateKey, toYm, txsOfMonth, weeklySeries } from "../../utils/kakaoStats";
 import { CategoryDoughnut, categoryColor, CumulativeLines, SpendBars, won } from "./KakaoCharts";
 import * as S from "./KakaoPage.styles";
 
-const formatWhen = (ts) => new Date(ts).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export function TxList({ list, onEdit }) {
   const theme = useTheme();

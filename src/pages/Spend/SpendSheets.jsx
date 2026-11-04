@@ -9,6 +9,7 @@ import { commitImport, parseStatementRows, planImport, readStatementFile } from 
 import { acceptSuggestionEverywhere, groupByMerchant, hasRawConsent, sameMerchantMessage, parseRawWithClaude, tidyWithClaude, undoAutoCategory } from "../../utils/spendClassify";
 import { formatTokens, formatUsd } from "../../utils/claudeClient";
 import { won } from "../Kakao/KakaoCharts";
+import { formatWhen as shortWhen } from "../../utils/kakaoStats";
 import { Sheet } from "../Kakao/KakaoSheets";
 import * as S from "../Kakao/KakaoPage.styles";
 
@@ -20,7 +21,6 @@ const toLocalInput = (ts) => {
   const d = new Date(ts);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
-const shortWhen = (ts) => new Date(ts).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 // 알림을 읽을 금융사 선택. 추천·설치된 앱을 위로 올리되, 앱 없이 문자로만 받는 곳도 고를 수 있게 전부 보여 준다.
 export function SourcesSheet({ onChange, onImport, onImportFile, onClose }) {

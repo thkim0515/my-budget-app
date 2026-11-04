@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "styled-components";
 import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
-import { byCategory, byMerchant, shiftYm, spendOf, toDateKey, toYm } from "../../utils/kakaoStats";
+import { byCategory, byMerchant, formatWhen, shiftYm, spendOf, toDateKey, toYm } from "../../utils/kakaoStats";
 import { isSourceExcluded, sourceById } from "../../utils/spendParser";
 import { excludedSummary, importSpendFromRecords, listHidden, loadSelectedSources, mergeSpend, repairMerchants, restoreHidden } from "../../utils/spendStore";
 import { bucketSeries, byBand, sourceBreakdown, compareCategories, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
@@ -19,7 +19,6 @@ import ClaudePanel from "./ClaudePanel";
 import SourceBreakdown, { RankBars } from "./SourceBreakdown";
 
 const PAGE_SIZE = 50;
-const formatWhen = (ts) => new Date(ts).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 function TxRows({ list, onEdit }) {
   const theme = useTheme();
