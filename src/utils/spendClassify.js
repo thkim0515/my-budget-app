@@ -178,7 +178,7 @@ export const applyCategoryToSame = async (tx, category, { getAll, put, keep = ()
   const store = tx.store || "kakaoTx";
   if (!key) return { count: 0, overwritten: 0, undo: async () => {} };
   const targets = (await allTxs(getAll)).filter((r) => !(r.store === store && r.t.id === tx.id) && !r.t.isDeleted
-    && (r.t.kind === "payment" || r.t.kind === "refund") && r.t.category !== category
+    && (r.t.kind === "payment" || r.t.kind === "refund") && (r.t.category !== category || r.t.suggestedCategory)
     && normalizeMerchant(r.t.merchant) === key && keep(r));
   const before = [];
   for (const r of targets) {
@@ -191,6 +191,23 @@ export const applyCategoryToSame = async (tx, category, { getAll, put, keep = ()
     overwritten: before.filter((r) => r.t.categoryLocked).length,
     undo: async () => { for (const r of before) await put(r.store, r.t); },
   };
+};
+
+// 같은 이름(정규화 기준)끼리 묶는다. 순서는 처음 나온 차례를 유지한다.
+export const groupByMerchant = (rows) => {
+  const groups = new Map();
+  rows.forEach((t) => {
+    const key = normalizeMerchant(t.merchant) || `#${t.store}-${t.id}`;
+    if (!groups.has(key)) groups.set(key, { key, rows: [] });
+    groups.get(key).rows.push(t);
+  });
+  return [...groups.values()];
+};
+
+// 추천 카드 한 장(같은 이름 묶음의 대표)을 확정하면 같은 이름의 나머지 추천·미분류·기존 내역도 함께 바꾼다.
+export const acceptSuggestionEverywhere = async (row, category, helpers) => {
+  await acceptSuggestion(row, category, helpers);
+  return applyCategoryToSame(row, category, helpers);
 };
 
 export const sameMerchantMessage = (category, { count, overwritten }) =>

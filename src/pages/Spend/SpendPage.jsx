@@ -351,7 +351,7 @@ export default function SpendPage() {
         />
       )}
       {tidyOpen && (
-        <TidySheet raws={shownRaws} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onClose={() => setTidyOpen(false)} />
+        <TidySheet raws={shownRaws} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onBulk={(b) => setBulk({ message: b.message, undo: async () => { await b.undo(); setBulk(null); reload(); } })} onClose={() => setTidyOpen(false)} />
       )}
       {editing && <SpendTxSheet tx={editing.tx} draft={editing.draft} raw={editing.raw} onSave={saveTx} onDelete={editing.tx || editing.draft ? deleteEditing : null} onClose={() => setEditing(null)} />}
       {bulk && <Snackbar message={bulk.message} actionLabel="되돌리기" onAction={bulk.undo} onClose={closeBulk} />}

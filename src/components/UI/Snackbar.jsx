@@ -9,7 +9,7 @@ const Bar = styled.div`
   bottom: calc(${BOTTOM_NAV_HEIGHT + 12}px + env(safe-area-inset-bottom));
   width: calc(100% - 32px);
   max-width: 448px;
-  z-index: 60;
+  z-index: 400; /* 시트(300) 위 */
   display: flex;
   align-items: center;
   justify-content: space-between;

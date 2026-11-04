@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 import { useFormattedNumberInput } from "../../hooks/useFormattedNumberInput";
@@ -6,8 +6,9 @@ import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { ALL_PACKAGES, SOURCES, SPEND_CATEGORIES, sourceById } from "../../utils/spendParser";
 import { loadSelectedSources, saveSelectedSources } from "../../utils/spendStore";
 import { commitImport, parseStatementRows, planImport, readStatementFile } from "../../utils/statementImport";
-import { acceptSuggestion, hasRawConsent, parseRawWithClaude, tidyWithClaude, undoAutoCategory } from "../../utils/spendClassify";
+import { acceptSuggestionEverywhere, groupByMerchant, hasRawConsent, sameMerchantMessage, parseRawWithClaude, tidyWithClaude, undoAutoCategory } from "../../utils/spendClassify";
 import { formatTokens, formatUsd } from "../../utils/claudeClient";
+import { won } from "../Kakao/KakaoCharts";
 import { Sheet } from "../Kakao/KakaoSheets";
 import * as S from "../Kakao/KakaoPage.styles";
 
@@ -213,11 +214,14 @@ export function SpendTxSheet({ tx, draft, raw, onSave, onDelete, onClose }) {
 // 분류 정리: 읽지 못한 알림, Claude 추천 확인, 자동 적용 기록(되돌리기).
 const clamp = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" };
 
-export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onPick, onEdit, onDismiss, onChanged, onClose }) {
+export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onPick, onEdit, onDismiss, onChanged, onBulk, onClose }) {
   const [opened, setOpened] = useState([]);
+  const suggestionGroups = useMemo(() => groupByMerchant(suggestions), [suggestions]);
+  const autoGroups = useMemo(() => groupByMerchant(autoApplied), [autoApplied]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
+  const toggle = (key) => setOpened(opened.includes(key) ? opened.filter((x) => x !== key) : [...opened, key]);
   const describe = (r, parts) => `${parts}${r.tokens ? ` · 입력 ${formatTokens(r.tokens.input)} · 출력 ${formatTokens(r.tokens.output)} 토큰 · 약 ${formatUsd(r.usd)}` : ""}`;
 
   const runTidy = async () => {
@@ -235,11 +239,12 @@ export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onP
     onChanged();
   };
   const accept = async (row, category) => {
-    await acceptSuggestion(row, category, helpers);
+    const r = await acceptSuggestionEverywhere(row, category, helpers);
+    if (r.count > 0) onBulk({ message: sameMerchantMessage(category, r), undo: r.undo });
     onChanged();
   };
-  const undo = async (row) => {
-    await undoAutoCategory(row, helpers);
+  const undoGroup = async (rows) => {
+    for (const row of rows) await undoAutoCategory(row, helpers);
     onChanged();
   };
 
@@ -272,35 +277,44 @@ export function TidySheet({ raws, suggestions, autoApplied, hasKey, helpers, onP
 
       <S.CardTitle style={{ marginTop: 16 }}>Claude 추천 {suggestions.length}건</S.CardTitle>
       {suggestions.length === 0 && <S.Caption>확인할 추천이 없습니다.</S.Caption>}
-      {suggestions.map((t) => (
-        <S.Detail key={`${t.store}-${t.id}`} style={{ marginTop: 8 }}>
-          <S.Row>
-            <strong style={{ fontSize: 14, overflowWrap: "anywhere" }}>{t.merchant}</strong>
-            <S.Caption style={{ flexShrink: 0 }}>{shortWhen(t.ts)}</S.Caption>
-          </S.Row>
-          <S.Field style={{ margin: "6px 0 0" }}>
-            추천: {t.suggestedCategory} (확신 {Math.round((t.suggestedConfidence || 0) * 100)}%)
-            <select value={t.suggestedCategory} onChange={(e) => accept(t, e.target.value)}>
-              {SPEND_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </S.Field>
-          <S.GhostBtn type="button" onClick={() => accept(t, t.suggestedCategory)}>{t.suggestedCategory}(으)로 정하기</S.GhostBtn>
-          <S.GhostBtn type="button" onClick={() => onEdit(t)}>가맹점·금액 직접 수정</S.GhostBtn>
-        </S.Detail>
-      ))}
+      {suggestionGroups.map(({ key, rows }) => {
+        const t = rows[0];
+        const open = opened.includes(key);
+        return (
+          <S.Detail key={key} style={{ marginTop: 8 }}>
+            <S.Row>
+              <strong style={{ fontSize: 14, overflowWrap: "anywhere" }}>{t.merchant}{rows.length > 1 ? ` · ${rows.length}건` : ""}</strong>
+              <S.Caption style={{ flexShrink: 0 }}>{shortWhen(t.ts)}</S.Caption>
+            </S.Row>
+            <S.Field style={{ margin: "6px 0 0" }}>
+              추천: {t.suggestedCategory} (확신 {Math.round((t.suggestedConfidence || 0) * 100)}%)
+              <select value={t.suggestedCategory} onChange={(e) => accept(t, e.target.value)}>
+                {SPEND_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </S.Field>
+            <S.GhostBtn type="button" onClick={() => accept(t, t.suggestedCategory)}>{t.suggestedCategory}(으)로 정하기{rows.length > 1 ? ` (${rows.length}건)` : ""}</S.GhostBtn>
+            {rows.length > 1 && <S.GhostBtn type="button" onClick={() => toggle(key)}>{open ? "접기" : "내역 펼치기"}</S.GhostBtn>}
+            {open && rows.map((r) => <S.Caption key={`${r.store}-${r.id}`}>{shortWhen(r.ts)} · {won(r.amount)}</S.Caption>)}
+            <S.GhostBtn type="button" onClick={() => onEdit(t)}>가맹점·금액 직접 수정</S.GhostBtn>
+          </S.Detail>
+        );
+      })}
 
       <S.CardTitle style={{ marginTop: 16 }}>자동 적용 {autoApplied.length}건</S.CardTitle>
       {autoApplied.length === 0 && <S.Caption>자동으로 바꾼 내역이 없습니다.</S.Caption>}
-      {autoApplied.slice(0, 30).map((t) => (
-        <S.Detail key={`${t.store}-${t.id}`} style={{ marginTop: 8, minWidth: 0 }}>
-          <strong style={{ display: "block", fontSize: 14, overflowWrap: "anywhere" }}>{t.merchant} → {t.category}</strong>
-          <S.Caption>{t.autoCategory.by === "rule" ? "이전 분류와 비교" : `Claude 확신 ${Math.round(t.autoCategory.confidence * 100)}%`} · {shortWhen(t.ts)}</S.Caption>
-          <S.Row style={{ marginTop: 6 }}>
-            <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => onEdit(t)}>수정</S.GhostBtn>
-            <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => undo(t)}>되돌리기</S.GhostBtn>
-          </S.Row>
-        </S.Detail>
-      ))}
+      {autoGroups.slice(0, 30).map(({ key, rows }) => {
+        const t = rows[0];
+        return (
+          <S.Detail key={key} style={{ marginTop: 8, minWidth: 0 }}>
+            <strong style={{ display: "block", fontSize: 14, overflowWrap: "anywhere" }}>{t.merchant} → {t.category}{rows.length > 1 ? ` · ${rows.length}건` : ""}</strong>
+            <S.Caption>{t.autoCategory.by === "rule" ? "이전 분류와 비교" : `Claude 확신 ${Math.round(t.autoCategory.confidence * 100)}%`} · {shortWhen(t.ts)}</S.Caption>
+            <S.Row style={{ marginTop: 6 }}>
+              <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => onEdit(t)}>수정</S.GhostBtn>
+              <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => undoGroup(rows)}>되돌리기</S.GhostBtn>
+            </S.Row>
+          </S.Detail>
+        );
+      })}
     </Sheet>
   );
 }

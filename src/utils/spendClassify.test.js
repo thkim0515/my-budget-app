@@ -1,4 +1,4 @@
-import { buildClassifyPayload, buildKnown, maskNotification, matchLocal, normalizeMerchant, parseRawWithClaude, setRawConsent, tidyLocal, tidyWithClaude, undoAutoCategory, acceptSuggestion, applyCategoryToSame, sameMerchantMessage } from "./spendClassify";
+import { buildClassifyPayload, buildKnown, maskNotification, matchLocal, normalizeMerchant, parseRawWithClaude, setRawConsent, tidyLocal, tidyWithClaude, undoAutoCategory, acceptSuggestion, applyCategoryToSame, sameMerchantMessage, groupByMerchant, acceptSuggestionEverywhere } from "./spendClassify";
 import { parseStatementRows, planImport, parseDateCell } from "./statementImport";
 import { loadMerchantRules } from "./kakaoIngest";
 import { BudgetPlugin } from "../plugins/BudgetPlugin";
@@ -177,13 +177,13 @@ describe("같은 이름 일괄 분류", () => {
     );
     const base = { ...s.data.spendTx[0], store: "spendTx", category: "기타" };
     const r = await applyCategoryToSame(base, "기타", s);
-    expect(r.count).toBe(2); // 2번(직접 정함)·6번, 이미 기타인 5번은 제외
+    expect(r.count).toBe(3); // 2번(직접 정함)·6번, 추천이 남은 5번(이미 기타여도 확정 처리)
     expect(r.overwritten).toBe(1);
     expect(s.data.spendTx.find((t) => t.id === 2)).toMatchObject({ category: "기타", categoryLocked: true });
     expect(s.data.kakaoTx[0].category).toBe("기타");
     expect(s.data.spendTx.find((t) => t.id === 3).category).toBe("식비");
     expect(s.data.spendTx.find((t) => t.id === 4).category).toBe("기타");
-    expect(sameMerchantMessage("기타", r)).toBe("같은 이름 2건도 '기타'로 바꿨어요 (직접 정한 1건 포함)");
+    expect(sameMerchantMessage("기타", r)).toBe("같은 이름 3건도 '기타'로 바꿨어요 (직접 정한 1건 포함)");
     await r.undo();
     expect(s.data.spendTx.find((t) => t.id === 2)).toMatchObject({ category: "식비", categoryLocked: true });
     expect(s.data.kakaoTx[0].category).toBe("쇼핑");
@@ -192,5 +192,20 @@ describe("같은 이름 일괄 분류", () => {
     const s = store([pay(1, "A마트", "식비"), pay(2, "A마트", "식비")]);
     const r = await applyCategoryToSame({ id: 1, store: "spendTx", merchant: "A마트" }, "기타", { ...s, keep: ({ t }) => t.id !== 2 });
     expect(r.count).toBe(0);
+  });
+  test("추천 확정: 같은 이름 추천·기존 내역 모두 바뀌고 묶음은 한 장, 되돌리면 추천 복구", async () => {
+    const sug = (id, m) => pay(id, m, "기타", { suggestedCategory: "생활", suggestedConfidence: 0.4 });
+    const s = store([sug(1, "주 드림월드플러스"), sug(2, "주  드림월드플러스"), sug(3, "주 드림월드플러스"), pay(4, "주 드림월드플러스", "쇼핑"), sug(5, "다른곳")]);
+    const rows = s.data.spendTx.map((t) => ({ ...t, store: "spendTx" })).filter((t) => t.suggestedCategory);
+    expect(groupByMerchant(rows).map((g) => g.rows.length)).toEqual([3, 1]);
+    const r = await acceptSuggestionEverywhere(rows[0], "기타", s);
+    expect(r.count).toBe(3);
+    const done = s.data.spendTx.filter((t) => [1, 2, 3, 4].includes(t.id));
+    expect(done.every((t) => t.category === "기타" && t.categoryLocked && !t.suggestedCategory)).toBe(true);
+    expect(s.data.spendTx.find((t) => t.id === 5).suggestedCategory).toBe("생활");
+    expect(loadMerchantRules()).toEqual({ "주 드림월드플러스": "기타" });
+    await r.undo();
+    expect(s.data.spendTx.find((t) => t.id === 2).suggestedCategory).toBe("생활");
+    expect(s.data.spendTx.find((t) => t.id === 4).category).toBe("쇼핑");
   });
 });
