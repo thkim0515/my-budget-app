@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "styled-components";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
-import { formatTokens, formatUsd, getLimits, getModel, loadModelState, modelDesc, modelName, refreshModels, saveLimits, saveModel } from "../../utils/claudeClient";
+import { formatTokens, formatUsd, getEnabledModels, getLimits, getModel, loadModelState, modelDesc, modelName, refreshModels, saveLimits, saveModel, setModelEnabled } from "../../utils/claudeClient";
 import { hasRawConsent, isTidyEnabled, setRawConsent, setTidyEnabled } from "../../utils/spendClassify";
 import { won } from "../../pages/Kakao/KakaoCharts";
 import { Sheet } from "../../pages/Kakao/KakaoSheets";
@@ -18,12 +18,36 @@ export function ClaudeSettingsSheet({ hasKey, onKeyChange, onClose }) {
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [tidy, setTidy] = useState(isTidyEnabled);
   const [rawHelp, setRawHelp] = useState(hasRawConsent);
+  const [modelNote, setModelNote] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+  const [, setVer] = useState(0);
+  const enabled = getEnabledModels(models);
+
+  // 켠 모델이 바뀌어 지금 모델이 꺼졌으면 켜진 것 중 가장 저렴한 모델로 바꾸고 알린다.
+  const syncModel = () => {
+    const before = model;
+    const after = getModel();
+    if (after !== before) {
+      saveModel(after);
+      setModelNote(`${modelName(before)}은(는) 꺼져 있어 켜진 모델 중 가장 저렴한 ${modelName(after)}(으)로 바꿨습니다.`);
+    }
+    setModel(after);
+    setVer((v) => v + 1);
+  };
+  const toggleModel = (id, on) => {
+    if (!setModelEnabled(id, on)) {
+      setModelNote("모델은 최소 하나는 켜 두어야 합니다.");
+      return;
+    }
+    setModelNote("");
+    syncModel();
+  };
 
   const checkModels = async () => {
     setChecking(true);
     const state = await refreshModels();
     setModels(state);
-    setModel(getModel());
+    syncModel();
     setChecking(false);
   };
 
@@ -71,11 +95,24 @@ export function ClaudeSettingsSheet({ hasKey, onKeyChange, onClose }) {
       {checking && <S.Caption style={{ marginBottom: 6 }}>이 키로 쓸 수 있는 모델을 확인하는 중…</S.Caption>}
       {models.note && <S.Caption style={{ marginBottom: 6 }}>{models.note}</S.Caption>}
       {!hasKey && <S.Caption style={{ marginBottom: 6 }}>키를 넣으면 실제로 쓸 수 있는 모델만 보여 드립니다.</S.Caption>}
-      {models.available.map((m) => (
+      {enabled.length === 1 ? (
+        <S.Caption style={{ marginBottom: 6 }}>켜진 모델이 하나라 선택 없이 <strong>{modelName(enabled[0].id)}</strong>을(를) 사용합니다.</S.Caption>
+      ) : enabled.map((m) => (
         <S.ModelRow key={m.id} type="button" $active={model === m.id} aria-pressed={model === m.id} onClick={() => pickModel(m.id)}>
           <span><strong>{modelName(m.id)}</strong><small>{modelDesc(m)}</small></span>
           <S.RadioDot $active={model === m.id} />
         </S.ModelRow>
+      ))}
+      {modelNote && <S.Caption role="status" style={{ margin: "6px 0" }}>{modelNote}</S.Caption>}
+      <S.FoldBtn type="button" aria-expanded={showPicker} onClick={() => setShowPicker(!showPicker)}>
+        <span>사용할 모델 고르기 ({enabled.length}/{models.available.length}개 켜짐)</span>
+        <span aria-hidden="true">{showPicker ? "접기" : "펼치기"}</span>
+      </S.FoldBtn>
+      {showPicker && models.available.map((m) => (
+        <S.CheckRow key={m.id}>
+          <input type="checkbox" checked={enabled.some((e) => e.id === m.id)} onChange={(e) => toggleModel(m.id, e.target.checked)} />
+          <span>{modelName(m.id)} <small>{modelDesc(m)}</small></span>
+        </S.CheckRow>
       ))}
       {models.unavailable.length > 0 && (
         <>

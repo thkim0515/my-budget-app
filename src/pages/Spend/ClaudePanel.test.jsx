@@ -96,7 +96,7 @@ test("모델 목록: 쓸 수 있는 것만 펼치고 사용 불가는 접힘, �
   show();
   fireEvent.click(await screen.findByRole("button", { name: "키·모델·상한" }));
   await screen.findByText("사용 불가 모델 2개");
-  expect(screen.getByRole("button", { name: /Haiku 5\.5/ })).toBeTruthy();
+  expect(screen.getByText(/선택 없이/).textContent).toContain("Haiku 5.5"); // 켜진 모델이 하나면 선택지 없이 사용
   expect(screen.queryByText("Opus 5.5")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /사용 불가 모델/ }));
   expect(screen.getByText("Opus 5.5")).toBeTruthy();

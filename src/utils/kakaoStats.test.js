@@ -1,6 +1,6 @@
 import { adjustmentForRemaining, budgetSummary, byCategory, dailySeries, flowSeries, formatWhen, monthlySeries, netAt, splitNet, weeklySeries } from "./kakaoStats";
 import { buildAnalysisPayload } from "./kakaoAnalysis";
-import { blockReason, buildRequestBody, costOf, parseModelList, parseResponse } from "./claudeClient";
+import { blockReason, buildRequestBody, cheapestOf, enabledFrom, getEnabledModels, getModel, saveModel, setModelEnabled, costOf, parseModelList, parseResponse } from "./claudeClient";
 
 const at = (y, m, d, h = 12) => new Date(y, m - 1, d, h).getTime();
 const now = new Date(2026, 10, 10, 18); // 2026-11-10
@@ -124,4 +124,33 @@ test("목록 날짜: 올해가 아니면 연도 표시", () => {
   const y = new Date().getFullYear();
   expect(formatWhen(new Date(y, 1, 14, 13, 48).getTime())).not.toMatch(/^\d{2}\./);
   expect(formatWhen(new Date(y - 1, 1, 14, 13, 48).getTime())).toMatch(new RegExp(`^${String(y - 1).slice(2)}\.`));
+});
+
+describe("사용할 모델 고르기", () => {
+  const m = (id, line) => ({ id, name: id, line });
+  const available = [m("claude-haiku-5-5", "haiku"), m("claude-sonnet-5-5", "sonnet"), m("claude-opus-5-5", "opus"), m("claude-fable-5-1", "fable"), m("claude-opus-5", "opus"), m("claude-sonnet-4-6", "sonnet")];
+  beforeEach(() => localStorage.clear());
+  test("기본은 계열별 최신 Haiku·Sonnet·Opus만", () => {
+    expect(enabledFrom(available, null).map((x) => x.id)).toEqual(["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]);
+  });
+  test("켠 것과 쓸 수 있는 것의 교집합, 사라진 모델만 남으면 기본으로", () => {
+    expect(enabledFrom(available, ["claude-fable-5-1", "claude-gone"]).map((x) => x.id)).toEqual(["claude-fable-5-1"]);
+    expect(enabledFrom(available, ["claude-gone"]).length).toBe(3);
+  });
+  test("가장 저렴한 모델", () => {
+    expect(cheapestOf(available).id).toBe("claude-haiku-5-5");
+    expect(cheapestOf([m("claude-opus-5-5", "opus"), m("claude-sonnet-5-5", "sonnet")]).id).toBe("claude-sonnet-5-5");
+  });
+  test("꺼진 모델은 저장돼 있어도 쓰지 않고 가장 저렴한 켜진 모델로, 마지막 하나는 못 끔", () => {
+    localStorage.setItem("claudeModelState", JSON.stringify({ available, unavailable: [], source: "api" }));
+    saveModel("claude-sonnet-5-5");
+    expect(getModel()).toBe("claude-sonnet-5-5");
+    expect(setModelEnabled("claude-sonnet-5-5", false)).toBe(true);
+    expect(getModel()).toBe("claude-haiku-5-5");
+    expect(setModelEnabled("claude-opus-5-5", false)).toBe(true);
+    expect(getEnabledModels().map((x) => x.id)).toEqual(["claude-haiku-5-5"]);
+    expect(setModelEnabled("claude-haiku-5-5", false)).toBe(false); // 마지막 하나
+    saveModel("claude-opus-5-5");
+    expect(getModel()).toBe("claude-haiku-5-5"); // 켠 모델이 하나면 선택 없이 그것
+  });
 });

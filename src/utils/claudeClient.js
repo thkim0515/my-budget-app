@@ -99,17 +99,38 @@ export const refreshModels = async () => {
   }
 };
 
-// 고른 모델이 쓸 수 있으면 그대로, 막혔으면 쓸 수 있는 다른 모델로 대체한다.
+// 사용자가 켠 모델 — 쓸 수 있는 모델과의 교집합만 쓴다. 고른 적이 없으면 계열별 최신 Haiku·Sonnet·Opus만 켠다.
+const ENABLED_KEY = "claudeEnabledModels";
+const DEFAULT_LINES = ["haiku", "sonnet", "opus"];
+export const enabledFrom = (available, stored) => {
+  const picked = Array.isArray(stored) ? available.filter((m) => stored.includes(m.id)) : [];
+  if (picked.length > 0) return picked;
+  const latest = DEFAULT_LINES.map((line) => available.find((m) => m.line === line)).filter(Boolean); // available 은 최신순
+  return latest.length > 0 ? latest : available.slice(0, 1);
+};
+export const cheapestOf = (models) => [...models].sort((a, b) => priceOf(a.id)[0] + priceOf(a.id)[1] - priceOf(b.id)[0] - priceOf(b.id)[1])[0];
+export const getEnabledModels = (state = loadModelState()) => enabledFrom(state.available, readJson(ENABLED_KEY, null));
+// 마지막 하나는 끌 수 없다(false 반환).
+export const setModelEnabled = (id, on) => {
+  const ids = getEnabledModels().map((m) => m.id).filter((x) => x !== id);
+  const next = on ? [...ids, id] : ids;
+  if (next.length === 0) return false;
+  writeJson(ENABLED_KEY, next);
+  return true;
+};
+
+// 고른 모델이 켜져 있으면 그대로, 꺼졌거나 없으면 기본 모델(켜져 있을 때) 아니면 켜진 것 중 가장 저렴한 모델. 켠 모델이 하나면 그것.
 export const getModel = () => {
-  const { available } = loadModelState();
+  const enabled = getEnabledModels();
+  if (enabled.length === 1) return enabled[0].id;
   let stored = null;
   try {
     stored = localStorage.getItem(MODEL_KEY);
   } catch {
     stored = null;
   }
-  if (available.some((m) => m.id === stored)) return stored;
-  return (available.find((m) => m.id === DEFAULT_MODEL) || available[0] || DEFAULT_MODELS[1]).id;
+  if (enabled.some((m) => m.id === stored)) return stored;
+  return (stored ? cheapestOf(enabled) : enabled.find((m) => m.id === DEFAULT_MODEL) || cheapestOf(enabled)).id;
 };
 export const saveModel = (id) => {
   try {
