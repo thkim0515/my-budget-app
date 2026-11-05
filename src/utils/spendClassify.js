@@ -1,6 +1,7 @@
 // 분류 정리 — 1단계(무료): 이전 분류·학습 규칙으로 카테고리 지정. 2단계(Claude): 남은 가맹점만 모아 분류. 3단계(동의 시): 읽지 못한 알림을 가려서 읽기.
 import { runClaude } from "./claudeClient";
-import { loadMerchantRules, rememberMerchantCategory } from "./kakaoIngest";
+import { normalizeMerchant } from "./merchantKey";
+import { isNoAuto, loadMerchantRules, rememberMerchantCategory } from "./kakaoIngest";
 import { SPEND_CATEGORIES, isHiddenNonExpense } from "./spendParser";
 
 const TIDY_ENABLED_KEY = "spendTidyEnabled";
@@ -29,12 +30,7 @@ export const setTidyEnabled = (on) => writeValue(TIDY_ENABLED_KEY, on);
 export const hasRawConsent = () => readFlag(RAW_CONSENT_KEY);
 export const setRawConsent = (on) => writeValue(RAW_CONSENT_KEY, on);
 
-// 비교용 가맹점 이름 — 공백·기호·법인 표기·지점명을 뺀다.
-export const normalizeMerchant = (name) => {
-  const words = (name || "").toLowerCase().replace(/\(주\)|㈜|주식회사/g, " ").replace(/[()[\]\-_.,·*/]/g, " ").trim().split(/\s+/);
-  if (words.length > 1 && /(점|지점|호점|센터)$/.test(words[words.length - 1])) words.pop();
-  return words.join("").replace(/^([a-z0-9]+)[가-힣]+(점|지점)$/, "$1");
-};
+export { normalizeMerchant };
 
 const isUnsorted = (t) => t.kind === "payment" && (!t.category || t.category === "기타") && !t.categoryLocked;
 
@@ -66,7 +62,7 @@ export const buildKnown = (txs, rules = loadMerchantRules()) => {
   });
   const fromHistory = [...counts.entries()].map(([name, row]) => [name, Object.entries(row).sort((a, b) => b[1] - a[1])[0][0]]);
   const fromRules = Object.entries(rules).filter(([, c]) => c !== "기타").map(([name, c]) => [normalizeMerchant(name), c]);
-  return [...fromRules, ...fromHistory];
+  return [...fromRules, ...fromHistory].filter(([name]) => !isNoAuto(name)); // 규칙을 지워 자동 분류에서 뺀 가맹점
 };
 
 const allTxs = async (getAll) => {
@@ -137,7 +133,7 @@ const CLASSIFY_SCHEMA = {
 // keep: 전체 소비 탭이 넘기는 조건 — 보기에서 뺀 금융사의 가맹점은 보내지 않는다.
 export const tidyWithClaude = async ({ getAll, put, keep = () => true }) => {
   await tidyLocal({ getAll, put }); // 사용자가 정한 가맹점은 Claude 에 묻지 않는다
-  const rows = (await allTxs(getAll)).filter((r) => isUnsorted(r.t) && !r.t.suggestedCategory && keep(r));
+  const rows = (await allTxs(getAll)).filter((r) => isUnsorted(r.t) && !r.t.suggestedCategory && !isNoAuto(r.t.merchant) && keep(r));
   if (rows.length === 0) return { applied: 0, suggested: 0, skipped: true };
   const { keys, payload } = buildClassifyPayload(rows);
   const out = await runClaude(payload, { system: CLASSIFY_SYSTEM, schema: CLASSIFY_SCHEMA, effort: "low", maxTokens: 4000, feature: "spend_classify" });

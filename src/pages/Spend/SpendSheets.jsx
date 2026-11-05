@@ -3,10 +3,12 @@ import { Capacitor } from "@capacitor/core";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 import { useFormattedNumberInput } from "../../hooks/useFormattedNumberInput";
 import { formatNumber, unformatNumber } from "../../utils/numberFormat";
-import { ALL_PACKAGES, SOURCES, SPEND_CATEGORIES, sourceById } from "../../utils/spendParser";
+import { ALL_PACKAGES, SOURCES, sourceById } from "../../utils/spendParser";
 import { loadSelectedSources, saveSelectedSources } from "../../utils/spendStore";
 import { commitImport, parseStatementRows, planImport, readStatementFile } from "../../utils/statementImport";
-import { acceptSuggestionEverywhere, groupByMerchant, hasRawConsent, sameMerchantMessage, parseRawWithClaude, tidyWithClaude, undoAutoCategory } from "../../utils/spendClassify";
+import CategoryField from "../../components/UI/CategoryPicker";
+import { forgetMerchantCategory, loadMerchantRuleList, rememberMerchantCategory } from "../../utils/kakaoIngest";
+import { acceptSuggestionEverywhere, applyCategoryToSame, groupByMerchant, normalizeMerchant, hasRawConsent, sameMerchantMessage, parseRawWithClaude, tidyWithClaude, undoAutoCategory } from "../../utils/spendClassify";
 import { formatTokens, formatUsd } from "../../utils/claudeClient";
 import { won } from "../Kakao/KakaoCharts";
 import { formatWhen as shortWhen } from "../../utils/kakaoStats";
@@ -141,7 +143,6 @@ export function SpendTxSheet({ tx, draft, raw, onSave, onDelete, onClose }) {
   const [installment, setInstallment] = useState(String(initial.installment || 0));
   const amountInput = useFormattedNumberInput({ onChange: setAmount });
   const value = unformatNumber(amount);
-  const categories = SPEND_CATEGORIES.includes(category) ? SPEND_CATEGORIES : [category, ...SPEND_CATEGORIES];
 
   const submit = () => onSave(shared
     ? { merchant: merchant.trim() || tx.merchant, category }
@@ -187,12 +188,7 @@ export function SpendTxSheet({ tx, draft, raw, onSave, onDelete, onClose }) {
         가맹점
         <input value={merchant} maxLength={40} onChange={(e) => setMerchant(e.target.value)} />
       </S.Field>
-      <S.Field>
-        카테고리
-        <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </S.Field>
+      <CategoryField label="카테고리" value={category} onChange={setCategory} />
       {!shared && (
         <S.Field>
           일시
@@ -214,7 +210,7 @@ export function SpendTxSheet({ tx, draft, raw, onSave, onDelete, onClose }) {
 // 분류 정리: 읽지 못한 알림, Claude 추천 확인, 자동 적용 기록(되돌리기).
 const clamp = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" };
 
-export function TidySheet({ hiddenCount = 0, onRestoreHidden, raws, suggestions, autoApplied, hasKey, helpers, onPick, onEdit, onDismiss, onChanged, onBulk, onClose }) {
+export function TidySheet({ hiddenCount = 0, onRestoreHidden, raws, suggestions, autoApplied, hasKey, helpers, onPick, onEdit, onDismiss, onChanged, onBulk, onOpenRules, onClose }) {
   const [opened, setOpened] = useState([]);
   const suggestionGroups = useMemo(() => groupByMerchant(suggestions), [suggestions]);
   const autoGroups = useMemo(() => groupByMerchant(autoApplied), [autoApplied]);
@@ -252,6 +248,7 @@ export function TidySheet({ hiddenCount = 0, onRestoreHidden, raws, suggestions,
     <Sheet title="분류 정리" onClose={onClose}>
       {hasKey && <S.GhostBtn type="button" style={{ marginTop: 0 }} disabled={busy} onClick={runTidy}>{busy ? "정리하는 중…" : "기타 내역을 Claude로 정리"}</S.GhostBtn>}
       {message && <S.Caption style={{ marginTop: 8 }}>{message}</S.Caption>}
+      {onOpenRules && <S.GhostBtn type="button" onClick={onOpenRules}>최근 분류 변경 보기·바꾸기</S.GhostBtn>}
       {hiddenCount > 0 && (
         <>
           <S.Caption style={{ marginTop: 8 }}>충전·이자·대출·안내 등 지출이 아닌 내역 {hiddenCount}건은 숨겼습니다(삭제 아님).</S.Caption>
@@ -292,12 +289,8 @@ export function TidySheet({ hiddenCount = 0, onRestoreHidden, raws, suggestions,
               <strong style={{ fontSize: 14, overflowWrap: "anywhere" }}>{t.merchant}{rows.length > 1 ? ` · ${rows.length}건` : ""}</strong>
               <S.Caption style={{ flexShrink: 0 }}>{shortWhen(t.ts)}</S.Caption>
             </S.Row>
-            <S.Field style={{ margin: "6px 0 0" }}>
-              추천: {t.suggestedCategory} (확신 {Math.round((t.suggestedConfidence || 0) * 100)}%)
-              <select value={t.suggestedCategory} onChange={(e) => accept(t, e.target.value)}>
-                {SPEND_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </S.Field>
+            <S.Caption style={{ margin: "6px 0" }}>추천: {t.suggestedCategory} (확신 {Math.round((t.suggestedConfidence || 0) * 100)}%)</S.Caption>
+            <CategoryField compact value={t.suggestedCategory} onChange={(c) => accept(t, c)} />
             <S.GhostBtn type="button" onClick={() => accept(t, t.suggestedCategory)}>{t.suggestedCategory}(으)로 정하기{rows.length > 1 ? ` (${rows.length}건)` : ""}</S.GhostBtn>
             {rows.length > 1 && <S.GhostBtn type="button" onClick={() => toggle(key)}>{open ? "접기" : "내역 펼치기"}</S.GhostBtn>}
             {open && rows.map((r) => <S.Caption key={`${r.store}-${r.id}`}>{shortWhen(r.ts)} · {won(r.amount)}</S.Caption>)}
@@ -321,6 +314,60 @@ export function TidySheet({ hiddenCount = 0, onRestoreHidden, raws, suggestions,
           </S.Detail>
         );
       })}
+    </Sheet>
+  );
+}
+
+// 최근 분류 변경: 직접 정했거나 일괄 적용된 가맹점→카테고리 규칙. 행에서 바로 바꾸면 규칙 갱신 + 같은 이름 내역 일괄 변경(되돌리기 가능).
+export function RulesSheet({ txs, helpers, onBulk, onClose }) {
+  const [rules, setRules] = useState(loadMerchantRuleList);
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const refresh = () => setRules(loadMerchantRuleList());
+    window.addEventListener("budget-db-updated", refresh);
+    return () => window.removeEventListener("budget-db-updated", refresh);
+  }, []);
+  const counts = useMemo(() => {
+    const m = new Map();
+    txs.forEach((t) => { const k = normalizeMerchant(t.merchant); m.set(k, (m.get(k) || 0) + 1); });
+    return m;
+  }, [txs]);
+  const q = query.trim().toLowerCase();
+  const shown = rules.filter((r) => !q || r.merchant.toLowerCase().includes(q));
+
+  const change = async (rule, category) => {
+    if (category === rule.category) return;
+    const prev = rule.category;
+    rememberMerchantCategory(rule.merchant, category);
+    const r = await applyCategoryToSame({ merchant: rule.merchant }, category, helpers);
+    setRules(loadMerchantRuleList());
+    onBulk({
+      message: `'${rule.merchant}' 규칙을 '${category}'로 바꿨어요${r.count > 0 ? ` · 같은 이름 ${r.count}건도 변경` : ""}`,
+      undo: async () => { await r.undo(); rememberMerchantCategory(rule.merchant, prev); },
+    });
+  };
+  const remove = (rule) => {
+    if (!window.confirm(`'${rule.merchant}' 규칙을 지울까요? 이미 바뀐 내역은 그대로 두고, 이 가맹점은 앞으로 자동 분류하지 않습니다.`)) return;
+    forgetMerchantCategory(rule.merchant);
+    setRules(loadMerchantRuleList());
+  };
+
+  return (
+    <Sheet title="최근 분류 변경" onClose={onClose}>
+      <S.Caption style={{ marginBottom: 10 }}>직접 정했거나 한꺼번에 바꾼 가맹점의 분류입니다. 카테고리를 바꾸면 같은 이름의 내역도 모두 바뀝니다.</S.Caption>
+      <S.Field style={{ marginBottom: 8 }}>
+        <input type="search" placeholder="가맹점 검색" aria-label="가맹점 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
+      </S.Field>
+      {rules.length === 0 && <S.Caption>아직 정한 분류가 없습니다. 내역의 카테고리를 바꾸면 여기에 쌓입니다.</S.Caption>}
+      {rules.length > 0 && shown.length === 0 && <S.Caption>검색 결과가 없습니다.</S.Caption>}
+      {shown.map((rule) => (
+        <S.Detail key={rule.merchant} style={{ marginTop: 8, minWidth: 0 }}>
+          <strong style={{ display: "block", fontSize: 14, overflowWrap: "anywhere" }}>{rule.merchant}</strong>
+          <S.Caption style={{ margin: "2px 0 8px" }}>내역 {counts.get(normalizeMerchant(rule.merchant)) || 0}건 · {rule.at ? shortWhen(rule.at) : "날짜 기록 없음"}</S.Caption>
+          <CategoryField compact value={rule.category} onChange={(c) => change(rule, c)} />
+          <button type="button" onClick={() => remove(rule)} style={{ minHeight: 44, marginTop: 2, padding: "0 4px", border: "none", background: "none", color: "inherit", opacity: 0.75, fontSize: 13, textDecoration: "underline", cursor: "pointer" }}>규칙 삭제 · 자동 분류에서 제외</button>
+        </S.Detail>
+      ))}
     </Sheet>
   );
 }

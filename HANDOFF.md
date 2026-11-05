@@ -1,12 +1,13 @@
 # 가계부 인수인계
 
-최종 갱신: 2026-11-04 (v1.3.12 웹 OTA, versionCode 7)
+최종 갱신: 2026-11-04 (v1.3.13 웹 OTA, versionCode 7)
 
 - **Claude 사용량 서버 전송(v1.3.8)**: `src/utils/claudeUsageReport.js` — `runClaude(payload, { feature })` 가 응답 usage 를 기록해 our-days `claudeUsageLog?app=mybudget` 로 보낸다(text/plain, CORS 허용). 새 Claude 기능을 만들면 `feature`(영문 소문자·숫자·_ 24자)를 넘길 것(없으면 `etc`). 표시 이름은 서버 `functions/claudeUsage.js` FEATURES.
 - **같은 이름 일괄 분류(v1.3.9)**: 내역 수정 저장 시 카테고리가 바뀌면 `applyCategoryToSame`(spendClassify.js)이 같은 `normalizeMerchant` 결제·취소 내역 전체를 같은 분류로 바꾸고(잠금 처리, 직접 정한 건도 덮어씀) 스낵바(`components/UI/Snackbar.jsx`)에서 되돌릴 수 있다. 두 탭(`SpendPage.saveTx`, `KakaoPage.saveTx`) 모두 사용. 규칙 저장은 '기타'로 바꿀 때도 갱신.
 - **분류 정리 시트 묶기(v1.3.10)**: `TidySheet`의 추천·자동 적용은 `groupByMerchant`로 같은 이름을 한 카드로 묶고, 추천 확정은 `acceptSuggestionEverywhere`(= acceptSuggestion + applyCategoryToSame)로 같은 이름 전체에 적용, `onBulk`로 SpendPage 스낵바에 되돌리기를 넘긴다. `applyCategoryToSame`은 추천이 남은 내역은 분류가 같아도 확정 처리. Snackbar z-index 400(시트 300 위).
 - **비지출 거르기·가맹점 정리(v1.3.11)**: `spendParser.NOTICE`(안내·충전·이자·상환·대출)로 알림 파서가 무시, 저장분은 `isHiddenNonExpense`로 `mergeSpend`·`allTxs`(분류 정리)에서만 숨김(데이터 유지, `keepAsExpense`로 복구, `spendStore.listHidden/restoreHidden`). 카드 문자 꼬리는 `extractCardMerchant`, 잘린 이름은 `completeMerchant`(2글자 이내), 저장분은 SpendPage가 열릴 때 `repairMerchants`(원래 이름 `merchantRaw`). 폰의 실제 정리 건수는 앱에서 스낵바·분류 정리 시트로 확인.
 - **사용할 모델 고르기(v1.3.12)**: localStorage `claudeEnabledModels`(없으면 계열별 최신 Haiku·Sonnet·Opus). `getEnabledModels`=쓸 수 있는 모델 ∩ 켠 모델, `getModel`은 꺼졌으면 `cheapestOf`로 대체, 켠 모델이 하나면 그것. UI는 `ClaudeParts.jsx`(체크 목록 + 라디오는 켠 모델만, 전환 안내).
+- **카테고리 선택기·규칙 목록(v1.3.13)**: 카테고리 선택지는 `utils/categories.js`(`mergeCategories`) 한 곳 — 새 선택 UI는 `components/UI/CategoryPicker.jsx`의 `CategoryField`를 쓸 것(select 금지). 규칙은 localStorage `kakaoMerchantCategory`(+`…At` 날짜, `kakaoMerchantNoAuto` 자동 분류 제외), `loadMerchantRuleList`/`forgetMerchantCategory`, 화면은 `SpendSheets.RulesSheet`. 비교용 이름 정규화는 `utils/merchantKey.js`(spendClassify가 재수출). 훅이 반환하는 db 함수는 참조가 안정적이어야 한다(테스트 목도 동일).
 
 ## 현재 상태
 - 하단 탭 3개: 홈(`/`), 카카오뱅크(`/kakao`), 전체 소비(`/spend`). 설정은 탭 헤더의 톱니(`Header`의 `onSettings`).

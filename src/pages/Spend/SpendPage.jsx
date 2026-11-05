@@ -13,7 +13,7 @@ import { rememberMerchantCategory, categoryFor } from "../../utils/kakaoIngest";
 import { applyCategoryToSame, sameMerchantMessage, tidyLocal } from "../../utils/spendClassify";
 import { CategoryDoughnut, SpendBars, categoryColor, won } from "../Kakao/KakaoCharts";
 import * as S from "../Kakao/KakaoPage.styles";
-import { ImportSheet, SourcesSheet, SpendTxSheet, TidySheet } from "./SpendSheets";
+import { ImportSheet, RulesSheet, SourcesSheet, SpendTxSheet, TidySheet } from "./SpendSheets";
 import Snackbar from "../../components/UI/Snackbar";
 import ClaudePanel from "./ClaudePanel";
 import SourceBreakdown, { RankBars } from "./SourceBreakdown";
@@ -59,6 +59,7 @@ export default function SpendPage() {
   const [shown, setShown] = useState(PAGE_SIZE);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [tidyOpen, setTidyOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const [editing, setEditing] = useState(null); // { tx?, draft?, raw? }
@@ -225,6 +226,7 @@ export default function SpendPage() {
             <S.GhostBtn type="button" onClick={() => setSourcesOpen(true)}>금융사 선택</S.GhostBtn>
           </S.Card>
         )}
+        <S.GhostBtn type="button" style={{ marginTop: 0 }} onClick={() => setRulesOpen(true)}>최근 분류 변경 · 카테고리 규칙 보기</S.GhostBtn>
         {reviewCount > 0 && (
           <S.GhostBtn type="button" style={{ marginTop: 0, background: theme.warningSoft, border: "none" }} onClick={() => setTidyOpen(true)}>
             확인이 필요한 분류 {reviewCount}건
@@ -373,7 +375,11 @@ export default function SpendPage() {
         />
       )}
       {tidyOpen && (
-        <TidySheet hiddenCount={hidden.length} onRestoreHidden={restoreAll} raws={shownRaws} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onBulk={(b) => setBulk({ message: b.message, undo: async () => { await b.undo(); setBulk(null); reload(); } })} onClose={() => setTidyOpen(false)} />
+        <TidySheet onOpenRules={() => setRulesOpen(true)} hiddenCount={hidden.length} onRestoreHidden={restoreAll} raws={shownRaws} suggestions={suggestions} autoApplied={autoApplied} hasKey={hasKey} helpers={tidyHelpers} onPick={openUnclassified} onEdit={(t) => { setTidyOpen(false); openTx(t); }} onDismiss={dismissRaw} onChanged={reload} onBulk={(b) => setBulk({ message: b.message, undo: async () => { await b.undo(); setBulk(null); reload(); } })} onClose={() => setTidyOpen(false)} />
+      )}
+      {rulesOpen && (
+        <RulesSheet txs={all} helpers={tidyHelpers} onClose={() => setRulesOpen(false)}
+          onBulk={(b) => setBulk({ message: b.message, undo: async () => { await b.undo(); setBulk(null); reload(); } })} />
       )}
       {editing && <SpendTxSheet tx={editing.tx} draft={editing.draft} raw={editing.raw} onSave={saveTx} onDelete={editing.tx || editing.draft ? deleteEditing : null} onClose={() => setEditing(null)} />}
       {bulk && <Snackbar message={bulk.message} actionLabel="되돌리기" onAction={bulk.undo} onClose={closeBulk} />}

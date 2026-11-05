@@ -1,6 +1,7 @@
 // 알림 큐 → 카카오뱅크 탭 저장. useNativeSync 와 "가계부에서 가져오기"가 쓴다.
 import { detectCategory } from "./notiParser";
 import { findCancelTarget, isDuplicateKakaoTx, isKakaoBankNotification, parseKakaoNotification } from "./kakaoParser";
+import { normalizeMerchant } from "./merchantKey";
 
 const LOG_KEY = "kakaoNotiLog";
 const FLOW_KEY = "kakaoFlow";
@@ -43,8 +44,31 @@ export const loadMerchantRules = () => readJson(MERCHANT_CATEGORY_KEY, {});
 // 전체 소비 탭에서 고른 금융사. ② 카카오뱅크 탭의 자동 인식과는 별개 설정이다.
 export const loadSpendSourceIds = () => readJson("spendSources", []);
 
+const RULE_AT_KEY = "kakaoMerchantCategoryAt"; // 가맹점 → 마지막으로 정한 시각
+const NO_AUTO_KEY = "kakaoMerchantNoAuto"; // 자동 분류에서 뺄 가맹점(이름 정규화 값)
+
 export const rememberMerchantCategory = (merchant, category) => {
-  writeJson(MERCHANT_CATEGORY_KEY, { ...readJson(MERCHANT_CATEGORY_KEY, {}), [merchant]: category });
+  const { [merchant]: _old, ...rest } = readJson(MERCHANT_CATEGORY_KEY, {}); // 지우고 다시 넣어 가장 최근 순서로 둔다
+  writeJson(MERCHANT_CATEGORY_KEY, { ...rest, [merchant]: category });
+  writeJson(RULE_AT_KEY, { ...readJson(RULE_AT_KEY, {}), [merchant]: Date.now() });
+  writeJson(NO_AUTO_KEY, readJson(NO_AUTO_KEY, []).filter((k) => k !== normalizeMerchant(merchant)));
+};
+
+// 규칙을 지우고 같은 이름은 앞으로 자동 분류하지 않는다(다시 직접 정하면 풀린다).
+export const forgetMerchantCategory = (merchant) => {
+  const { [merchant]: _old, ...rest } = readJson(MERCHANT_CATEGORY_KEY, {});
+  writeJson(MERCHANT_CATEGORY_KEY, rest);
+  writeJson(NO_AUTO_KEY, [...new Set([...readJson(NO_AUTO_KEY, []), normalizeMerchant(merchant)])]);
+};
+export const isNoAuto = (name) => readJson(NO_AUTO_KEY, []).includes(normalizeMerchant(name));
+
+// 최근 순 규칙 목록: 시각이 있는 것은 최근 순, 이 기능 이전에 만든 것(시각 없음)은 저장 순서의 뒤쪽이 더 최근.
+export const loadMerchantRuleList = () => {
+  const rules = readJson(MERCHANT_CATEGORY_KEY, {});
+  const at = readJson(RULE_AT_KEY, {});
+  return Object.entries(rules).map(([merchant, category], i) => ({ merchant, category, at: at[merchant] || 0, i }))
+    .sort((a, b) => b.at - a.at || b.i - a.i)
+    .map(({ merchant, category, at: when }) => ({ merchant, category, at: when }));
 };
 
 export const categoryFor = (tx) => {
