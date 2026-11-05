@@ -7,7 +7,7 @@ import Header from "../../components/UI/Header";
 import { useBudgetDB } from "../../hooks/useBudgetDB";
 import { byCategory, byMerchant, formatWhen, shiftYm, spendOf, toDateKey, toYm } from "../../utils/kakaoStats";
 import { isSourceExcluded, sourceById } from "../../utils/spendParser";
-import { excludedSummary, importSpendFromRecords, listHidden, loadSelectedSources, mergeSpend, repairMerchants, restoreHidden } from "../../utils/spendStore";
+import { chipSources, excludedSummary, importSpendFromRecords, listHidden, loadSelectedSources, loadViewOff, mergeSpend, repairMerchants, restoreHidden, saveViewOff, viewSources } from "../../utils/spendStore";
 import { bucketSeries, byBand, sourceBreakdown, compareCategories, inPeriod, monthPeriod, previousPeriod, rangePeriod, totalSpend } from "../../utils/spendStats";
 import { rememberMerchantCategory, categoryFor } from "../../utils/kakaoIngest";
 import { applyCategoryToSame, sameMerchantMessage, tidyLocal } from "../../utils/spendClassify";
@@ -16,6 +16,7 @@ import * as S from "../Kakao/KakaoPage.styles";
 import { ImportSheet, RulesSheet, SourcesSheet, SpendTxSheet, TidySheet } from "./SpendSheets";
 import Snackbar from "../../components/UI/Snackbar";
 import ClaudePanel from "./ClaudePanel";
+import SourceChips from "./SourceChips";
 import SourceBreakdown, { RankBars } from "./SourceBreakdown";
 
 const PAGE_SIZE = 50;
@@ -66,7 +67,15 @@ export default function SpendPage() {
   const [bulk, setBulk] = useState(null); // 같은 이름 일괄 적용 결과 { message, undo }
   const closeBulk = useCallback(() => setBulk(null), []);
   const [selectedIds, setSelectedIds] = useState(loadSelectedSources);
+  const [viewOff, setViewOff] = useState(loadViewOff);
   const selectedCount = selectedIds.length;
+  // 수집은 selectedIds 그대로, 보기·분석은 칩으로 끈 곳을 뺀 viewIds 로 한다(1.3.7 제외 로직 재사용).
+  const chipIds = useMemo(() => chipSources(selectedIds), [selectedIds]);
+  const viewIds = useMemo(() => viewSources(selectedIds, viewOff), [selectedIds, viewOff]);
+  const offChips = chipIds.filter((id) => viewOff.includes(id));
+  const changeViewOff = (next) => { setViewOff(next); saveViewOff(next); setSelected(null); setActiveSource(null); };
+  const toggleChip = (id) => changeViewOff(viewOff.includes(id) ? viewOff.filter((x) => x !== id) : [...viewOff, id]);
+  const toggleAllChips = () => changeViewOff(offChips.length === 0 ? chipIds : []);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -104,7 +113,7 @@ export default function SpendPage() {
     })();
   }, [db]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const all = useMemo(() => mergeSpend(spendTxs, kakaoTxs, selectedIds), [spendTxs, kakaoTxs, selectedIds]);
+  const all = useMemo(() => mergeSpend(spendTxs, kakaoTxs, viewIds), [spendTxs, kakaoTxs, viewIds]);
   const hidden = useMemo(() => listHidden(spendTxs, kakaoTxs), [spendTxs, kakaoTxs]);
   const restoreAll = async () => { await restoreHidden(hidden, put); reload(); };
   // 새로 숨긴 내역이 생기면 건수를 한 번 알린다(알린 건수는 이 기기에 기억).
@@ -118,9 +127,9 @@ export default function SpendPage() {
 
   const suggestions = useMemo(() => all.filter((t) => t.suggestedCategory && !t.categoryLocked && t.category === "기타"), [all]);
   const autoApplied = useMemo(() => all.filter((t) => t.autoCategory).sort((a, b) => (b.autoCategory.at || 0) - (a.autoCategory.at || 0)), [all]);
-  const excluded = useMemo(() => excludedSummary(spendTxs, kakaoTxs, selectedIds), [spendTxs, kakaoTxs, selectedIds]);
-  const shownRaws = useMemo(() => unclassified.filter((n) => !isSourceExcluded(n.sourceId, selectedIds)), [unclassified, selectedIds]);
-  const tidyHelpers = { db, getAll, put, add, keep: ({ t, store }) => !isSourceExcluded(store === "kakaoTx" ? "kakaobank" : t.sourceId, selectedIds) };
+  const excluded = useMemo(() => excludedSummary(spendTxs, kakaoTxs, viewIds), [spendTxs, kakaoTxs, viewIds]);
+  const shownRaws = useMemo(() => unclassified.filter((n) => !isSourceExcluded(n.sourceId, viewIds)), [unclassified, viewIds]);
+  const tidyHelpers = { db, getAll, put, add, keep: ({ t, store }) => !isSourceExcluded(store === "kakaoTx" ? "kakaobank" : t.sourceId, viewIds) };
   const reviewCount = shownRaws.length + suggestions.length;
   const period = useMemo(() => (mode === "month" ? monthPeriod(ym) : rangePeriod(rangeStart, rangeEnd)), [mode, ym, rangeStart, rangeEnd]);
   const list = useMemo(() => inPeriod(all, period), [all, period]);
@@ -129,7 +138,7 @@ export default function SpendPage() {
   const prevTotal = useMemo(() => totalSpend(inPeriod(all, prev)), [all, prev]);
   const buckets = useMemo(() => bucketSeries(all, period, unit), [all, period, unit]);
   const categories = useMemo(() => byCategory(list), [list]);
-  const sources = useMemo(() => sourceBreakdown(list, selectedIds), [list, selectedIds]);
+  const sources = useMemo(() => sourceBreakdown(list, viewIds), [list, viewIds]);
   const merchants = useMemo(() => byMerchant(list).slice(0, 10), [list]);
   const bands = useMemo(() => byBand(list), [list]);
   const categoryTotal = categories.reduce((acc, r) => acc + r.amount, 0);
@@ -239,8 +248,8 @@ export default function SpendPage() {
               <S.SegmentBtn type="button" $active={mode === "month"} onClick={() => { setMode("month"); resetView(); }}>월</S.SegmentBtn>
               <S.SegmentBtn type="button" $active={mode === "range"} onClick={() => { setMode("range"); resetView(); }}>기간 지정</S.SegmentBtn>
             </S.Segment>
-            <S.AddBtn type="button" onClick={() => setSourcesOpen(true)} style={{ minHeight: 40, background: theme.primarySoft, color: theme.primaryText }}>금융사 {selectedCount}곳</S.AddBtn>
           </S.Row>
+          <SourceChips ids={chipIds} offIds={offChips} onToggle={toggleChip} onToggleAll={toggleAllChips} onEdit={() => setSourcesOpen(true)} />
           {mode === "month" ? (
             <S.MonthNav>
               <S.IconBtn type="button" aria-label="이전 달" onClick={() => { setYm(shiftYm(ym, -1)); resetView(); }}>‹</S.IconBtn>
@@ -360,7 +369,7 @@ export default function SpendPage() {
 
         {tab === "claude" && <ClaudePanel txs={all} period={period} helpers={tidyHelpers} onChanged={reload} />}
       </S.Body>
-      {sourcesOpen && <SourcesSheet onChange={setSelectedIds} onImport={importRecords} onImportFile={() => { setSourcesOpen(false); setImportOpen(true); }} onClose={() => setSourcesOpen(false)} />}
+      {sourcesOpen && <SourcesSheet onChange={(next, id) => { setSelectedIds(next); if (viewOff.includes(id)) changeViewOff(viewOff.filter((x) => x !== id)); }} onImport={importRecords} onImportFile={() => { setSourcesOpen(false); setImportOpen(true); }} onClose={() => setSourcesOpen(false)} />}
       {importOpen && (
         <ImportSheet
           existing={[...spendTxs, ...kakaoTxs]}

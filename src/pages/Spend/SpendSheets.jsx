@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { BudgetPlugin } from "../../plugins/BudgetPlugin";
 import { useFormattedNumberInput } from "../../hooks/useFormattedNumberInput";
@@ -6,6 +6,7 @@ import { formatNumber, unformatNumber } from "../../utils/numberFormat";
 import { ALL_PACKAGES, SOURCES, sourceById } from "../../utils/spendParser";
 import { loadSelectedSources, saveSelectedSources } from "../../utils/spendStore";
 import { commitImport, parseStatementRows, planImport, readStatementFile } from "../../utils/statementImport";
+import CenterDialog from "../../components/UI/CenterDialog";
 import CategoryField from "../../components/UI/CategoryPicker";
 import { forgetMerchantCategory, loadMerchantRuleList, rememberMerchantCategory } from "../../utils/kakaoIngest";
 import { acceptSuggestionEverywhere, applyCategoryToSame, groupByMerchant, normalizeMerchant, hasRawConsent, sameMerchantMessage, parseRawWithClaude, tidyWithClaude, undoAutoCategory } from "../../utils/spendClassify";
@@ -28,6 +29,8 @@ const toLocalInput = (ts) => {
 export function SourcesSheet({ onChange, onImport, onImportFile, onClose }) {
   const [selected, setSelected] = useState(loadSelectedSources);
   const [installed, setInstalled] = useState(null);
+  const rowRefs = useRef(new Map());
+  const tops = useRef(new Map());
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -36,31 +39,54 @@ export function SourcesSheet({ onChange, onImport, onImportFile, onClose }) {
 
   const isInstalled = (s) => !!installed && s.packages.some((p) => installed.includes(p));
   const rank = (s) => (RECOMMENDED.includes(s.id) ? 2 : isInstalled(s) ? 1 : 0);
-  const ordered = [...SOURCES].sort((a, b) => rank(b) - rank(a));
+  const base = [...SOURCES].sort((a, b) => rank(b) - rank(a)); // 기본 순서(추천·설치된 앱 우선)
+  // 체크한 곳은 위로(기본 순서 유지), 해제하면 기본 순서의 제자리로 돌아간다.
+  const ordered = [...base.filter((s) => selected.includes(s.id)), ...base.filter((s) => !selected.includes(s.id))];
   const toggle = (id) => {
     const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
     setSelected(next);
     saveSelectedSources(next);
-    onChange(next);
+    onChange(next, id);
   };
 
+  // 순서가 바뀌면 이전 자리에서 새 자리로 부드럽게 미끄러진다(움직임 줄이기 설정이면 생략).
+  useLayoutEffect(() => {
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    rowRefs.current.forEach((el, id) => {
+      const top = el.offsetTop;
+      const prev = tops.current.get(id);
+      if (!reduce && prev != null && prev !== top && el.animate) el.animate([{ transform: `translateY(${prev - top}px)` }, { transform: "none" }], { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      tops.current.set(id, top);
+    });
+  });
+
   return (
-    <Sheet title="지출을 모을 금융사" onClose={onClose}>
-      <S.Caption style={{ marginBottom: 8 }}>
-        체크한 곳의 앱 알림과, 그 이름이 들어 있는 문자·알림톡에서 사용한 금액만 모읍니다. 입금·이체·대출·잔액은 모으지 않습니다. 체크를 해제하면 이미 모은 내역도 이 탭에서 빠지고, 다시 체크하면 돌아옵니다(지워지지 않음). 잔액과 마이너스 관리는 카카오뱅크 탭에서 따로 합니다.
-      </S.Caption>
+    <CenterDialog
+      title="지출을 모을 금융사"
+      summary="체크한 곳의 사용 금액만 모읍니다."
+      info="체크한 곳의 앱 알림과, 그 이름이 들어 있는 문자·알림톡에서 사용한 금액만 모읍니다. 입금·이체·대출·잔액은 모으지 않습니다. 체크를 해제하면 이미 모은 내역도 이 탭에서 빠지고, 다시 체크하면 돌아옵니다(지워지지 않음). 잔액과 마이너스 관리는 카카오뱅크 탭에서 따로 합니다."
+      onClose={onClose}
+      footer={(
+        <>
+          <S.PrimaryBtn type="button" onClick={onClose}>완료</S.PrimaryBtn>
+          <S.Row style={{ justifyContent: "center", gap: 16, marginTop: 4 }}>
+            <button type="button" onClick={onImportFile} style={linkBtn}>거래내역 파일 가져오기</button>
+            <button type="button" onClick={onImport} style={linkBtn}>가계부 기존 내역 가져오기</button>
+          </S.Row>
+        </>
+      )}
+    >
       {ordered.map((s) => (
-        <S.CheckRow key={s.id}>
+        <S.CheckRow key={s.id} ref={(el) => (el ? rowRefs.current.set(s.id, el) : rowRefs.current.delete(s.id))}>
           <input type="checkbox" checked={selected.includes(s.id)} onChange={() => toggle(s.id)} />
           <span style={{ flex: 1 }}>{s.name}{RECOMMENDED.includes(s.id) && <S.Badge>추천</S.Badge>}</span>
           {isInstalled(s) && <S.Caption>설치됨</S.Caption>}
         </S.CheckRow>
       ))}
-      <S.GhostBtn type="button" onClick={onImportFile}>거래내역 파일 가져오기</S.GhostBtn>
-      <S.GhostBtn type="button" onClick={onImport}>가계부의 기존 내역 가져오기(체크한 곳)</S.GhostBtn>
-    </Sheet>
+    </CenterDialog>
   );
 }
+const linkBtn = { minHeight: 44, padding: "0 4px", border: "none", background: "none", color: "inherit", opacity: 0.75, fontSize: 12.5, textDecoration: "underline", cursor: "pointer" };
 
 // 거래내역 파일: 금융사 고르기 → 파일 → 미리보기 → 합치기.
 export function ImportSheet({ existing, helpers, onDone, onClose }) {

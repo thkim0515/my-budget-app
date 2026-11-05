@@ -148,3 +148,24 @@ export const repairMerchants = async ({ getAll, put }) => {
     undo: async () => { for (const t of done) await put("spendTx", t); },
   };
 };
+
+// 전체 소비 보기에서만 잠깐 끈 금융사(칩을 눌러 끔). 알림 수집은 그대로이고 내역도 지우지 않는다.
+const VIEW_OFF_KEY = "spendViewOff";
+export const loadViewOff = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(VIEW_OFF_KEY));
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+};
+export const saveViewOff = (ids) => {
+  try {
+    localStorage.setItem(VIEW_OFF_KEY, JSON.stringify(ids));
+  } catch {
+    /* 저장하지 못하면 다음에 다시 켜진 상태로 열린다 */
+  }
+};
+// 보기에 쓰는 금융사 = 수집 중인 곳 중 보기를 끄지 않은 곳. 칩 줄은 수집 중인 곳을 SOURCES 순서로 보여 준다.
+export const viewSources = (selected, off) => selected.filter((id) => !off.includes(id));
+export const chipSources = (selected) => SOURCES.map((s) => s.id).filter((id) => selected.includes(id));

@@ -44,7 +44,7 @@ test("체크 해제·재체크가 시트를 닫지 않아도 합계·목록·안
   expect(screen.getByText(/무신사/)).toBeTruthy();
   expect(screen.queryByText(/쿠팡/)).toBeNull();
 
-  fireEvent.click(screen.getByRole("button", { name: /금융사 3곳/ }));
+  fireEvent.click(screen.getByRole("button", { name: /＋ 편집/ }));
   check("현대카드");
   expect(within(hero()).getByText("23000원")).toBeTruthy();
   expect(screen.getByRole("status").textContent).toBe("제외된 금융사 1곳 · 내역 1건");
@@ -60,4 +60,50 @@ test("체크 해제·재체크가 시트를 닫지 않아도 합계·목록·안
 
   expect(mockPut).not.toHaveBeenCalled();
   expect(mockDelete).not.toHaveBeenCalled();
+});
+
+const chip = (name) => screen.getByRole("button", { name });
+const names = () => screen.getAllByRole("checkbox").map((c) => c.closest("label").textContent.replace(/추천|설치됨/g, ""));
+
+test("칩: 수집 중인 금융사를 바로 보여 주고, 눌러 보기에서만 켜고 끔(수집 설정·데이터 유지), 길게 누르면 전체", async () => {
+  localStorage.clear();
+  localStorage.setItem("spendSources", JSON.stringify(["kakaobank", "samsung", "hyundai"]));
+  render(<ThemeProvider theme={getLightTheme()}><SpendPage /></ThemeProvider>);
+  await act(async () => {});
+  expect(chip("현대카드").getAttribute("aria-pressed")).toBe("true");
+  expect(within(hero()).getByText("30000원")).toBeTruthy();
+
+  fireEvent.click(chip("현대카드"));
+  expect(chip("현대카드").getAttribute("aria-pressed")).toBe("false"); // 흐리게+취소선 칩은 그대로 남음
+  expect(within(hero()).getByText("23000원")).toBeTruthy();
+  expect(JSON.parse(localStorage.getItem("spendSources"))).toEqual(["kakaobank", "samsung", "hyundai"]); // 수집은 그대로
+  expect(mockPut).not.toHaveBeenCalled();
+
+  fireEvent.click(chip("현대카드"));
+  expect(within(hero()).getByText("30000원")).toBeTruthy();
+
+  jest.useFakeTimers();
+  fireEvent.pointerDown(chip("삼성카드"));
+  act(() => { jest.advanceTimersByTime(650); });
+  fireEvent.pointerUp(chip("삼성카드"));
+  fireEvent.click(chip("삼성카드")); // 길게 누른 뒤의 클릭은 개별 토글이 아니다
+  jest.useRealTimers();
+  ["카카오뱅크", "삼성카드", "현대카드"].forEach((n) => expect(chip(n).getAttribute("aria-pressed")).toBe("false"));
+  expect(within(hero()).getByText("0원")).toBeTruthy();
+});
+
+test("금융사 팝업: 체크한 곳이 위로, 해제하면 기본 순서로 돌아감, 가져오기는 하단 링크", async () => {
+  localStorage.clear();
+  localStorage.setItem("spendSources", JSON.stringify(["samsung"]));
+  render(<ThemeProvider theme={getLightTheme()}><SpendPage /></ThemeProvider>);
+  await act(async () => {});
+  fireEvent.click(chip("＋ 편집"));
+  expect(screen.getByRole("dialog", { name: "지출을 모을 금융사" })).toBeTruthy();
+  expect(names().slice(0, 2)).toEqual(["삼성카드", "카카오뱅크"]); // 체크한 삼성카드가 추천인 카카오뱅크보다 위
+  check("토스");
+  expect(names().slice(0, 2)).toEqual(["삼성카드", "토스"]);
+  check("토스");
+  expect(names().indexOf("토스")).toBeGreaterThan(2); // 제자리로
+  expect(screen.getByRole("button", { name: "거래내역 파일 가져오기" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "완료" })).toBeTruthy();
 });
